@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIVIKO · Autorizando...</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0A0A0B; color: #F0EFE8;
+    font-family: 'DM Sans', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Syne:wght@700;800&family=DM+Mono&display=swap');
+  .card {
+    background: #111114; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px; padding: 40px; width: 440px;
+    max-width: 90vw; text-align: center;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: #E8FF47; margin-bottom: 6px; }
+  .logo-sub { font-size: 10px; color: #5A5954; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 32px; }
+  .spinner {
+    width: 44px; height: 44px; border: 2px solid rgba(255,255,255,0.1);
+    border-top-color: #E8FF47; border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 24px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status { font-size: 15px; font-weight: 500; margin-bottom: 8px; }
+  .sub { font-size: 13px; color: #8B8A84; line-height: 1.6; }
+  .code-display {
+    background: #18181C; border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px; padding: 12px 16px; margin-top: 20px;
+    font-family: 'DM Mono', monospace; font-size: 11px; color: #8B8A84;
+    word-break: break-all; text-align: left;
+  }
+  .success-icon { font-size: 44px; margin-bottom: 16px; }
+  .error-icon { font-size: 44px; margin-bottom: 16px; }
+  .btn {
+    margin-top: 24px; padding: 10px 24px; border-radius: 10px;
+    background: #E8FF47; border: none; color: #000;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+    text-decoration: none; display: inline-block;
+  }
+  .btn:hover { background: #C8E000; }
+  .btn-ghost {
+    margin-top: 12px; padding: 10px 24px; border-radius: 10px;
+    background: none; border: 1px solid rgba(255,255,255,0.12); color: #8B8A84;
+    font-size: 14px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s; text-decoration: none; display: inline-block;
+    margin-left: 8px;
+  }
+  .btn-ghost:hover { color: #F0EFE8; border-color: rgba(255,255,255,0.25); }
+  .step-bar {
+    display: flex; gap: 6px; margin-bottom: 28px; justify-content: center;
+  }
+  .step { width: 28px; height: 3px; border-radius: 2px; background: #1E1E24; }
+  .step.done { background: #E8FF47; }
+  .step.active { background: rgba(232,255,71,0.4); }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="logo">NIVIKO</div>
+  <div class="logo-sub">ML Analytics</div>
+  <div class="step-bar">
+    <div class="step done" id="s1"></div>
+    <div class="step active" id="s2"></div>
+    <div class="step" id="s3"></div>
+  </div>
+  <div class="spinner" id="spinner"></div>
+  <div class="status" id="status">Procesando autorización...</div>
+  <div class="sub" id="sub">Recibimos la respuesta de Mercado Libre.<br>Estamos obteniendo tu Access Token.</div>
+  <div class="code-display" id="codeDisplay" style="display:none;"></div>
+  <div id="actions"></div>
+</div>
+
+<script>
+const BASE_URL = 'https://alexgoldenstein-star.github.io/ml-dashboard';
+// ML OAuth endpoint
+const ML_TOKEN_URL = 'https://api.mercadolibre.com/oauth/token';
+
+async function init() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const error = params.get('error');
+  const state = params.get('state'); // account name passed via state param
+
+  if (error) {
+    showError('Autorización rechazada', `El usuario canceló o hubo un error: ${error}`);
+    return;
+  }
+
+  if (!code) {
+    showError('Código no recibido', 'No se recibió el código de autorización de Mercado Libre.');
+    return;
+  }
+
+  // Show the code received
+  document.getElementById('codeDisplay').style.display = 'block';
+  document.getElementById('codeDisplay').textContent = `code: ${code.substring(0, 40)}...`;
+
+  // Get credentials stored from dashboard
+  const cred = JSON.parse(localStorage.getItem('nvk_cred') || '{}');
+
+  if (!cred.clientId || !cred.clientSecret) {
+    // Can't exchange server-side from browser due to CORS on token endpoint
+    // Store the code and redirect back — user will need to exchange manually
+    // OR use the implicit flow token directly
+    showManualExchange(code, state);
+    return;
+  }
+
+  // Try to exchange the code for a token
+  // Note: ML's token endpoint requires server-side due to CORS
+  // We store the code and instruct the user
+  showManualExchange(code, state);
+}
+
+function showManualExchange(code, accountName) {
+  document.getElementById('s2').classList.remove('active');
+  document.getElementById('s2').classList.add('done');
+  document.getElementById('s3').classList.add('active');
+  document.getElementById('spinner').style.display = 'none';
+
+  const cred = JSON.parse(localStorage.getItem('nvk_cred') || '{}');
+  const clientId = cred.clientId || 'TU_CLIENT_ID';
+  const clientSecret = cred.clientSecret || 'TU_CLIENT_SECRET';
+
+  document.getElementById('status').textContent = '✓ Código recibido de ML';
+  document.getElementById('sub').innerHTML = `
+    Para completar la autenticación, ejecutá este comando en tu terminal.<br>
+    El Access Token se generará automáticamente.
+  `;
+
+  const curlCmd = `curl -X POST \\
+  https://api.mercadolibre.com/oauth/token \\
+  -H "Content-Type: application/x-www-form-urlencoded" \\
+  -d "grant_type=authorization_code" \\
+  -d "client_id=${clientId}" \\
+  -d "client_secret=${clientSecret}" \\
+  -d "code=${code}" \\
+  -d "redirect_uri=${BASE_URL}/callback"`;
+
+  document.getElementById('codeDisplay').innerHTML =
+    `<div style="color:#E8FF47; margin-bottom:8px; font-size:10px;">EJECUTAR EN TERMINAL:</div>${curlCmd}`;
+
+  // Also store code in localStorage for the dashboard to pick up
+  const pending = JSON.parse(localStorage.getItem('nvk_pending_auth') || '{}');
+  pending[accountName || 'unknown'] = { code, timestamp: Date.now() };
+  localStorage.setItem('nvk_pending_auth', JSON.stringify(pending));
+
+  document.getElementById('actions').innerHTML = `
+    <div>
+      <button class="btn" onclick="copyAndReturn()">Copiar comando y volver</button>
+      <a class="btn-ghost" href="${BASE_URL}/index.html">Volver al dashboard</a>
+    </div>
+    <div style="margin-top:16px; font-size:11px; color:#5A5954;">
+      Una vez que tengas el access_token del curl, pegalo en<br>Cuentas ML → Conectar cuenta
+    </div>
+  `;
+
+  window._curlCmd = curlCmd;
+}
+
+function copyAndReturn() {
+  navigator.clipboard.writeText(window._curlCmd).then(() => {
+    alert('Comando copiado. Pegalo en tu terminal, copiá el access_token y pegalo en el dashboard.');
+    window.location.href = `${BASE_URL}/index.html`;
+  });
+}
+
+function showError(title, msg) {
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('status').textContent = title;
+  document.getElementById('sub').textContent = msg;
+  document.getElementById('actions').innerHTML = `
+    <a class="btn" href="${BASE_URL}/index.html">Volver al dashboard</a>
+  `;
+}
+
+init();
+</script>
+</body>
+</html>
