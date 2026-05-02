@@ -232,6 +232,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
               <option value="Full">Full</option>
               <option value="Correo">Correo</option>
             </select>
+            <button id="envioBonifBtn" class="btn-g btn-sm" onclick="toggleEnvioBonifMode()" title="Activar/desactivar costo de envío bonificado" style="font-size:10px"></button>
             <button class="btn-g btn-sm" onclick="exportCSV()">CSV</button>
           </div>
         </div>
@@ -396,6 +397,14 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <label class="lbl">IIBB %</label><input class="inp" id="cfg_iibb">
           <label class="lbl">Umbral margen OK (%)</label><input class="inp" id="cfg_umbral_ok" placeholder="20">
           <label class="lbl">Umbral margen bajo (%)</label><input class="inp" id="cfg_umbral_warn" placeholder="10">
+          <div style="margin-top:14px;padding:10px;background:var(--s3);border-radius:var(--r);border:1px solid var(--b1)">
+            <div style="font-size:11px;font-weight:500;margin-bottom:4px">Costo de envío bonificado</div>
+            <div style="font-size:10px;color:var(--t2);margin-bottom:8px">Cuando ML bonifique el envío completo, ¿lo contás igual como gasto?</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <button id="toggleEnvioBonif" onclick="toggleEnvioBonifMode()" style="padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;border:1px solid"></button>
+              <span id="toggleEnvioBonifLabel" style="font-size:10px;color:var(--t2)"></span>
+            </div>
+          </div>
           <button class="btn" onclick="saveConfig()" style="margin-top:12px">Guardar</button>
         </div>
         <div class="card">
@@ -512,7 +521,7 @@ async function init(){
   // Config
   const cfg=await fb.get("config");
   if(cfg)Object.assign(S.cfg,cfg);
-  loadCfgUI();buildAuthLink();
+  loadCfgUI();buildAuthLink();updateEnvioToggleUI();
 
   // Productos: proxy base + edits Firebase
   try{
@@ -697,7 +706,7 @@ window.doRefresh=async()=>{
     if(!uid){toast(acct.id+": sin User ID","err");continue;}
     try{
       toast("Cargando "+acct.id+"...");
-      const r=await fetch(PROXY+"/orders/all?seller_id="+uid+"&from="+encodeURIComponent(from)+"&to="+encodeURIComponent(to),{headers:{"x-ml-token":acct.token}});
+      const r=await fetch(PROXY+"/orders/all?seller_id="+uid+"&from="+encodeURIComponent(from)+"&to="+encodeURIComponent(to)+"&envio_bonif="+(S.cfg.envioBonif?'true':'false'),{headers:{"x-ml-token":acct.token}});
       if(!r.ok)throw new Error("HTTP "+r.status);
       const data=await r.json();
       if(data.error)throw new Error(data.error);
@@ -1652,9 +1661,51 @@ window.doGetToken=async()=>{
 };
 
 // ── CONFIG ────────────────────────────────────────────────────
+
+// ── TOGGLE ENVÍO BONIFICADO COMO COSTO ───────────────────────
+// Cuando está ON: el envío que ML bonificia igual se cuenta como gasto
+// Cuando está OFF: si ML bonifica completo, envío = $0 (comportamiento actual)
+
+function updateEnvioToggleUI(){
+  const on = S.cfg.envioBonif === true;
+  const btns = [document.getElementById('toggleEnvioBonif'), document.getElementById('envioBonifBtn')];
+  btns.forEach(btn => {
+    if(!btn) return;
+    btn.textContent = on ? '✓ Envío bonif. como costo' : '✗ Envío bonif. ignorado';
+    btn.style.background = on ? 'rgba(232,255,71,.1)' : 'rgba(255,255,255,.04)';
+    btn.style.color = on ? 'var(--acc)' : 'var(--t3)';
+    btn.style.borderColor = on ? 'rgba(232,255,71,.3)' : 'var(--b1)';
+  });
+  const lbl = document.getElementById('toggleEnvioBonifLabel');
+  if(lbl) lbl.textContent = on
+    ? 'Activo — el envío bonificado se descuenta igual de la ganancia'
+    : 'Inactivo — si ML bonifica completo, el envío figura como $0';
+}
+
+window.toggleEnvioBonifMode = function(){
+  S.cfg.envioBonif = !S.cfg.envioBonif;
+  fb.set('config', S.cfg);
+  updateEnvioToggleUI();
+  // Recalcular órdenes donde el envío era bonificado (costoEnvio=0 pero había bonif)
+  S.orders = S.orders.map(o => {
+    if(o.modal === 'Full') return o; // Full siempre $0
+    // Si costoEnvio=0 y modal=Correo, puede ser bonificado
+    // No podemos saber sin el raw si fue bonificado o comprador pagó
+    // Pero para Flex: siempre hay costo real (cordón - bonif$849)
+    // Para Correo con costoEnvio=0: si envioBonif ON, usar el envío del shipment
+    // Sin el raw no tenemos el valor → necesitamos refresh para aplicar correctamente
+    return o;
+  });
+  toast(S.cfg.envioBonif
+    ? '✓ Envío bonificado contado como costo — refrescá ventas para aplicar'
+    : '✓ Envío bonificado ignorado — refrescá ventas para aplicar', 'ok');
+  renderAll();
+};
+
 function loadCfgUI(){
   const c=S.cfg;
   ["dolar","com","pub","iibb","c1","c2","c3","cid","csec","umbral_ok","umbral_warn"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
+  updateEnvioToggleUI();
 }
 window.saveConfig=()=>{
   ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
