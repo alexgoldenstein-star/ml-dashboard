@@ -525,7 +525,9 @@ async function init(){
       if(chunk?.orders)all.push(...chunk.orders);
     }
     if(all.length>0&&all[0]?.venta>0){
-      S.orders=all;
+      // Aplicar costos actualizados al cargar del caché
+      // (resuelve órdenes cacheadas con costo=0 antes de cargar el producto)
+      S.orders=applyProductCosts(all);
       toast(S.orders.length+" ventas del caché");
       renderAll();checkAlertas();
     }
@@ -592,6 +594,33 @@ function getRange(){
   return{from:d30+"T00:00:00.000-03:00",to:today+"T23:59:59.999-03:00"};
 }
 
+
+// ── APLICAR COSTOS DE PRODUCTOS A LAS ÓRDENES ─────────────────
+// Recalcula costo, IVA, pub y ganancia de cada orden usando la base
+// de productos actualizada. Se llama al cargar del caché o de la API.
+// Resuelve el problema de órdenes cacheadas con costo=0.
+function applyProductCosts(orders){
+  return orders.map(o=>{
+    const p = S.products.find(x=>x.sku===o.sku);
+    if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
+    const costo = p.ars;
+    const ivaPct = p.iva/100;
+    const iva = (o.venta/(1+ivaPct))*ivaPct;
+    const pub = p.pub===false ? 0 : o.venta*0.05;
+    const ganancia = o.venta-(o.comision||0)-(o.cuotas||0)-costo-iva-pub-(o.iibb||0)-(o.costoEnvio||0);
+    return {
+      ...o,
+      costo: Math.round(costo),
+      iva: Math.round(iva),
+      ivaPct: p.iva,
+      pub: Math.round(pub),
+      ganancia: Math.round(ganancia),
+      pct: o.venta>0 ? ganancia/o.venta : 0,
+      sinProducto: false
+    };
+  });
+}
+
 // ── REFRESH ───────────────────────────────────────────────────
 window.doRefresh=async()=>{
   if(S.loading)return;
@@ -619,7 +648,7 @@ window.doRefresh=async()=>{
     }catch(e){toast(acct.id+": "+e.message,"err");}
   }
 
-  S.orders=all;S.vPage=0;
+  S.orders=applyProductCosts(all);S.vPage=0;
   await saveCache();
   checkAlertas();renderAll();
   S.loading=false;
@@ -1019,20 +1048,8 @@ window.saveProd=async()=>{
   if(btn)btn.disabled=false;
   toast("✓ "+sku+" guardado ($"+ars.toLocaleString("es-AR")+")","ok");
   closeModal("mProd");
-  // Recalcular sinProducto en las órdenes que tenían este SKU sin costo
-  S.orders = S.orders.map(o => {
-    if(o.sku !== sku) return o;
-    const p = S.products.find(x=>x.sku===sku);
-    if(!p) return o;
-    // Recalcular con el nuevo costo
-    const costo = p.ars;
-    const ivaPct = p.iva/100;
-    const iva = (o.venta/(1+ivaPct))*ivaPct;
-    const pub = p.pub===false?0:o.venta*0.05;
-    const ganancia = o.venta-(o.comision||0)-(o.cuotas||0)-costo-iva-pub-(o.iibb||0)-(o.costoEnvio||0);
-    return {...o, costo:Math.round(costo), iva:Math.round(iva), ivaPct:p.iva, pub:Math.round(pub),
-            ganancia:Math.round(ganancia), pct:o.venta>0?ganancia/o.venta:0, sinProducto:false};
-  });
+  // Recalcular todos con el nuevo producto (applyProductCosts cubre el SKU recién guardado)
+  S.orders = applyProductCosts(S.orders);
   renderProds();checkAlertas();renderAll();
 };
 window.exportProds=()=>{
