@@ -157,6 +157,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="envios"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="10" height="8" rx="1.5"/><path d="M11 7l3-2v6l-3-2"/></svg>Envíos</div>
     <div class="ns">Gestión</div>
     <div class="ni" data-p="productos"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>Productos</div>
+    <div class="ni" data-p="ctrl_prod"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>Control Productos</div>
     <div class="ni" data-p="zonas"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1C5.2 1 3 3.2 3 6c0 4 5 9 5 9s5-5 5-9c0-2.8-2.2-5-5-5z"/><circle cx="8" cy="6" r="1.5"/></svg>Zonas Flex</div>
     <div class="ni" data-p="mercado"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v6l3 3"/></svg>Est. Mercado</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
@@ -309,6 +310,52 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       <div id="mercCont"></div>
     </div>
 
+    <!-- CONTROL PRODUCTOS -->
+    <div class="page" id="page-ctrl_prod">
+      <!-- KPIs -->
+      <div class="g4" id="ctrlKpi"></div>
+      <!-- Semáforo + tabla -->
+      <div class="card">
+        <div class="ch">
+          <span class="ct">Rentabilidad por producto</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <div style="display:flex;gap:4px">
+              <button class="btn-g btn-sm" id="fAll"  onclick="setCtrlFilter('all',this)"  style="background:rgba(255,255,255,.06)">Todos</button>
+              <button class="btn-g btn-sm" id="fRed"  onclick="setCtrlFilter('red',this)"  style="color:var(--red)">🔴 Crítico</button>
+              <button class="btn-g btn-sm" id="fYel"  onclick="setCtrlFilter('yel',this)"  style="color:var(--org)">🟡 Bajo</button>
+              <button class="btn-g btn-sm" id="fGrn"  onclick="setCtrlFilter('grn',this)"  style="color:var(--grn)">🟢 OK</button>
+            </div>
+            <input class="srch" id="ctrlSearch" placeholder="Buscar SKU..." oninput="renderCtrl()" style="width:130px">
+            <button class="btn-g btn-sm" onclick="exportCtrl()">CSV</button>
+          </div>
+        </div>
+        <!-- Leyenda umbral -->
+        <div style="display:flex;gap:12px;font-size:10px;color:var(--t3);margin-bottom:10px;flex-wrap:wrap">
+          <span>🔴 Crítico: margen &lt; 10%</span>
+          <span>🟡 Bajo: 10–20%</span>
+          <span>🟢 OK: &gt; 20%</span>
+          <span style="margin-left:auto;color:var(--t2)">Umbral personalizable en <span style="color:var(--acc);cursor:pointer" onclick="goPage('config')">Config →</span></span>
+        </div>
+        <div class="tbl-wrap"><table class="tbl" id="ctrlTable"><thead><tr>
+          <th></th>
+          <th onclick="sortCtrl('sku')">SKU</th>
+          <th onclick="sortCtrl('desc')">Producto</th>
+          <th onclick="sortCtrl('ventas')">Ventas</th>
+          <th onclick="sortCtrl('unidades')">Unid.</th>
+          <th onclick="sortCtrl('facturacion')">Facturación</th>
+          <th onclick="sortCtrl('ganancia')">Ganancia</th>
+          <th onclick="sortCtrl('pct')">Margen</th>
+          <th onclick="sortCtrl('costo')">Costo unit.</th>
+          <th onclick="sortCtrl('comision_pct')">Comisión %</th>
+          <th onclick="sortCtrl('envio_avg')">Envío prom.</th>
+          <th>Acción</th>
+        </tr></thead><tbody id="ctrlBody"></tbody></table></div>
+        <div class="pager" id="ctrlPager"></div>
+      </div>
+      <!-- Detalle expandido de un producto -->
+      <div id="ctrlDetalle" style="display:none"></div>
+    </div>
+
     <!-- ALERTAS -->
     <div class="page" id="page-alertas">
       <div class="card"><div class="ch"><span class="ct" style="color:var(--red)">A completar</span></div><div id="alertasDet"></div></div>
@@ -347,6 +394,8 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <label class="lbl">Comisión % estimada</label><input class="inp" id="cfg_com">
           <label class="lbl">Publicidad %</label><input class="inp" id="cfg_pub">
           <label class="lbl">IIBB %</label><input class="inp" id="cfg_iibb">
+          <label class="lbl">Umbral margen OK (%)</label><input class="inp" id="cfg_umbral_ok" placeholder="20">
+          <label class="lbl">Umbral margen bajo (%)</label><input class="inp" id="cfg_umbral_warn" placeholder="10">
           <button class="btn" onclick="saveConfig()" style="margin-top:12px">Guardar</button>
         </div>
         <div class="card">
@@ -544,7 +593,7 @@ function setupNav(){
     el.addEventListener("click",()=>{goPage(el.dataset.p);closeMob();});
   });
 }
-const TITLES={overview:"Overview",ventas:"Ventas",rent:"Rentabilidad",envios:"Análisis de Envíos",productos:"Productos & Costos",zonas:"Zonas Flex",mercado:"Est. Mercado",alertas:"A completar",cuentas:"Cuentas ML",gettoken:"Get Token",config:"Configuración"};
+const TITLES={overview:"Overview",ventas:"Ventas",rent:"Rentabilidad",envios:"Análisis de Envíos",productos:"Productos & Costos",zonas:"Zonas Flex",mercado:"Est. Mercado",ctrl_prod:"Control de Productos",alertas:"A completar",cuentas:"Cuentas ML",gettoken:"Get Token",config:"Configuración"};
 const NO_FILTER=["config","gettoken","alertas","cuentas"];
 
 window.goPage=p=>{
@@ -558,7 +607,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -688,6 +737,304 @@ async function saveCache(){
 
 // ── RECONCILIACIÓN AUTOMÁTICA ─────────────────────────────────
 let _lastReconcile=null;
+
+// ── CONTROL DE PRODUCTOS ──────────────────────────────────────
+let _ctrlFilter = 'all';
+let _ctrlSort = {col:'ganancia', dir:-1};
+let _ctrlPage = 0;
+const CTRL_PER = 25;
+
+// Construir tabla de análisis por producto cruzando S.orders + S.products
+function buildCtrlData(){
+  const orders = getOrders();
+  const map = {};
+
+  orders.forEach(o => {
+    const sku = o.sku || '—';
+    if(!map[sku]) map[sku] = {
+      sku, desc:o.desc||'—',
+      ventas:0, unidades:0, facturacion:0,
+      ganancia:0, comision_sum:0, envio_sum:0,
+      costo_sum:0, iva_sum:0, pub_sum:0, iibb_sum:0,
+      flex:0, full:0, correo:0,
+      negativas:0
+    };
+    const m = map[sku];
+    m.ventas++;
+    m.unidades += o.unidades||1;
+    m.facturacion += o.venta||0;
+    m.ganancia += o.ganancia||0;
+    m.comision_sum += o.comision||0;
+    m.envio_sum += o.costoEnvio||0;
+    m.costo_sum += o.costo||0;
+    m.iva_sum += o.iva||0;
+    m.pub_sum += o.pub||0;
+    m.iibb_sum += o.iibb||0;
+    if(o.modal==='Flex') m.flex++;
+    else if(o.modal==='Full') m.full++;
+    else m.correo++;
+    if((o.ganancia||0) < 0) m.negativas++;
+  });
+
+  // Calcular ratios
+  return Object.values(map).map(m => {
+    const pct = m.facturacion > 0 ? m.ganancia / m.facturacion : 0;
+    const costo_unit = m.unidades > 0 ? m.costo_sum / m.unidades : 0;
+    const precio_avg = m.ventas > 0 ? m.facturacion / m.ventas : 0;
+    const comision_pct = m.facturacion > 0 ? m.comision_sum / m.facturacion : 0;
+    const envio_avg = m.ventas > 0 ? m.envio_sum / m.ventas : 0;
+    const prod = S.products.find(p=>p.sku===m.sku);
+    // Semáforo
+    const umbral_ok = S.cfg.umbral_ok || 20;
+    const umbral_warn = S.cfg.umbral_warn || 10;
+    const color = pct*100 >= umbral_ok ? 'grn' : pct*100 >= umbral_warn ? 'yel' : 'red';
+    return {...m, pct, costo_unit, precio_avg, comision_pct, envio_avg, color,
+            tiene_costo: !!(prod?.ars), costo_registrado: prod?.ars||0};
+  });
+}
+
+function getCtrlFiltered(){
+  const data = buildCtrlData();
+  const q = (document.getElementById('ctrlSearch')?.value||'').toLowerCase();
+  return data.filter(m => {
+    if(_ctrlFilter==='red' && m.color!=='red') return false;
+    if(_ctrlFilter==='yel' && m.color!=='yel') return false;
+    if(_ctrlFilter==='grn' && m.color!=='grn') return false;
+    if(q && !(m.sku.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q))) return false;
+    return true;
+  }).sort((a,b) => {
+    const av = a[_ctrlSort.col]??0, bv = b[_ctrlSort.col]??0;
+    return typeof av==='string' ? av.localeCompare(bv)*_ctrlSort.dir : (av-bv)*_ctrlSort.dir;
+  });
+}
+
+window.renderCtrlProd = function(){
+  const data = getCtrlFiltered();
+  const all = buildCtrlData();
+
+  // KPIs
+  const total_fac = all.reduce((s,m)=>s+m.facturacion,0);
+  const total_gan = all.reduce((s,m)=>s+m.ganancia,0);
+  const red_count = all.filter(m=>m.color==='red').length;
+  const grn_count = all.filter(m=>m.color==='grn').length;
+  const yel_count = all.filter(m=>m.color==='yel').length;
+  const mejor = [...all].sort((a,b)=>b.pct-a.pct)[0];
+  const peor = [...all].sort((a,b)=>a.pct-b.pct)[0];
+
+  const kpiEl = document.getElementById('ctrlKpi');
+  if(kpiEl) kpiEl.innerHTML =
+    `<div class="kpi grn"><div class="kl">Productos rentables</div><div class="kv">${grn_count}</div><div class="ks">&gt;20% margen</div></div>`+
+    `<div class="kpi org"><div class="kl">Margen bajo</div><div class="kv">${yel_count}</div><div class="ks">10–20%</div></div>`+
+    `<div class="kpi red"><div class="kl">Críticos</div><div class="kv">${red_count}</div><div class="ks">&lt;10% — revisión urgente</div></div>`+
+    `<div class="kpi acc"><div class="kl">Margen promedio</div><div class="kv">${(total_gan/total_fac*100).toFixed(1)}%</div><div class="ks">${all.length} SKUs activos</div></div>`;
+
+  // Tabla
+  const s0 = _ctrlPage * CTRL_PER;
+  const page = data.slice(s0, s0+CTRL_PER);
+  const sem = {grn:'🟢', yel:'🟡', red:'🔴'};
+  const semColor = {grn:'var(--grn)', yel:'var(--org)', red:'var(--red)'};
+
+  let rows = '';
+  page.forEach(m => {
+    const pctTxt = (m.pct*100).toFixed(1)+'%';
+    const pctColor = semColor[m.color];
+    const negTag = m.negativas > 0
+      ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(255,77,77,.12);color:var(--red);margin-left:4px">${m.negativas} neg.</span>`
+      : '';
+    // Barra de margen visual
+    const barW = Math.min(Math.abs(m.pct)*100*2, 100);
+    const barColor = m.pct<0?'var(--red)':semColor[m.color];
+
+    rows += `<tr style="cursor:pointer" onclick="toggleCtrlDetalle('${esc(m.sku)}')">
+      <td style="width:20px">${sem[m.color]}</td>
+      <td><span class="sku">${esc(m.sku)}</span>${negTag}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)" title="${esc(m.desc)}">${esc(m.desc)}</td>
+      <td>${m.ventas}</td>
+      <td>${m.unidades}</td>
+      <td class="mono">${fS(m.facturacion)}</td>
+      <td class="mono ${m.ganancia>=0?'g':'r'}">${fS(m.ganancia)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:50px;height:4px;background:var(--s3);border-radius:3px;overflow:hidden">
+            <div style="width:${barW}%;height:100%;background:${barColor};border-radius:3px"></div>
+          </div>
+          <span style="color:${pctColor};font-size:11px;font-weight:600">${pctTxt}</span>
+        </div>
+      </td>
+      <td class="mono">${m.costo_registrado>0?fF(m.costo_registrado):'<span style="color:var(--red);font-size:10px">Sin costo</span>'}</td>
+      <td style="color:var(--t2)">${(m.comision_pct*100).toFixed(1)}%</td>
+      <td class="mono">${m.envio_avg>0?fF(m.envio_avg):'$0'}</td>
+      <td>
+        <div style="display:flex;gap:3px">
+          <button class="btn-icon" onclick="event.stopPropagation();editProd('${esc(m.sku)}')" title="Editar costo">✎</button>
+          <button class="btn-icon" onclick="event.stopPropagation();verVentasSku('${esc(m.sku)}')" title="Ver ventas" style="font-size:10px">→</button>
+        </div>
+      </td>
+    </tr>
+    <tr id="det_${esc(m.sku)}" style="display:none">
+      <td colspan="12" style="padding:0;background:var(--s2)">
+        <div style="padding:12px 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:11px">
+          <div>
+            <div style="color:var(--t3);font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Desglose de costos</div>
+            ${buildCostBreakdown(m)}
+          </div>
+          <div>
+            <div style="color:var(--t3);font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Mix de envíos</div>
+            ${buildModalMix(m)}
+          </div>
+          <div>
+            <div style="color:var(--t3);font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Recomendación</div>
+            ${buildRecomendacion(m)}
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  document.getElementById('ctrlBody').innerHTML = rows ||
+    '<tr><td colspan="12" style="text-align:center;color:var(--t3);padding:20px">Sin datos — cargá ventas primero</td></tr>';
+
+  const tot = Math.ceil(data.length/CTRL_PER);
+  document.getElementById('ctrlPager').innerHTML =
+    `<button class="btn-g btn-sm" onclick="ctrlChangePage(-1)" ${_ctrlPage===0?'disabled':''}>← Ant.</button>`+
+    `<span>Pág ${_ctrlPage+1}/${Math.max(1,tot)} · ${data.length} SKUs</span>`+
+    `<button class="btn-g btn-sm" onclick="ctrlChangePage(1)" ${_ctrlPage>=tot-1?'disabled':''}>Sig. →</button>`;
+};
+
+function buildCostBreakdown(m){
+  const total = m.facturacion;
+  if(!total) return '<span style="color:var(--t3)">Sin datos</span>';
+  const items = [
+    {l:'Comisión ML', v:m.comision_sum, c:'var(--blu)'},
+    {l:'Costo producto', v:m.costo_sum, c:'var(--red)'},
+    {l:'IVA', v:m.iva_sum, c:'var(--org)'},
+    {l:'IIBB', v:m.iibb_sum, c:'var(--acc)'},
+    {l:'Publicidad', v:m.pub_sum, c:'#A78BFA'},
+    {l:'Envíos', v:m.envio_sum, c:'var(--grn)'},
+  ];
+  const max = Math.max(...items.map(i=>i.v), 1);
+  return items.map(i=>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+      <div style="width:60px;font-size:10px;color:var(--t2)">${i.l}</div>
+      <div style="flex:1;height:4px;background:var(--s3);border-radius:2px">
+        <div style="width:${i.v/max*100}%;height:100%;background:${i.c};border-radius:2px"></div>
+      </div>
+      <div style="width:55px;font-size:10px;text-align:right;font-family:'DM Mono',monospace">${(i.v/total*100).toFixed(1)}%</div>
+    </div>`
+  ).join('');
+}
+
+function buildModalMix(m){
+  const total = m.ventas;
+  if(!total) return '';
+  const items = [
+    {l:'Flex',   v:m.flex,   c:'var(--grn)'},
+    {l:'Full',   v:m.full,   c:'var(--blu)'},
+    {l:'Correo', v:m.correo, c:'var(--org)'},
+  ];
+  return items.map(i=>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <div style="width:45px;font-size:10px;color:var(--t2)">${i.l}</div>
+      <div style="flex:1;height:6px;background:var(--s3);border-radius:3px;overflow:hidden">
+        <div style="width:${i.v/total*100}%;height:100%;background:${i.c}"></div>
+      </div>
+      <div style="width:40px;font-size:10px;text-align:right;color:var(--t2)">${i.v} (${(i.v/total*100).toFixed(0)}%)</div>
+    </div>`
+  ).join('') +
+  `<div style="margin-top:6px;font-size:10px;color:var(--t2)">
+    Ticket prom: <span style="color:var(--t1)">${fF(m.precio_avg)}</span>
+  </div>`;
+}
+
+function buildRecomendacion(m){
+  const pct = m.pct * 100;
+  const umbral_ok = S.cfg.umbral_ok || 20;
+  const umbral_warn = S.cfg.umbral_warn || 10;
+
+  let recos = [];
+
+  if(!m.tiene_costo){
+    recos.push({icon:'⚠', color:'var(--red)', txt:'Sin costo registrado — la ganancia está sobreestimada'});
+  }
+  if(pct < 0){
+    recos.push({icon:'🔴', color:'var(--red)', txt:'Ganancia negativa — este producto pierde dinero'});
+  } else if(pct < umbral_warn){
+    recos.push({icon:'🔴', color:'var(--red)', txt:`Margen crítico ${pct.toFixed(1)}% — revisar precio o costo`});
+  } else if(pct < umbral_ok){
+    recos.push({icon:'🟡', color:'var(--org)', txt:`Margen bajo ${pct.toFixed(1)}% — margen ajustado`});
+  } else {
+    recos.push({icon:'🟢', color:'var(--grn)', txt:`Margen saludable ${pct.toFixed(1)}`});
+  }
+
+  if(m.comision_pct > 0.165){
+    recos.push({icon:'💡', color:'var(--t2)', txt:'Comisión alta (>16.5%) — categoría con tarifa elevada'});
+  }
+  if(m.envio_avg > m.precio_avg * 0.2){
+    recos.push({icon:'💡', color:'var(--t2)', txt:'Envío representa más del 20% del precio — producto pesado/voluminoso'});
+  }
+  if(m.negativas > m.ventas * 0.3){
+    recos.push({icon:'⚠', color:'var(--org)', txt:`${m.negativas} de ${m.ventas} órdenes con ganancia negativa`});
+  }
+  if(m.costo_sum > m.facturacion * 0.5){
+    recos.push({icon:'💡', color:'var(--t2)', txt:'Costo de producto >50% de la venta — margen bruto muy ajustado'});
+  }
+
+  return recos.map(r=>
+    `<div style="display:flex;gap:6px;margin-bottom:5px;align-items:flex-start">
+      <span>${r.icon}</span>
+      <span style="color:${r.color};font-size:10px;line-height:1.4">${r.txt}</span>
+    </div>`
+  ).join('');
+}
+
+window.toggleCtrlDetalle = function(sku){
+  const row = document.getElementById('det_'+sku);
+  if(!row) return;
+  row.style.display = row.style.display==='none' ? 'table-row' : 'none';
+};
+
+window.verVentasSku = function(sku){
+  S.vFilter = sku;
+  S.vModal = '';
+  S.vPage = 0;
+  goPage('ventas');
+  const el = document.querySelector('.srch');
+  if(el) el.value = sku;
+};
+
+window.setCtrlFilter = function(f, el){
+  _ctrlFilter = f;
+  _ctrlPage = 0;
+  document.querySelectorAll('#page-ctrl_prod .btn-g').forEach(b=>{
+    b.style.background = '';
+    b.style.fontWeight = '';
+  });
+  if(el){el.style.background='var(--s3)';el.style.fontWeight='600';}
+  renderCtrlProd();
+};
+
+window.sortCtrl = function(col){
+  _ctrlSort.dir = _ctrlSort.col===col ? -_ctrlSort.dir : -1;
+  _ctrlSort.col = col;
+  _ctrlPage = 0;
+  renderCtrlProd();
+};
+
+window.ctrlChangePage = function(n){
+  _ctrlPage = Math.max(0, _ctrlPage+n);
+  renderCtrlProd();
+};
+
+window.exportCtrl = function(){
+  const data = getCtrlFiltered();
+  const header = 'SKU,Producto,Ventas,Unidades,Facturacion,Ganancia,Margen%,Costo_unit,Comision%,Envio_prom,Semaforo';
+  const rows = data.map(m =>
+    `${m.sku},"${(m.desc||'').replace(/"/g,'""')}",${m.ventas},${m.unidades},${Math.round(m.facturacion)},${Math.round(m.ganancia)},${(m.pct*100).toFixed(2)},${Math.round(m.costo_unit)},${(m.comision_pct*100).toFixed(1)},${Math.round(m.envio_avg)},${m.color}`
+  );
+  const b = new Blob([[header,...rows].join('\n')],{type:'text/csv;charset=utf-8;'});
+  const l = document.createElement('a');l.href=URL.createObjectURL(b);l.download='control_productos.csv';l.click();
+};
+
 async function runReconcile(){
   if(!S.accounts.length||!S.orders.length)return;
   const today=new Date().toISOString().split("T")[0];
@@ -1307,10 +1654,10 @@ window.doGetToken=async()=>{
 // ── CONFIG ────────────────────────────────────────────────────
 function loadCfgUI(){
   const c=S.cfg;
-  ["dolar","com","pub","iibb","c1","c2","c3","cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
+  ["dolar","com","pub","iibb","c1","c2","c3","cid","csec","umbral_ok","umbral_warn"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
 }
 window.saveConfig=()=>{
-  ["dolar","com","pub","iibb","c1","c2","c3"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)S.cfg[k]=parseFloat(el.value)||0;});
+  ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
   ["cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)S.cfg[k]=el.value.trim();});
   fb.set("config",S.cfg);buildAuthLink();toast("Configuración guardada ✓","ok");
 };
