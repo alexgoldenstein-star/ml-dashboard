@@ -603,7 +603,7 @@ function applyProductCosts(orders){
   return orders.map(o=>{
     const p = S.products.find(x=>x.sku===o.sku);
     if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
-    const costo = p.ars;
+    const costo = p.ars * (o.unidades||1); // multiplicar por unidades
     const ivaPct = p.iva/100;
     const iva = (o.venta/(1+ivaPct))*ivaPct;
     const pub = p.pub===false ? 0 : o.venta*0.05;
