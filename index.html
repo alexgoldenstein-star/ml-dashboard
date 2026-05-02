@@ -1642,12 +1642,10 @@ async function loadCatAnalysis(id, token, isExplore){
     // Fetch with sold_quantity_desc sort + category
     let url = `${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`;
     // category removed - queries without category get more results
-    // Llamar DIRECTAMENTE a ML desde el browser - sin proxy, sin token
-    // La API pública de ML acepta CORS para GET requests
-    const ML_API = 'https://api.mercadolibre.com';
-    const mlUrl = `${ML_API}/sites/MLA/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`;
-    console.log('[Mercado] Fetching direct ML:', mlUrl);
-    const r = await fetch(mlUrl);
+    // Usar proxy SIN token - la búsqueda pública no necesita autenticación
+    const searchUrl = `${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`;
+    console.log('[Mercado] Fetching via proxy (no token):', searchUrl);
+    const r = await fetch(searchUrl); // SIN headers - el proxy maneja la búsqueda pública
     const data = await r.json();
     console.log('[Mercado] Response:', {total:data.paging?.total, results:data.results?.length, error:data.error});
     let results = (data.results||[]).filter(x=>x.price>0)
@@ -1658,8 +1656,7 @@ async function loadCatAnalysis(id, token, isExplore){
       // Retry without category filter
       if(conf.cat){
         try{
-          const ML_API2='https://api.mercadolibre.com';
-          const r2=await fetch(`${ML_API2}/sites/MLA/search?q=${encodeURIComponent(conf.q)}&sort=relevance&limit=50`);
+          const r2=await fetch(`${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=relevance&limit=50`);
           const d2=await r2.json();
           const r2res=(d2.results||[]).filter(x=>x.price>0);
           if(r2res.length){
@@ -1680,7 +1677,7 @@ async function loadCatAnalysis(id, token, isExplore){
     // Fetch details for top 5 (for date_created → daily sales estimate)
     const top5Details = await Promise.all(
       results.slice(0,5).map(item=>
-        fetch(`https://api.mercadolibre.com/items/${item.id}`)
+        fetch(`${PROXY}/mercado/item?id=${item.id}`) // proxy sin token
           .then(r=>r.json()).catch(()=>null)
       )
     );
@@ -1945,7 +1942,7 @@ window.doBenchmark = async function(){
   const el = document.getElementById('benchResult');
   el.innerHTML = '<p style="color:var(--t2);font-size:12px">Buscando en ML...</p>';
   try{
-    const r = await fetch(`https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(prod.desc||sku)}&sort=sold_quantity_desc&limit=30`);
+    const r = await fetch(`${PROXY}/mercado/search?q=${encodeURIComponent(prod.desc||sku)}&sort=sold_quantity_desc&limit=30`);
     const data = await r.json();
     const results = (data.results||[]).filter(x=>x.price>0);
     if(!results.length){el.innerHTML='<p style="color:var(--t3)">Sin resultados</p>';return;}
