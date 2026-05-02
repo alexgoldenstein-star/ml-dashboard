@@ -1718,14 +1718,34 @@ async function loadCatAnalysis(id, token, isExplore){
 
   try{
     // Fetch top 50 by sold_quantity
+    // Fetch with sold_quantity_desc sort + category
     let url = `${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`;
     if(conf.cat) url += `&category=${conf.cat}`;
     const r = await fetch(url, {headers:{'x-ml-token':token}});
     const data = await r.json();
-    const results = (data.results||[]).filter(x=>x.condition==='new'&&x.price>0);
+    // Sort client-side too since API sort isn't always reliable
+    let results = (data.results||[]).filter(x=>x.price>0)
+      .sort((a,b)=>(b.sold_quantity||0)-(a.sold_quantity||0));
 
     if(!results.length){
-      anaEl.innerHTML='<div class="card"><p style="color:var(--t3);text-align:center;padding:20px">Sin resultados para esta categoría.</p></div>';
+      // Retry without category filter
+      if(conf.cat){
+        try{
+          const r2=await fetch(`${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`,{headers:{'x-ml-token':token}});
+          const d2=await r2.json();
+          const r2res=(d2.results||[]).filter(x=>x.price>0);
+          if(r2res.length){
+            _catData[id]={results:r2res,top5Details:[],conf};
+            renderCatAnalysis(id,_catData[id],isExplore);
+            return;
+          }
+        }catch(e){}
+      }
+      anaEl.innerHTML=`<div class="card" style="text-align:center;padding:24px">
+        <div style="font-size:24px;margin-bottom:8px">🔍</div>
+        <div style="color:var(--t3);font-size:12px">Sin resultados para "<strong style="color:var(--t2)">${esc(conf.q)}</strong>"</div>
+        <div style="color:var(--t3);font-size:10px;margin-top:6px">Intentá con otra búsqueda en la tab Explorar Rubros</div>
+      </div>`;
       return;
     }
 
@@ -1999,7 +2019,7 @@ window.doBenchmark = async function(){
   try{
     const r = await fetch(`${PROXY}/mercado/search?q=${encodeURIComponent(prod.desc||sku)}&sort=sold_quantity_desc&limit=30`,{headers:{'x-ml-token':token}});
     const data = await r.json();
-    const results = (data.results||[]).filter(x=>x.condition==='new'&&x.price>0);
+    const results = (data.results||[]).filter(x=>x.price>0);
     if(!results.length){el.innerHTML='<p style="color:var(--t3)">Sin resultados</p>';return;}
     const myOrders = S.orders.filter(o=>o.sku===sku);
     const myPrice = myOrders.length ? myOrders.reduce((s,o)=>s+o.venta,0)/myOrders.length : 0;
