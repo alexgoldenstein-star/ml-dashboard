@@ -1666,29 +1666,17 @@ Necesito en formato JSON estricto (sin texto extra, solo JSON):
   "nivel_competencia": "bajo|medio|alto"
 }`;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    // Llamar al proxy que reenvía a Claude API (evita CORS de GitHub Pages)
+    const response = await fetch(`${PROXY}/ai/market`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
-        tools: [{type: "web_search_20250305", name: "web_search"}],
-        messages: [{role: "user", content: prompt}]
-      })
+      body: JSON.stringify({query: conf.q, category: conf.label})
     });
 
     const aiData = await response.json();
+    if(!aiData.ok || !aiData.data) throw new Error(aiData.error || 'Sin respuesta de IA');
     
-    // Extraer el JSON de la respuesta
-    const textBlock = aiData.content?.find(b=>b.type==='text');
-    if(!textBlock?.text) throw new Error('Sin respuesta de IA');
-    
-    // Parse JSON from response
-    const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) throw new Error('No se pudo parsear la respuesta');
-    
-    const marketData = JSON.parse(jsonMatch[0]);
-    _catData[id] = {marketData, conf};
+    _catData[id] = {marketData: aiData.data, conf};
     renderCatAnalysisAI(id, _catData[id], isExplore);
 
   }catch(e){
