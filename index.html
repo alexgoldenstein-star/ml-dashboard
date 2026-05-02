@@ -159,7 +159,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="productos"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>Productos</div>
     <div class="ni" data-p="ctrl_prod"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>Control Productos</div>
     <div class="ni" data-p="zonas"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1C5.2 1 3 3.2 3 6c0 4 5 9 5 9s5-5 5-9c0-2.8-2.2-5-5-5z"/><circle cx="8" cy="6" r="1.5"/></svg>Zonas Flex</div>
-    <div class="ni" data-p="mercado"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v6l3 3"/></svg>Est. Mercado</div>
+    <div class="ni" data-p="mercado"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v6l3 3"/></svg>Inteligencia ML</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
     <div class="ns">Sistema</div>
     <div class="ni" data-p="cuentas"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M1 14c0-3.3 3.1-6 7-6s7 2.7 7 6"/></svg>Cuentas ML</div>
@@ -305,9 +305,15 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       </div>
     </div>
 
-    <!-- MERCADO -->
+    <!-- INTELIGENCIA ML -->
     <div class="page" id="page-mercado">
-      <div class="tabs"><div class="tab on" onclick="sMTab('cat',this)">Categorías</div><div class="tab" onclick="sMTab('seller',this)">Competidor</div><div class="tab" onclick="sMTab('ean',this)">Item/EAN</div></div>
+      <div class="tabs">
+        <div class="tab on"  onclick="sMTab('mis_cats',this)">Mis Categorías</div>
+        <div class="tab"     onclick="sMTab('explorar',this)">Explorar Rubros</div>
+        <div class="tab"     onclick="sMTab('benchmark',this)">Benchmark Precios</div>
+        <div class="tab"     onclick="sMTab('seller',this)">Analizar Competidor</div>
+        <div class="tab"     onclick="sMTab('ean',this)">Item/EAN</div>
+      </div>
       <div id="mercCont"></div>
     </div>
 
@@ -1575,6 +1581,466 @@ window.doEanSearch=async()=>{
     }
   }catch(e){el.innerHTML='<p style="color:var(--red);font-size:12px">Error: '+e.message+"</p>";}
 };
+
+
+// ── INTELIGENCIA DE MERCADO ML ────────────────────────────────
+
+// Categorías de NIVIKO con queries y categoría ML
+const NIVIKO_CATS = [
+  {id:'sillas_gamer',   label:'Sillas Gamer',       q:'silla gamer ergonomica',      cat:'MLA438041', icon:'🎮'},
+  {id:'sillas_oficina', label:'Sillas Oficina',      q:'silla oficina ergonomica',    cat:'MLA438041', icon:'💼'},
+  {id:'sillas_living',  label:'Sillas Living',       q:'silla comedor tapizada',      cat:'MLA438041', icon:'🪑'},
+  {id:'soportes_tv',    label:'Soportes TV',         q:'soporte tv brazo extensible', cat:'MLA3690',   icon:'📺'},
+  {id:'auriculares',    label:'Auriculares BT',      q:'auriculares bluetooth tws',   cat:'MLA1700',   icon:'🎧'},
+  {id:'smartwatches',   label:'Smartwatches',        q:'smartwatch reloj inteligente',cat:'MLA398721', icon:'⌚'},
+  {id:'mesas',          label:'Mesas Plegables',     q:'mesa plegable exterior reforzada',cat:'MLA9440',icon:'🪵'},
+  {id:'parlantes',      label:'Parlantes BT',        q:'parlante bluetooth portatil', cat:'MLA1700',   icon:'🔊'},
+];
+
+// Rubros para explorar (que NIVIKO no trabaja todavía)
+const EXPLORAR_CATS = [
+  {id:'tv',         label:'Televisores',       q:'smart tv 55 pulgadas',         cat:'MLA1000',  icon:'📺'},
+  {id:'colchones',  label:'Colchones',         q:'colchon espuma alta densidad',  cat:'MLA9440',  icon:'🛏'},
+  {id:'bicicletas', label:'Bicicletas',        q:'bicicleta rodado 29 mtb',      cat:'MLA1367',  icon:'🚲'},
+  {id:'cafeteras',  label:'Cafeteras',         q:'cafetera expresso automatica',  cat:'MLA1574',  icon:'☕'},
+  {id:'aires',      label:'Aires Acondicionados',q:'aire acondicionado split frio calor',cat:'MLA1574',icon:'❄️'},
+  {id:'robots',     label:'Aspiradoras Robot', q:'aspiradora robot inteligente',  cat:'MLA1574',  icon:'🤖'},
+  {id:'drones',     label:'Drones con Cámara', q:'drone camara 4k profesional',   cat:'MLA1000',  icon:'🚁'},
+  {id:'impresoras', label:'Impresoras',        q:'impresora multifuncion laser',   cat:'MLA1652',  icon:'🖨️'},
+];
+
+let _mTab = 'mis_cats';
+let _catSelected = null;
+let _catData = {}; // cache de resultados
+
+window.sMTab = function(t, el){
+  _mTab = t;
+  document.querySelectorAll('#page-mercado .tab').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+  renderMercado();
+};
+
+window.renderMercado = function(){
+  const el = document.getElementById('mercCont');
+  if(!el) return;
+  const token = S.accounts[0]?.token;
+  if(!token){
+    el.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">⚠ Conectá una cuenta ML para usar Inteligencia de Mercado.</p></div>';
+    return;
+  }
+  if(_mTab==='mis_cats')   renderMisCats(el, token);
+  else if(_mTab==='explorar')   renderExplorar(el, token);
+  else if(_mTab==='benchmark')  renderBenchmark(el, token);
+  else if(_mTab==='seller')     renderSeller(el, token);
+  else if(_mTab==='ean')        renderEAN(el, token);
+};
+
+// ── MIS CATEGORÍAS ────────────────────────────────────────────
+function renderMisCats(el, token){
+  el.innerHTML = `
+    <div class="g4" style="margin-bottom:12px">
+      ${NIVIKO_CATS.map(c=>`
+        <div onclick="selectCat('${c.id}')" style="background:var(--s2);border:1px solid ${_catSelected===c.id?'rgba(232,255,71,.4)':'var(--b1)'};border-radius:var(--r2);padding:12px;cursor:pointer;transition:all .15s;${_catSelected===c.id?'background:rgba(232,255,71,.05)':''}">
+          <div style="font-size:20px;margin-bottom:4px">${c.icon}</div>
+          <div style="font-size:11px;font-weight:600;color:${_catSelected===c.id?'var(--acc)':'var(--t1)'}">${c.label}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div id="catAnalysis"></div>`;
+  if(_catSelected) loadCatAnalysis(_catSelected, token, false);
+}
+
+window.selectCat = function(id){
+  _catSelected = id;
+  const token = S.accounts[0]?.token;
+  renderMisCats(document.getElementById('mercCont'), token);
+};
+
+// ── EXPLORAR RUBROS ───────────────────────────────────────────
+function renderExplorar(el, token){
+  el.innerHTML = `
+    <div style="background:rgba(77,163,255,.06);border:1px solid rgba(77,163,255,.15);border-radius:var(--r2);padding:12px;margin-bottom:12px;font-size:11px;color:var(--t2)">
+      💡 Rubros que <strong style="color:var(--t1)">NIVIKO no trabaja todavía</strong>. Analizá el volumen, precios y competencia antes de importar.
+    </div>
+    <div class="g4" style="margin-bottom:12px">
+      ${EXPLORAR_CATS.map(c=>`
+        <div onclick="selectExpCat('${c.id}')" style="background:var(--s2);border:1px solid ${_catSelected===c.id?'rgba(77,163,255,.4)':'var(--b1)'};border-radius:var(--r2);padding:12px;cursor:pointer;transition:all .15s">
+          <div style="font-size:20px;margin-bottom:4px">${c.icon}</div>
+          <div style="font-size:11px;font-weight:600;color:${_catSelected===c.id?'var(--blu)':'var(--t1)'}">${c.label}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <input class="srch" id="expQ" placeholder="O escribí cualquier categoría a explorar..." style="flex:1">
+      <input class="srch" id="expCat" placeholder="Categoría ML (opcional)" style="width:160px">
+      <button class="btn" onclick="doExplorar()">Analizar →</button>
+    </div>
+    <div id="catAnalysis"></div>`;
+  if(_catSelected) loadCatAnalysis(_catSelected, token, true);
+}
+
+window.selectExpCat = function(id){
+  _catSelected = id;
+  const token = S.accounts[0]?.token;
+  renderExplorar(document.getElementById('mercCont'), token);
+};
+
+window.doExplorar = function(){
+  const q = document.getElementById('expQ')?.value?.trim();
+  const cat = document.getElementById('expCat')?.value?.trim();
+  if(!q) return;
+  const token = S.accounts[0]?.token;
+  const customId = 'custom_'+Date.now();
+  EXPLORAR_CATS.push({id:customId, label:q, q, cat:cat||'', icon:'🔍'});
+  _catSelected = customId;
+  loadCatAnalysis(customId, token, true);
+};
+
+// ── CARGA Y ANÁLISIS DE CATEGORÍA ────────────────────────────
+async function loadCatAnalysis(id, token, isExplore){
+  const anaEl = document.getElementById('catAnalysis');
+  if(!anaEl) return;
+  
+  // Cache hit
+  if(_catData[id]){
+    renderCatAnalysis(id, _catData[id], isExplore);
+    return;
+  }
+
+  anaEl.innerHTML = `<div class="card" style="text-align:center;padding:30px">
+    <div style="font-size:24px;margin-bottom:8px">🔍</div>
+    <div style="color:var(--t2);font-size:12px">Analizando mercado...</div>
+  </div>`;
+
+  const allCats = [...NIVIKO_CATS, ...EXPLORAR_CATS];
+  const conf = allCats.find(c=>c.id===id);
+  if(!conf) return;
+
+  try{
+    // Fetch top 50 by sold_quantity
+    let url = `${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`;
+    if(conf.cat) url += `&category=${conf.cat}`;
+    const r = await fetch(url, {headers:{'x-ml-token':token}});
+    const data = await r.json();
+    const results = (data.results||[]).filter(x=>x.condition==='new'&&x.price>0);
+
+    if(!results.length){
+      anaEl.innerHTML='<div class="card"><p style="color:var(--t3);text-align:center;padding:20px">Sin resultados para esta categoría.</p></div>';
+      return;
+    }
+
+    // Fetch details for top 5 (for date_created → daily sales estimate)
+    const top5Details = await Promise.all(
+      results.slice(0,5).map(item=>
+        fetch(`${PROXY}/mercado/item?id=${item.id}`,{headers:{'x-ml-token':token}})
+          .then(r=>r.json()).catch(()=>null)
+      )
+    );
+
+    _catData[id] = {results, top5Details, conf};
+    renderCatAnalysis(id, _catData[id], isExplore);
+  }catch(e){
+    anaEl.innerHTML=`<div class="card"><p style="color:var(--red);font-size:12px">Error: ${e.message}</p></div>`;
+  }
+}
+
+function renderCatAnalysis(id, {results, top5Details, conf}, isExplore){
+  const anaEl = document.getElementById('catAnalysis');
+  if(!anaEl) return;
+
+  const prices = results.map(r=>r.price).sort((a,b)=>a-b);
+  const n = prices.length;
+  const avg = prices.reduce((s,p)=>s+p,0)/n;
+  const median = prices[Math.floor(n/2)];
+  const min = prices[0];
+  const max = prices[n-1];
+  const p25 = prices[Math.floor(n*0.25)];
+  const p75 = prices[Math.floor(n*0.75)];
+
+  // Sold quantity stats
+  const sold = results.map(r=>r.sold_quantity||0);
+  const totalSold = sold.reduce((a,b)=>a+b,0);
+  const topSeller = results[0];
+
+  // Daily sales estimate for top items
+  const now = Date.now();
+  const dailyEstimates = top5Details.map((d,i)=>{
+    if(!d?.date_created) return null;
+    const dias = Math.max(1, (now - new Date(d.date_created).getTime()) / (1000*60*60*24));
+    const sq = results[i]?.sold_quantity||0;
+    return {title:results[i]?.title, daily: sq/dias, total:sq, dias:Math.round(dias), price:results[i]?.price};
+  }).filter(Boolean);
+
+  // Price distribution buckets
+  const buckets = buildPriceBuckets(prices);
+
+  // My products in this category (if not explore)
+  const myProds = isExplore ? [] : getMyProductsForCat(conf);
+
+  // Sellers ranking
+  const sellerMap = {};
+  results.forEach(r=>{
+    const sn = r.seller?.nickname||'Desconocido';
+    if(!sellerMap[sn]) sellerMap[sn]={nick:sn,items:0,sold:0,minP:r.price,maxP:r.price};
+    sellerMap[sn].items++;
+    sellerMap[sn].sold += r.sold_quantity||0;
+    sellerMap[sn].minP = Math.min(sellerMap[sn].minP, r.price);
+    sellerMap[sn].maxP = Math.max(sellerMap[sn].maxP, r.price);
+  });
+  const sellers = Object.values(sellerMap).sort((a,b)=>b.sold-a.sold).slice(0,5);
+
+  // Market size estimate
+  const dailyTotal = dailyEstimates.reduce((s,d)=>s+d.daily,0);
+  const dailyARS = dailyTotal * avg;
+
+  let html = `
+  <!-- KPIs de la categoría -->
+  <div class="g4" style="margin-bottom:12px">
+    <div class="kpi acc">
+      <div class="kl">${conf.icon} ${conf.label}</div>
+      <div class="kv">${fS(avg)}</div>
+      <div class="ks">Precio promedio</div>
+    </div>
+    <div class="kpi grn">
+      <div class="kl">Más vendido (top 1)</div>
+      <div class="kv">${(topSeller?.sold_quantity||0).toLocaleString()}</div>
+      <div class="ks">unidades totales</div>
+    </div>
+    <div class="kpi blu">
+      <div class="kl">Ventas diarias estimadas</div>
+      <div class="kv">${Math.round(dailyTotal)}</div>
+      <div class="ks">top 5 productos</div>
+    </div>
+    <div class="kpi org">
+      <div class="kl">Rango de precios</div>
+      <div class="kv">${fS(p25)}–${fS(p75)}</div>
+      <div class="ks">50% del mercado</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <!-- Distribución de precios -->
+    <div class="card">
+      <div class="ch"><span class="ct">Distribución de precios</span><span style="font-size:10px;color:var(--t3)">${n} productos nuevos</span></div>
+      ${buckets.map(b=>`
+        <div class="br">
+          <div class="bl" style="font-size:9px">${fS(b.from)}–${fS(b.to)}</div>
+          <div class="bt"><div class="bf" style="width:${b.w}%;background:${b.isMode?'var(--acc)':'var(--blu)'}"></div></div>
+          <div class="bv" style="font-size:9px">${b.count}</div>
+        </div>`).join('')}
+      <div style="margin-top:8px;font-size:10px;color:var(--t2)">
+        Min: <strong style="color:var(--t1)">${fF(min)}</strong> · 
+        Mediana: <strong style="color:var(--acc)">${fF(median)}</strong> · 
+        Max: <strong style="color:var(--t1)">${fF(max)}</strong>
+      </div>
+    </div>
+
+    <!-- Top sellers del rubro -->
+    <div class="card">
+      <div class="ch"><span class="ct">Top vendedores del rubro</span></div>
+      <table class="tbl">
+        <thead><tr><th>Vendedor</th><th>Pubs</th><th>Unid. vendidas</th><th>Rango precio</th></tr></thead>
+        <tbody>
+          ${sellers.map((s,i)=>`
+            <tr>
+              <td style="font-size:11px">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '} ${esc(s.nick)}</td>
+              <td>${s.items}</td>
+              <td class="mono g">${s.sold.toLocaleString()}</td>
+              <td class="mono" style="font-size:10px">${fS(s.minP)}–${fS(s.maxP)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Top 5 productos con estimación de ventas diarias -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">Top 5 más vendidos — estimación ventas/día</span>
+      <span style="font-size:10px;color:var(--t3)">sold_quantity ÷ días desde publicación</span>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>#</th><th>Producto</th><th>Precio</th><th>Total vendido</th><th>Días publicado</th><th>Ventas/día</th><th>Link</th></tr></thead>
+      <tbody>
+        ${dailyEstimates.map((d,i)=>`
+          <tr>
+            <td style="color:var(--t3)">${i+1}</td>
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:var(--t2)" title="${esc(d.title)}">${esc(d.title)}</td>
+            <td class="mono">${fF(d.price)}</td>
+            <td class="mono g">${d.total.toLocaleString()}</td>
+            <td style="color:var(--t3)">${d.dias}d</td>
+            <td><strong style="color:var(--acc)">${d.daily.toFixed(1)}/día</strong></td>
+            <td><a href="https://articulo.mercadolibre.com.ar/-_JM${results[i]?.id?.replace('MLA','')}" target="_blank" style="color:var(--acc);font-size:10px">Ver →</a></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  // My products comparison (only for own categories)
+  if(myProds.length > 0){
+    html += `
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">Mis productos vs mercado</span></div>
+    <table class="tbl">
+      <thead><tr><th>SKU</th><th>Descripción</th><th>Mi precio ML</th><th>Precio mercado</th><th>Diferencia</th><th>Posición</th></tr></thead>
+      <tbody>
+        ${myProds.map(p=>{
+          const myOrders = S.orders.filter(o=>o.sku===p.sku);
+          const myPrice = myOrders.length ? myOrders.reduce((s,o)=>s+o.venta,0)/myOrders.length : 0;
+          if(!myPrice) return '';
+          const diff = myPrice - median;
+          const diffPct = median>0 ? diff/median*100 : 0;
+          const pos = prices.filter(pr=>pr<myPrice).length/n*100;
+          return `<tr>
+            <td><span class="sku">${esc(p.sku)}</span></td>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)">${esc(p.desc)}</td>
+            <td class="mono">${fF(myPrice)}</td>
+            <td class="mono">${fF(median)}</td>
+            <td class="${diff>0?'r':'g'}" style="font-size:11px">${diff>0?'+':''}${fF(diff)} (${diffPct>0?'+':''}${diffPct.toFixed(1)}%)</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px">
+                <div style="width:60px;height:5px;background:var(--s3);border-radius:3px;overflow:hidden">
+                  <div style="width:${pos}%;height:100%;background:${pos<30?'var(--grn)':pos<70?'var(--org)':'var(--red)'};border-radius:3px"></div>
+                </div>
+                <span style="font-size:10px;color:var(--t2)">${pos<30?'Barato':pos<70?'Medio':'Caro'}</span>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    <div style="font-size:10px;color:var(--t3);margin-top:6px">* Precio basado en el promedio de tus ventas del período actual</div>
+  </div>`;
+  }
+
+  // Recommendation box
+  const recHtml = buildCatRecomendacion(conf, {avg, median, min, max, p25, p75, n, sellers, dailyTotal, isExplore, myProds});
+  html += recHtml;
+
+  anaEl.innerHTML = html;
+}
+
+function buildPriceBuckets(prices){
+  const min=prices[0], max=prices[prices.length-1];
+  const range=max-min;
+  const step=range/6;
+  const buckets=[];
+  for(let i=0;i<6;i++){
+    const from=min+step*i, to=min+step*(i+1);
+    const count=prices.filter(p=>p>=from&&(i===5?p<=to:p<to)).length;
+    buckets.push({from,to,count});
+  }
+  const maxCount=Math.max(...buckets.map(b=>b.count),1);
+  const modeIdx=buckets.reduce((mi,b,i)=>b.count>buckets[mi].count?i:mi,0);
+  return buckets.map((b,i)=>({...b,w:b.count/maxCount*100,isMode:i===modeIdx}));
+}
+
+function getMyProductsForCat(conf){
+  const q = conf.q.toLowerCase();
+  const words = q.split(' ').filter(w=>w.length>3);
+  return S.products.filter(p=>{
+    const desc=(p.desc||'').toLowerCase();
+    return words.filter(w=>desc.includes(w)).length >= 2;
+  }).slice(0,5);
+}
+
+function buildCatRecomendacion(conf, {avg, median, p25, p75, n, sellers, dailyTotal, isExplore, myProds}){
+  const items = [];
+
+  if(isExplore){
+    items.push({icon:'📊', txt:`Mercado activo: ${n} publicaciones nuevas analizadas. Top 5 venden ~${Math.round(dailyTotal)} unidades/día.`});
+    if(p75 < 50000) items.push({icon:'💡', txt:'Producto de ticket bajo — necesitás alto volumen para que sea rentable con los costos de ML.'});
+    if(p75 > 200000) items.push({icon:'💡', txt:'Ticket alto — menor volumen pero mayor margen absoluto posible. Ideal para importación.'});
+    if(sellers.length < 3) items.push({icon:'🎯', txt:'Pocos vendedores dominantes — mercado concentrado, difícil de entrar sin diferenciación.'});
+    if(sellers.length > 8) items.push({icon:'🎯', txt:'Mercado muy fragmentado — oportunidad de entrar si tenés precio competitivo.'});
+    items.push({icon:'📦', txt:`Rango de precio clave: ${fF(p25)}–${fF(p75)}. Importar con costo &lt;${fF(p25*0.35)} daría margen interesante.`});
+  } else {
+    if(myProds.length === 0){
+      items.push({icon:'⚠', txt:'No encontramos tus productos en las ventas del período. Verificá que tengas ventas en esta categoría.'});
+    } else {
+      items.push({icon:'📍', txt:`Tenés ${myProds.length} SKUs en esta categoría. Usá "Benchmark Precios" para ver tu posición exacta.`});
+    }
+    if(dailyTotal > 50) items.push({icon:'🔥', txt:`Categoría de alto volumen: ~${Math.round(dailyTotal)} unidades/día entre los top 5.`});
+    items.push({icon:'💰', txt:`Precio saludable para rentabilidad: apuntá a estar entre ${fF(p25)} y ${fF(median)}. Por debajo de ${fF(p25)} el margen se compromete.`});
+  }
+
+  return `<div class="card">
+    <div class="ch"><span class="ct">Análisis e insights</span></div>
+    ${items.map(i=>`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start">
+      <span style="font-size:14px">${i.icon}</span>
+      <span style="font-size:11px;color:var(--t2);line-height:1.5">${i.txt}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+// ── BENCHMARK PRECIOS ─────────────────────────────────────────
+async function renderBenchmark(el, token){
+  el.innerHTML = `<div class="card">
+    <div class="ch"><span class="ct">Benchmark de Precios por SKU</span></div>
+    <p style="font-size:12px;color:var(--t2);margin-bottom:12px">Compará el precio de cualquier SKU tuyo contra la competencia en ML.</p>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      <select class="sel" id="benchSku" style="flex:1;min-width:200px">
+        <option value="">Seleccioná un SKU tuyo...</option>
+        ${S.products.map(p=>`<option value="${esc(p.sku)}">${esc(p.sku)} — ${esc((p.desc||'').substring(0,40))}</option>`).join('')}
+      </select>
+      <button class="btn" onclick="doBenchmark()">Comparar →</button>
+    </div>
+    <div id="benchResult"></div>
+  </div>`;
+}
+
+window.doBenchmark = async function(){
+  const sku = document.getElementById('benchSku')?.value;
+  const token = S.accounts[0]?.token;
+  if(!sku||!token) return;
+  const prod = S.products.find(p=>p.sku===sku);
+  if(!prod) return;
+  const el = document.getElementById('benchResult');
+  el.innerHTML = '<p style="color:var(--t2);font-size:12px">Buscando en ML...</p>';
+  try{
+    const r = await fetch(`${PROXY}/mercado/search?q=${encodeURIComponent(prod.desc||sku)}&sort=sold_quantity_desc&limit=30`,{headers:{'x-ml-token':token}});
+    const data = await r.json();
+    const results = (data.results||[]).filter(x=>x.condition==='new'&&x.price>0);
+    if(!results.length){el.innerHTML='<p style="color:var(--t3)">Sin resultados</p>';return;}
+    const myOrders = S.orders.filter(o=>o.sku===sku);
+    const myPrice = myOrders.length ? myOrders.reduce((s,o)=>s+o.venta,0)/myOrders.length : 0;
+    const prices = results.map(r=>r.price).sort((a,b)=>a-b);
+    const median = prices[Math.floor(prices.length/2)];
+    const pos = myPrice>0 ? prices.filter(p=>p<myPrice).length/prices.length*100 : null;
+    el.innerHTML = `
+      <div class="g4" style="margin-bottom:12px">
+        <div class="kpi acc"><div class="kl">Mi precio promedio</div><div class="kv">${myPrice>0?fF(myPrice):'Sin ventas'}</div></div>
+        <div class="kpi grn"><div class="kl">Mediana mercado</div><div class="kv">${fF(median)}</div></div>
+        <div class="kpi ${(myPrice||0)>median?'red':'grn'}"><div class="kl">Diferencia</div><div class="kv">${myPrice>0?((myPrice-median)>=0?'+':'')+fF(myPrice-median):'—'}</div></div>
+        <div class="kpi blu"><div class="kl">Mi posición</div><div class="kv">${pos!==null?Math.round(pos)+'%':'—'}</div><div class="ks">${pos!==null?(pos<30?'más barato':pos<70?'precio medio':'más caro que el mercado'):'sin ventas'}</div></div>
+      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Producto</th><th>Precio</th><th>Vendido</th><th>Vendedor</th></tr></thead>
+        <tbody>
+          ${results.slice(0,15).map(r=>`<tr>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:var(--t2)">${esc(r.title)}</td>
+            <td class="mono ${r.price<(myPrice||0)?'g':r.price>(myPrice||0)?'r':'m'}">${fF(r.price)}</td>
+            <td>${(r.sold_quantity||0).toLocaleString()}</td>
+            <td style="font-size:10px;color:var(--t3)">${esc(r.seller?.nickname||'—')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+  }catch(e){el.innerHTML=`<p style="color:var(--red);font-size:12px">Error: ${e.message}</p>`;}
+};
+
+// ── COMPETIDOR ────────────────────────────────────────────────
+function renderSeller(el, token){
+  el.innerHTML=`<div class="card"><div class="ch"><span class="ct">Analizar competidor</span></div>
+    <p style="font-size:12px;color:var(--t2);margin-bottom:6px">Ingresá el <strong style="color:var(--t1)">User ID numérico</strong> del vendedor de ML.</p>
+    <div style="display:flex;gap:6px;margin-bottom:14px"><input class="srch" id="sellerQ" placeholder="User ID numérico..." style="flex:1"><button class="btn" onclick="doSellerSearch()">Analizar</button></div>
+    <div id="sellerRes"></div></div>`;
+}
+
+// ── EAN/ITEM ──────────────────────────────────────────────────
+function renderEAN(el, token){
+  el.innerHTML=`<div class="card"><div class="ch"><span class="ct">Buscar por Item ID o EAN</span></div>
+    <div style="display:flex;gap:6px;margin-bottom:14px"><input class="srch" id="eanQ" placeholder="MLA1234567890 o EAN/código de barras..." style="flex:1"><button class="btn" onclick="doEanSearch()">Buscar</button></div>
+    <div id="eanRes"></div></div>`;
+}
 
 // ── CUENTAS ───────────────────────────────────────────────────
 function renderCuentas(){
