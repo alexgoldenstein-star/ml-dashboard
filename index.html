@@ -1507,26 +1507,26 @@ window.exportZonas=()=>{
 
 // Categorías de NIVIKO con queries y categoría ML
 const NIVIKO_CATS = [
-  {id:'sillas_gamer',   label:'Sillas Gamer',       q:'silla gamer ergonomica',      cat:'MLA438041', icon:'🎮'},
-  {id:'sillas_oficina', label:'Sillas Oficina',      q:'silla oficina ergonomica',    cat:'MLA438041', icon:'💼'},
-  {id:'sillas_living',  label:'Sillas Living',       q:'silla comedor tapizada',      cat:'MLA438041', icon:'🪑'},
-  {id:'soportes_tv',    label:'Soportes TV',         q:'soporte tv brazo extensible', cat:'MLA3690',   icon:'📺'},
-  {id:'auriculares',    label:'Auriculares BT',      q:'auriculares bluetooth tws',   cat:'MLA1700',   icon:'🎧'},
-  {id:'smartwatches',   label:'Smartwatches',        q:'smartwatch reloj inteligente',cat:'MLA398721', icon:'⌚'},
-  {id:'mesas',          label:'Mesas Plegables',     q:'mesa plegable exterior reforzada',cat:'MLA9440',icon:'🪵'},
-  {id:'parlantes',      label:'Parlantes BT',        q:'parlante bluetooth portatil', cat:'MLA1700',   icon:'🔊'},
+  {id:'sillas_gamer',   label:'Sillas Gamer',    q:'silla gamer',           cat:'', icon:'🎮'},
+  {id:'sillas_oficina', label:'Sillas Oficina',  q:'silla de oficina',      cat:'', icon:'💼'},
+  {id:'sillas_living',  label:'Sillas Living',   q:'silla comedor',         cat:'', icon:'🪑'},
+  {id:'soportes_tv',    label:'Soportes TV',     q:'soporte tv',            cat:'', icon:'📺'},
+  {id:'auriculares',    label:'Auriculares BT',  q:'auriculares bluetooth', cat:'', icon:'🎧'},
+  {id:'smartwatches',   label:'Smartwatches',    q:'smartwatch',            cat:'', icon:'⌚'},
+  {id:'mesas',          label:'Mesas Plegables', q:'mesa plegable',         cat:'', icon:'🪵'},
+  {id:'parlantes',      label:'Parlantes BT',    q:'parlante bluetooth',    cat:'', icon:'🔊'},
 ];
 
 // Rubros para explorar (que NIVIKO no trabaja todavía)
 const EXPLORAR_CATS = [
-  {id:'tv',         label:'Televisores',       q:'smart tv 55 pulgadas',         cat:'MLA1000',  icon:'📺'},
-  {id:'colchones',  label:'Colchones',         q:'colchon espuma alta densidad',  cat:'MLA9440',  icon:'🛏'},
-  {id:'bicicletas', label:'Bicicletas',        q:'bicicleta rodado 29 mtb',      cat:'MLA1367',  icon:'🚲'},
-  {id:'cafeteras',  label:'Cafeteras',         q:'cafetera expresso automatica',  cat:'MLA1574',  icon:'☕'},
-  {id:'aires',      label:'Aires Acondicionados',q:'aire acondicionado split frio calor',cat:'MLA1574',icon:'❄️'},
-  {id:'robots',     label:'Aspiradoras Robot', q:'aspiradora robot inteligente',  cat:'MLA1574',  icon:'🤖'},
-  {id:'drones',     label:'Drones con Cámara', q:'drone camara 4k profesional',   cat:'MLA1000',  icon:'🚁'},
-  {id:'impresoras', label:'Impresoras',        q:'impresora multifuncion laser',   cat:'MLA1652',  icon:'🖨️'},
+  {id:'tv',         label:'Televisores',          q:'smart tv',              cat:'', icon:'📺'},
+  {id:'colchones',  label:'Colchones',            q:'colchon',               cat:'', icon:'🛏'},
+  {id:'bicicletas', label:'Bicicletas',           q:'bicicleta mtb',         cat:'', icon:'🚲'},
+  {id:'cafeteras',  label:'Cafeteras',            q:'cafetera espresso',     cat:'', icon:'☕'},
+  {id:'aires',      label:'Aires Acondicionados', q:'aire acondicionado',    cat:'', icon:'❄️'},
+  {id:'robots',     label:'Aspiradoras Robot',    q:'aspiradora robot',      cat:'', icon:'🤖'},
+  {id:'drones',     label:'Drones',               q:'drone camara',          cat:'', icon:'🚁'},
+  {id:'impresoras', label:'Impresoras',           q:'impresora laser',       cat:'', icon:'🖨️'},
 ];
 
 let _mTab = 'mis_cats';
@@ -1572,6 +1572,7 @@ function renderMisCats(el, token){
 
 window.selectCat = function(id){
   _catSelected = id;
+  delete _catData[id]; // clear cache to force fresh fetch
   const token = S.accounts[0]?.token;
   renderMisCats(document.getElementById('mercCont'), token);
 };
@@ -1640,7 +1641,7 @@ async function loadCatAnalysis(id, token, isExplore){
     // Fetch top 50 by sold_quantity
     // Fetch with sold_quantity_desc sort + category
     let url = `${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`;
-    if(conf.cat) url += `&category=${conf.cat}`;
+    // category removed - queries without category get more results
     console.log('[Mercado] Fetching:', url);
     const r = await fetch(url, {headers:{'x-ml-token':token}});
     const data = await r.json();
