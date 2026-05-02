@@ -608,14 +608,20 @@ function applyProductCosts(orders){
     const iva = (o.venta/(1+ivaPct))*ivaPct;
     const pub = p.pub===false ? 0 : o.venta*0.05;
     const ganancia = o.venta-(o.comision||0)-(o.cuotas||0)-costo-iva-pub-(o.iibb||0)-(o.costoEnvio||0);
+    // Si la comisión parece incorrecta (< 5% para órdenes pack), estimar 14%
+    const comisionOk = (o.comision||0) >= o.venta * 0.05;
+    const comisionFinal = comisionOk ? (o.comision||0) : Math.round(o.venta * 0.14);
+    const gananciafinal = o.venta - comisionFinal - (o.cuotas||0) - costo - iva - pub - (o.iibb||0) - (o.costoEnvio||0);
     return {
       ...o,
       costo: Math.round(costo),
       iva: Math.round(iva),
       ivaPct: p.iva,
       pub: Math.round(pub),
-      ganancia: Math.round(ganancia),
-      pct: o.venta>0 ? ganancia/o.venta : 0,
+      comision: comisionFinal,
+      _comisionEstimada: !comisionOk,
+      ganancia: Math.round(gananciafinal),
+      pct: o.venta>0 ? gananciafinal/o.venta : 0,
       sinProducto: false
     };
   });
@@ -909,7 +915,7 @@ window.verDetalle=(id,acctId)=>{
     '<div style="font-size:10px;color:var(--t2)">SKU: '+(o.sku||"—")+" · IVA "+(o.ivaPct||21)+"% · "+(o.pub>0?"Paga pub.":"Sin pub.")+" · "+(o.unidades||1)+" unidad"+(o.unidades>1?"es":"")+"</div></div>"+
     row("Precio de venta",fF(o.venta),"","Lo que pagó el comprador")+
     '<div style="font-size:9px;color:var(--t3);margin:7px 0 2px;text-transform:uppercase;letter-spacing:1px">— ML descuenta</div>'+
-    row("Comisión ML","−"+fF(o.comision||0),"r","")+
+    row("Comisión ML","−"+fF(o.comision||0),"r",o._comisionEstimada?"⚠ Estimada 14% (pack_order - fee real en próximo refresh)":"")+
     ((o.cuotas||0)>0?row("Costo cuotas","−"+fF(o.cuotas||0),"r","Comprador pagó en cuotas"):"")+
     '<div style="font-size:9px;color:var(--t3);margin:7px 0 2px;text-transform:uppercase;letter-spacing:1px">— Tus costos</div>'+
     row("Costo producto",(o.costo||0)>0?"−"+fF(o.costo||0):"⚠ Sin costo",(o.costo||0)===0?"r":"m",(o.costo||0)===0?"SKU sin costo registrado":"")+
