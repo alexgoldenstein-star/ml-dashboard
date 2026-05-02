@@ -1641,11 +1641,14 @@ async function loadCatAnalysis(id, token, isExplore){
     // Fetch with sold_quantity_desc sort + category
     let url = `${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`;
     if(conf.cat) url += `&category=${conf.cat}`;
+    console.log('[Mercado] Fetching:', url);
     const r = await fetch(url, {headers:{'x-ml-token':token}});
     const data = await r.json();
+    console.log('[Mercado] Response:', {total:data.paging?.total, results:data.results?.length, error:data.error, message:data.message});
     // Sort client-side too since API sort isn't always reliable
     let results = (data.results||[]).filter(x=>x.price>0)
       .sort((a,b)=>(b.sold_quantity||0)-(a.sold_quantity||0));
+    console.log('[Mercado] Filtered results:', results.length);
 
     if(!results.length){
       // Retry without category filter
