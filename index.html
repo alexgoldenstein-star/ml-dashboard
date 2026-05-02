@@ -605,7 +605,7 @@ function applyProductCosts(orders){
     if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
     const costo = p.ars * (o.unidades||1); // multiplicar por unidades
     const ivaPct = p.iva/100;
-    const iva = (o.venta/(1+ivaPct))*ivaPct;
+    const iva = o.venta*ivaPct; // directo sobre venta bruta
     const pub = p.pub===false ? 0 : o.venta*0.05;
     const ganancia = o.venta-(o.comision||0)-(o.cuotas||0)-costo-iva-pub-(o.iibb||0)-(o.costoEnvio||0);
     // Si la comisión parece incorrecta (< 5% para órdenes pack), estimar 14%
