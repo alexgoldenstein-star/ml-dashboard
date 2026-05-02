@@ -1621,73 +1621,203 @@ window.doExplorar = function(){
 async function loadCatAnalysis(id, token, isExplore){
   const anaEl = document.getElementById('catAnalysis');
   if(!anaEl) return;
-  
-  // Cache hit
+
   if(_catData[id]){
     renderCatAnalysis(id, _catData[id], isExplore);
     return;
   }
 
-  anaEl.innerHTML = `<div class="card" style="text-align:center;padding:30px">
-    <div style="font-size:24px;margin-bottom:8px">🔍</div>
-    <div style="color:var(--t2);font-size:12px">Analizando mercado...</div>
-  </div>`;
-
   const allCats = [...NIVIKO_CATS, ...EXPLORAR_CATS];
   const conf = allCats.find(c=>c.id===id);
   if(!conf) return;
 
+  anaEl.innerHTML = `<div class="card" style="text-align:center;padding:30px">
+    <div style="font-size:24px;margin-bottom:8px">🤖</div>
+    <div style="color:var(--t2);font-size:12px">Analizando mercado con IA...</div>
+    <div style="color:var(--t3);font-size:10px;margin-top:4px">Buscando en MercadoLibre Argentina</div>
+  </div>`;
+
   try{
-    // Fetch top 50 by sold_quantity
-    // Fetch with sold_quantity_desc sort + category
-    let url = `${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`;
-    // category removed - queries without category get more results
-    // Usar proxy CON token - ML requiere access_token como query param desde servidores
-    const searchUrl = `${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=sold_quantity_desc&limit=50`;
-    console.log('[Mercado] Fetching via proxy:', searchUrl);
-    const r = await fetch(searchUrl, {headers:{'x-ml-token':token}});
-    const data = await r.json();
-    console.log('[Mercado] Response:', {total:data.paging?.total, results:data.results?.length, error:data.error});
-    let results = (data.results||[]).filter(x=>x.price>0)
-      .sort((a,b)=>(b.sold_quantity||0)-(a.sold_quantity||0));
-    console.log('[Mercado] Results:', results.length);
+    // Usar Claude AI con web search para obtener datos del mercado
+    const prompt = `Analizá el mercado de "${conf.q}" en MercadoLibre Argentina hoy.
+    
+Buscá en mercadolibre.com.ar/listado/${conf.q.replace(/\s+/g,'-')} y también en la API pública.
 
-    if(!results.length){
-      // Retry without category filter
-      if(conf.cat){
-        try{
-          const r2=await fetch(`${PROXY}/mercado/search?q=${encodeURIComponent(conf.q)}&sort=relevance&limit=50`,{headers:{'x-ml-token':token}});
-          const d2=await r2.json();
-          const r2res=(d2.results||[]).filter(x=>x.price>0);
-          if(r2res.length){
-            _catData[id]={results:r2res,top5Details:[],conf};
-            renderCatAnalysis(id,_catData[id],isExplore);
-            return;
-          }
-        }catch(e){}
-      }
-      anaEl.innerHTML=`<div class="card" style="text-align:center;padding:24px">
-        <div style="font-size:24px;margin-bottom:8px">🔍</div>
-        <div style="color:var(--t3);font-size:12px">Sin resultados para "<strong style="color:var(--t2)">${esc(conf.q)}</strong>"</div>
-        <div style="color:var(--t3);font-size:10px;margin-top:6px">Intentá con otra búsqueda en la tab Explorar Rubros</div>
-      </div>`;
-      return;
-    }
+Necesito en formato JSON estricto (sin texto extra, solo JSON):
+{
+  "categoria": "${conf.label}",
+  "query": "${conf.q}",
+  "precio_min": number,
+  "precio_max": number,
+  "precio_promedio": number,
+  "precio_mediana": number,
+  "total_publicaciones": number,
+  "top_productos": [
+    {"titulo": string, "precio": number, "vendidos": number, "vendedor": string, "url": string},
+    ...5 items
+  ],
+  "top_vendedores": [
+    {"nombre": string, "publicaciones": number, "ventas_estimadas": number},
+    ...5 items
+  ],
+  "insights": ["insight 1", "insight 2", "insight 3"],
+  "recomendacion_precio": number,
+  "tendencia": "creciente|estable|decreciente",
+  "nivel_competencia": "bajo|medio|alto"
+}`;
 
-    // Fetch details for top 5 (for date_created → daily sales estimate)
-    const top5Details = await Promise.all(
-      results.slice(0,5).map(item=>
-        fetch(`${PROXY}/mercado/item?id=${item.id}`,{headers:{'x-ml-token':token}})
-          .then(r=>r.json()).catch(()=>null)
-      )
-    );
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        tools: [{type: "web_search_20250305", name: "web_search"}],
+        messages: [{role: "user", content: prompt}]
+      })
+    });
 
-    _catData[id] = {results, top5Details, conf};
-    renderCatAnalysis(id, _catData[id], isExplore);
+    const aiData = await response.json();
+    
+    // Extraer el JSON de la respuesta
+    const textBlock = aiData.content?.find(b=>b.type==='text');
+    if(!textBlock?.text) throw new Error('Sin respuesta de IA');
+    
+    // Parse JSON from response
+    const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('No se pudo parsear la respuesta');
+    
+    const marketData = JSON.parse(jsonMatch[0]);
+    _catData[id] = {marketData, conf};
+    renderCatAnalysisAI(id, _catData[id], isExplore);
+
   }catch(e){
-    anaEl.innerHTML=`<div class="card"><p style="color:var(--red);font-size:12px">Error: ${e.message}</p></div>`;
+    // Fallback: mostrar análisis manual con lo que sabemos
+    anaEl.innerHTML=`<div class="card">
+      <div style="color:var(--org);font-size:12px;margin-bottom:8px">⚠ No se pudo obtener datos en tiempo real</div>
+      <p style="font-size:11px;color:var(--t2)">La búsqueda en ML está temporalmente no disponible desde el servidor.</p>
+      <p style="font-size:11px;color:var(--t2);margin-top:6px">Podés buscar manualmente en:</p>
+      <a href="https://www.mercadolibre.com.ar/listado/${encodeURIComponent(conf.q)}" target="_blank" 
+         style="display:inline-block;margin-top:8px;padding:8px 14px;background:rgba(255,230,0,.1);border:1px solid rgba(255,230,0,.3);border-radius:var(--r);color:#FFE600;font-size:11px;text-decoration:none">
+        🔍 Ver "${conf.label}" en MercadoLibre →
+      </a>
+      <div style="margin-top:10px;font-size:10px;color:var(--t3)">Error: ${e.message}</div>
+    </div>`;
   }
 }
+
+function renderCatAnalysisAI(id, {marketData:m, conf}, isExplore){
+  const anaEl = document.getElementById('catAnalysis');
+  if(!anaEl||!m) return;
+
+  const tendColor = m.tendencia==='creciente'?'var(--grn)':m.tendencia==='decreciente'?'var(--red)':'var(--org)';
+  const compColor = m.nivel_competencia==='bajo'?'var(--grn)':m.nivel_competencia==='alto'?'var(--red)':'var(--org)';
+  const tendIcon = m.tendencia==='creciente'?'📈':m.tendencia==='decreciente'?'📉':'➡️';
+
+  // My products comparison
+  const myProds = isExplore ? [] : getMyProductsForCat(conf);
+
+  anaEl.innerHTML = `
+  <div class="g4" style="margin-bottom:12px">
+    <div class="kpi acc">
+      <div class="kl">${conf.icon} ${conf.label}</div>
+      <div class="kv">${fS(m.precio_promedio||0)}</div>
+      <div class="ks">Precio promedio</div>
+    </div>
+    <div class="kpi grn">
+      <div class="kl">Publicaciones</div>
+      <div class="kv">${(m.total_publicaciones||0).toLocaleString()}</div>
+      <div class="ks">en el rubro</div>
+    </div>
+    <div class="kpi blu">
+      <div class="kl">Tendencia ${tendIcon}</div>
+      <div class="kv" style="color:${tendColor};font-size:14px">${(m.tendencia||'—').toUpperCase()}</div>
+      <div class="ks">del mercado</div>
+    </div>
+    <div class="kpi org">
+      <div class="kl">Competencia</div>
+      <div class="kv" style="color:${compColor};font-size:14px">${(m.nivel_competencia||'—').toUpperCase()}</div>
+      <div class="ks">nivel del rubro</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="card">
+      <div class="ch"><span class="ct">Top productos más vendidos</span></div>
+      <table class="tbl">
+        <thead><tr><th>#</th><th>Producto</th><th>Precio</th><th>Vendidos</th></tr></thead>
+        <tbody>
+          ${(m.top_productos||[]).map((p,i)=>`<tr>
+            <td style="color:var(--t3)">${i+1}</td>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:var(--t2)" title="${esc(p.titulo||'')}">${esc(p.titulo||'—')}</td>
+            <td class="mono">${fF(p.precio||0)}</td>
+            <td class="g">${(p.vendidos||0).toLocaleString()}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="margin-top:8px;font-size:10px;color:var(--t2)">
+        Rango: <strong>${fF(m.precio_min||0)}</strong> → <strong>${fF(m.precio_max||0)}</strong> · 
+        Mediana: <strong style="color:var(--acc)">${fF(m.precio_mediana||0)}</strong>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ch"><span class="ct">Top vendedores</span></div>
+      <table class="tbl">
+        <thead><tr><th>Vendedor</th><th>Pubs</th><th>Ventas est.</th></tr></thead>
+        <tbody>
+          ${(m.top_vendedores||[]).map((v,i)=>`<tr>
+            <td style="font-size:11px">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '} ${esc(v.nombre||'—')}</td>
+            <td>${v.publicaciones||0}</td>
+            <td class="mono g">${(v.ventas_estimadas||0).toLocaleString()}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  ${myProds.length>0?`
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">Mis productos vs mercado</span></div>
+    <table class="tbl">
+      <thead><tr><th>SKU</th><th>Descripción</th><th>Mi precio ML</th><th>Mediana mercado</th><th>Diferencia</th></tr></thead>
+      <tbody>
+        ${myProds.map(p=>{
+          const myOrds=S.orders.filter(o=>o.sku===p.sku);
+          const myPrice=myOrds.length?myOrds.reduce((s,o)=>s+o.venta,0)/myOrds.length:0;
+          if(!myPrice) return '';
+          const diff=myPrice-(m.precio_mediana||0);
+          return `<tr>
+            <td><span class="sku">${esc(p.sku)}</span></td>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)">${esc(p.desc||'')}</td>
+            <td class="mono">${fF(myPrice)}</td>
+            <td class="mono">${fF(m.precio_mediana||0)}</td>
+            <td class="${diff>0?'r':'g'}">${diff>0?'+':''}${fF(diff)} (${((diff/(m.precio_mediana||1))*100).toFixed(1)}%)</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`:''}
+
+  <div class="card">
+    <div class="ch"><span class="ct">🤖 Análisis IA del mercado</span>
+      <a href="https://www.mercadolibre.com.ar/listado/${encodeURIComponent(conf.q)}" target="_blank" 
+         style="font-size:10px;color:var(--acc);text-decoration:none">Ver en ML →</a>
+    </div>
+    ${(m.insights||[]).map(i=>`
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start">
+        <span style="font-size:12px">💡</span>
+        <span style="font-size:11px;color:var(--t2);line-height:1.5">${esc(i)}</span>
+      </div>`).join('')}
+    ${m.recomendacion_precio?`
+    <div style="margin-top:10px;padding:10px;background:rgba(232,255,71,.05);border:1px solid rgba(232,255,71,.15);border-radius:var(--r)">
+      <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Precio recomendado para NIVIKO</div>
+      <div style="font-size:18px;font-weight:700;color:var(--acc)">${fF(m.recomendacion_precio)}</div>
+      <div style="font-size:10px;color:var(--t2);margin-top:2px">Para ser competitivo manteniendo margen</div>
+    </div>`:''}
+  </div>`;
+}
+
 
 function renderCatAnalysis(id, {results, top5Details, conf}, isExplore){
   const anaEl = document.getElementById('catAnalysis');
