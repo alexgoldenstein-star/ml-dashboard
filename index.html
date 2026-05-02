@@ -1503,86 +1503,6 @@ window.exportZonas=()=>{
   const b=new Blob([csv],{type:"text/csv;charset=utf-8;"});const l=document.createElement("a");l.href=URL.createObjectURL(b);l.download="zonas.csv";l.click();
 };
 
-// ── MERCADO ───────────────────────────────────────────────────
-window.sMTab=(t,el)=>{S.mTab=t;document.querySelectorAll("#page-mercado .tab").forEach(x=>x.classList.remove("on"));el.classList.add("on");renderMercado();};
-function renderMercado(){
-  const el=document.getElementById("mercCont");if(!el)return;
-  const token=S.accounts[0]?.token;
-  if(!token){el.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">⚠ Conectá una cuenta ML para usar Est. Mercado.</p></div>';return;}
-  if(S.mTab==="cat"){
-    const catOpts=CATS.map(c=>'<option value="'+c.id+'">'+c.n+"</option>").join("");
-    el.innerHTML='<div class="card"><div class="ch"><span class="ct">Buscar en ML</span></div>'+
-      '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">'+
-      '<select class="sel" id="catSel" style="min-width:150px"><option value="">Categoría...</option>'+catOpts+'</select>'+
-      '<input class="srch" id="catQ" placeholder="o escribí búsqueda..." style="flex:1;min-width:120px">'+
-      '<select class="sel" id="catSort"><option value="sold_quantity_desc">Más vendidos</option><option value="relevance">Relevancia</option><option value="price_asc">Precio ↑</option></select>'+
-      '<button class="btn" onclick="doCatSearch()">Buscar</button></div><div id="catRes"></div></div>';
-  }else if(S.mTab==="seller"){
-    el.innerHTML='<div class="card"><div class="ch"><span class="ct">Analizar competidor</span></div>'+
-      '<p style="font-size:12px;color:var(--t2);margin-bottom:8px">Ingresá el <strong style="color:var(--t1)">User ID numérico</strong> del vendedor.</p>'+
-      '<p style="font-size:10px;color:var(--t3);margin-bottom:10px">GBA=16454562 · BHO=1102446957 · IURA=189587994 · GBS=169823966</p>'+
-      '<div style="display:flex;gap:6px;margin-bottom:14px"><input class="srch" id="sellerQ" placeholder="User ID numérico..." style="flex:1"><button class="btn" onclick="doSellerSearch()">Analizar</button></div>'+
-      '<div id="sellerRes"></div></div>';
-  }else{
-    el.innerHTML='<div class="card"><div class="ch"><span class="ct">Buscar por Item ID o EAN</span></div>'+
-      '<div style="display:flex;gap:6px;margin-bottom:14px"><input class="srch" id="eanQ" placeholder="MLA1234567890 o EAN..." style="flex:1"><button class="btn" onclick="doEanSearch()">Buscar</button></div>'+
-      '<div id="eanRes"></div></div>';
-  }
-}
-function renderMLTable(el,results,q){
-  if(!results.length){el.innerHTML='<p style="color:var(--t3);font-size:12px;text-align:center;padding:16px">Sin resultados</p>';return;}
-  let h='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Producto</th><th>Vendedor</th><th>Precio</th><th>Ventas</th><th>Estado</th></tr></thead><tbody>';
-  results.forEach(r=>{h+='<tr><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis"><a href="'+(r.permalink||"#")+'" target="_blank" style="color:var(--acc);font-size:11px">'+esc(r.title||"—")+'</a></td><td style="font-size:11px;color:var(--t2)">'+(r.seller?.nickname||"—")+'</td><td class="mono">$'+Math.round(r.price||0).toLocaleString("es-AR")+'</td><td>'+(r.sold_quantity||0)+'</td><td><span style="font-size:10px;padding:2px 5px;border-radius:4px;background:'+(r.condition==="new"?"rgba(71,232,127,.1)":"rgba(255,138,77,.1)")+';color:'+(r.condition==="new"?"var(--grn)":"var(--org)")+'">'+( r.condition==="new"?"Nuevo":"Usado")+"</span></td></tr>";});
-  el.innerHTML=h+"</tbody></table></div>";
-}
-window.doCatSearch=async()=>{
-  const catId=document.getElementById("catSel")?.value,qv=document.getElementById("catQ")?.value.trim(),sort=document.getElementById("catSort")?.value||"sold_quantity_desc",el=document.getElementById("catRes");
-  if(!qv&&!catId){toast("Elegí categoría o escribí búsqueda","err");return;}
-  el.innerHTML='<p style="color:var(--t2);font-size:12px">Buscando...</p>';
-  try{
-    const token=S.accounts[0]?.token;
-    let url=PROXY+"/mercado/search?limit=30&sort="+sort;
-    if(qv)url+="&q="+encodeURIComponent(qv);if(catId)url+="&category="+catId;
-    const data=await fetch(url,{headers:{"x-ml-token":token}}).then(r=>r.json());
-    if(data.error)throw new Error(data.error);
-    renderMLTable(el,data.results||[],qv);
-  }catch(e){el.innerHTML='<p style="color:var(--red);font-size:12px">Error: '+e.message+"</p>";}
-};
-window.doSellerSearch=async()=>{
-  const qv=document.getElementById("sellerQ")?.value.trim(),el=document.getElementById("sellerRes");
-  if(!qv)return;
-  if(!/^\d+$/.test(qv)){el.innerHTML='<div style="color:var(--org);font-size:12px;padding:10px;background:rgba(255,138,77,.06);border-radius:var(--r)">⚠ Necesitás el <strong>User ID numérico</strong>.</div>';return;}
-  el.innerHTML='<p style="color:var(--t2);font-size:12px">Buscando...</p>';
-  try{
-    const token=S.accounts[0]?.token;
-    const data=await fetch(PROXY+"/mercado/seller?q="+qv,{headers:{"x-ml-token":token}}).then(r=>r.json());
-    if(data.error)throw new Error(data.error);
-    const s=data.seller||{},items=data.items||[];
-    if(!s.id){el.innerHTML='<p style="color:var(--red);font-size:12px">No encontrado</p>';return;}
-    let h='<div style="background:var(--s2);border-radius:var(--r);padding:12px;border:1px solid var(--b1);margin-bottom:12px">'+
-      '<div style="font-weight:500;font-size:13px;margin-bottom:4px">'+esc(s.nickname)+'</div>'+
-      '<div style="font-size:11px;color:var(--t2)">ID: '+s.id+' · Ventas: '+(s.seller_reputation?.transactions?.completed||0).toLocaleString()+' · Nivel: '+(s.seller_reputation?.level_id||"—")+'</div></div>';
-    h+='<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Publicación</th><th>Precio</th><th>Ventas</th><th>Link</th></tr></thead><tbody>';
-    items.forEach(i=>{h+='<tr><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;font-size:11px">'+esc(i.title||"—")+'</td><td class="mono">$'+Math.round(i.price||0).toLocaleString("es-AR")+'</td><td>'+(i.sold_quantity||0)+'</td><td><a href="'+(i.permalink||"#")+'" target="_blank" style="color:var(--acc);font-size:10px">Ver →</a></td></tr>';});
-    el.innerHTML=h+"</tbody></table></div>";
-  }catch(e){el.innerHTML='<p style="color:var(--red);font-size:12px">Error: '+e.message+"</p>";}
-};
-window.doEanSearch=async()=>{
-  const qv=document.getElementById("eanQ")?.value.trim(),el=document.getElementById("eanRes");
-  if(!qv)return;el.innerHTML='<p style="color:var(--t2);font-size:12px">Buscando...</p>';
-  try{
-    const token=S.accounts[0]?.token;
-    if(qv.toUpperCase().startsWith("MLA")){
-      const item=await fetch(PROXY+"/mercado/item?id="+qv.toUpperCase(),{headers:{"x-ml-token":token}}).then(r=>r.json());
-      renderMLTable(el,item.id?[item]:[],qv);
-    }else{
-      const data=await fetch(PROXY+"/mercado/ean?code="+encodeURIComponent(qv),{headers:{"x-ml-token":token}}).then(r=>r.json());
-      renderMLTable(el,data.results||[],qv);
-    }
-  }catch(e){el.innerHTML='<p style="color:var(--red);font-size:12px">Error: '+e.message+"</p>";}
-};
-
-
 // ── INTELIGENCIA DE MERCADO ML ────────────────────────────────
 
 // Categorías de NIVIKO con queries y categoría ML
@@ -2061,6 +1981,108 @@ function renderEAN(el, token){
     <div style="display:flex;gap:6px;margin-bottom:14px"><input class="srch" id="eanQ" placeholder="MLA1234567890 o EAN/código de barras..." style="flex:1"><button class="btn" onclick="doEanSearch()">Buscar</button></div>
     <div id="eanRes"></div></div>`;
 }
+
+
+window.doSellerSearch=async()=>{
+  const qv=document.getElementById("sellerQ")?.value?.trim();
+  const el=document.getElementById("sellerRes");
+  if(!qv||!el)return;
+  if(!/^\d+$/.test(qv)){
+    el.innerHTML='<div style="color:var(--org);font-size:12px;padding:10px;background:rgba(255,138,77,.06);border-radius:var(--r)">⚠ Necesitás el <strong>User ID numérico</strong> del vendedor.</div>';
+    return;
+  }
+  el.innerHTML='<p style="color:var(--t2);font-size:12px">Buscando...</p>';
+  try{
+    const token=S.accounts[0]?.token;
+    const data=await fetch(PROXY+"/mercado/seller?q="+qv,{headers:{"x-ml-token":token}}).then(r=>r.json());
+    if(data.error)throw new Error(data.error);
+    const s=data.seller||{},items=data.items||[];
+    if(!s.id){el.innerHTML='<p style="color:var(--red);font-size:12px">Vendedor no encontrado</p>';return;}
+    let h=`<div style="background:var(--s2);border-radius:var(--r);padding:12px;border:1px solid var(--b1);margin-bottom:12px">
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px">${esc(s.nickname)}</div>
+      <div style="font-size:11px;color:var(--t2)">
+        ID: ${s.id} · 
+        Ventas completadas: <strong style="color:var(--t1)">${(s.seller_reputation?.transactions?.completed||0).toLocaleString()}</strong> · 
+        Nivel: <strong style="color:var(--acc)">${s.seller_reputation?.level_id||'—'}</strong>
+      </div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Publicación</th><th>Precio</th><th>Vendido</th><th>Ver</th></tr></thead>
+      <tbody>
+        ${items.map(i=>`<tr>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:var(--t2)">${esc(i.title||'—')}</td>
+          <td class="mono">$${Math.round(i.price||0).toLocaleString('es-AR')}</td>
+          <td class="g">${(i.sold_quantity||0).toLocaleString()}</td>
+          <td><a href="${i.permalink||'#'}" target="_blank" style="color:var(--acc);font-size:10px">Ver →</a></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+    el.innerHTML=h;
+  }catch(e){el.innerHTML=`<p style="color:var(--red);font-size:12px">Error: ${e.message}</p>`;}
+};
+
+window.doEanSearch=async()=>{
+  const qv=document.getElementById("eanQ")?.value?.trim();
+  const el=document.getElementById("eanRes");
+  if(!qv||!el)return;
+  el.innerHTML='<p style="color:var(--t2);font-size:12px">Buscando...</p>';
+  try{
+    const token=S.accounts[0]?.token;
+    let data;
+    if(qv.toUpperCase().startsWith("MLA")){
+      const item=await fetch(PROXY+"/mercado/item?id="+qv.toUpperCase(),{headers:{"x-ml-token":token}}).then(r=>r.json());
+      data={results:item.id?[item]:[]};
+    }else{
+      data=await fetch(PROXY+"/mercado/ean?code="+encodeURIComponent(qv),{headers:{"x-ml-token":token}}).then(r=>r.json());
+    }
+    const results=data.results||[];
+    if(!results.length){el.innerHTML='<p style="color:var(--t3);font-size:12px">Sin resultados</p>';return;}
+    el.innerHTML=`<div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Producto</th><th>Vendedor</th><th>Precio</th><th>Ventas</th><th>Estado</th></tr></thead>
+      <tbody>
+        ${results.slice(0,20).map(r=>`<tr>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis"><a href="${r.permalink||'#'}" target="_blank" style="color:var(--acc);font-size:11px">${esc(r.title||'—')}</a></td>
+          <td style="font-size:11px;color:var(--t2)">${esc(r.seller?.nickname||'—')}</td>
+          <td class="mono">$${Math.round(r.price||0).toLocaleString('es-AR')}</td>
+          <td>${(r.sold_quantity||0)}</td>
+          <td><span style="font-size:10px;padding:2px 5px;border-radius:4px;background:${r.condition==='new'?'rgba(71,232,127,.1)':'rgba(255,138,77,.1)'};color:${r.condition==='new'?'var(--grn)':'var(--org)'}">${r.condition==='new'?'Nuevo':'Usado'}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  }catch(e){el.innerHTML=`<p style="color:var(--red);font-size:12px">Error: ${e.message}</p>`;}
+};
+
+window.doCatSearch=async()=>{
+  const catId=document.getElementById("catSel")?.value;
+  const qv=document.getElementById("catQ")?.value?.trim();
+  const sort=document.getElementById("catSort")?.value||"sold_quantity_desc";
+  const el=document.getElementById("catRes");
+  if(!qv&&!catId){toast("Elegí categoría o escribí búsqueda","err");return;}
+  if(!el)return;
+  el.innerHTML='<p style="color:var(--t2);font-size:12px">Buscando...</p>';
+  try{
+    const token=S.accounts[0]?.token;
+    let url=PROXY+"/mercado/search?limit=30&sort="+sort;
+    if(qv)url+="&q="+encodeURIComponent(qv);
+    if(catId)url+="&category="+catId;
+    const data=await fetch(url,{headers:{"x-ml-token":token}}).then(r=>r.json());
+    if(data.error)throw new Error(data.error);
+    const results=data.results||[];
+    if(!results.length){el.innerHTML='<p style="color:var(--t3);font-size:12px;text-align:center;padding:16px">Sin resultados</p>';return;}
+    el.innerHTML=`<div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Producto</th><th>Vendedor</th><th>Precio</th><th>Ventas</th><th>Estado</th></tr></thead>
+      <tbody>
+        ${results.map(r=>`<tr>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis"><a href="${r.permalink||'#'}" target="_blank" style="color:var(--acc);font-size:11px">${esc(r.title||'—')}</a></td>
+          <td style="font-size:11px;color:var(--t2)">${esc(r.seller?.nickname||'—')}</td>
+          <td class="mono">$${Math.round(r.price||0).toLocaleString('es-AR')}</td>
+          <td>${(r.sold_quantity||0)}</td>
+          <td><span style="font-size:10px;padding:2px 5px;border-radius:4px;background:${r.condition==='new'?'rgba(71,232,127,.1)':'rgba(255,138,77,.1)'};color:${r.condition==='new'?'var(--grn)':'var(--org)'}">${r.condition==='new'?'Nuevo':'Usado'}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  }catch(e){el.innerHTML=`<p style="color:var(--red);font-size:12px">Error: ${e.message}</p>`;}
+};
 
 // ── CUENTAS ───────────────────────────────────────────────────
 function renderCuentas(){
