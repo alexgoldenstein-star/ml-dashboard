@@ -723,8 +723,13 @@ async function refreshTokens(){
 }
 
 function checkAlertas(){
-  const sinProd=[...new Set(S.orders.filter(o=>o.sinProducto&&o.sku!=="—").map(o=>o.sku))];
-  const sinZona=[...new Set(S.orders.filter(o=>o.sinZona).map(o=>o.ciudad).filter(Boolean))];
+  // Recomputar desde el estado actual de productos y zonas (no confiar en flags guardados)
+  const prodSkus = new Set(S.products.map(p=>p.sku));
+  const sinProd=[...new Set(S.orders.filter(o=>o.sku&&o.sku!=="—"&&!prodSkus.has(o.sku)).map(o=>o.sku))];
+  const sinZona=[...new Set(S.orders.filter(o=>{
+    if(o.modal!=='Flex'||!o.ciudad)return false;
+    return !S.zonas[o.ciudad.toLowerCase().trim()];
+  }).map(o=>o.ciudad))];
   S.alertas={sinProd,sinZona};
   const total=sinProd.length+sinZona.length;
   const nav=document.getElementById("navAlertas"),badge=document.getElementById("alertaBadge");
@@ -1013,7 +1018,22 @@ window.saveProd=async()=>{
   await fb.set("products",{edits:S.prodEdits});
   if(btn)btn.disabled=false;
   toast("✓ "+sku+" guardado ($"+ars.toLocaleString("es-AR")+")","ok");
-  closeModal("mProd");renderProds();
+  closeModal("mProd");
+  // Recalcular sinProducto en las órdenes que tenían este SKU sin costo
+  S.orders = S.orders.map(o => {
+    if(o.sku !== sku) return o;
+    const p = S.products.find(x=>x.sku===sku);
+    if(!p) return o;
+    // Recalcular con el nuevo costo
+    const costo = p.ars;
+    const ivaPct = p.iva/100;
+    const iva = (o.venta/(1+ivaPct))*ivaPct;
+    const pub = p.pub===false?0:o.venta*0.05;
+    const ganancia = o.venta-(o.comision||0)-(o.cuotas||0)-costo-iva-pub-(o.iibb||0)-(o.costoEnvio||0);
+    return {...o, costo:Math.round(costo), iva:Math.round(iva), ivaPct:p.iva, pub:Math.round(pub),
+            ganancia:Math.round(ganancia), pct:o.venta>0?ganancia/o.venta:0, sinProducto:false};
+  });
+  renderProds();checkAlertas();renderAll();
 };
 window.exportProds=()=>{
   const csv=["SKU,Descripcion,USD,ARS,IVA,Publicidad"].concat(S.products.map(p=>p.sku+',"'+(p.desc||"").replace(/"/g,'""')+'",'+p.usd+","+p.ars+","+p.iva+"%,"+(p.pub===false?"No":"Si"))).join("\n");
@@ -1067,13 +1087,27 @@ window.saveZona=async()=>{
   if(!loc){toast("Ingresá la localidad","err");return;}
   S.zonas[loc]=cord;S.zonaEdits[loc]=cord;
   await fb.set("zonas",{edits:S.zonaEdits});
-  toast(loc+" → Cordón "+cord+" ✓","ok");closeModal("mZona");renderZonas();
+  // Recalcular sinZona y costoEnvio en las órdenes Flex de esta ciudad
+  S.orders = S.orders.map(o => {
+    if(o.modal !== 'Flex') return o;
+    const ciudad = (o.ciudad||'').toLowerCase().trim();
+    if(ciudad !== loc) return o;
+    const cfg = S.cfg;
+    const costoCordon = cord===1?cfg.c1:cord===2?cfg.c2:cfg.c3;
+    const bonif = 849;
+    const costoEnvio = Math.max(0, costoCordon - bonif);
+    const ganancia = o.venta-(o.comision||0)-(o.cuotas||0)-(o.costo||0)-(o.iva||0)-(o.pub||0)-(o.iibb||0)-costoEnvio;
+    return {...o, cordon:cord, costoEnvio:Math.round(costoEnvio), bonifEnvio:bonif,
+            ganancia:Math.round(ganancia), pct:o.venta>0?ganancia/o.venta:0, sinZona:false};
+  });
+  toast(loc+" → Cordón "+cord+" ✓","ok");
+  closeModal("mZona");renderZonas();checkAlertas();renderAll();
 };
 window.delZona=async loc=>{
   if(!confirm("¿Eliminar \""+loc+"\"?"))return;
   delete S.zonas[loc];S.zonaEdits[loc]=-1;
   await fb.set("zonas",{edits:S.zonaEdits});
-  toast("Zona eliminada ✓");renderZonas();
+  toast("Zona eliminada ✓");renderZonas();checkAlertas();
 };
 window.exportZonas=()=>{
   const list=getZL(),cfg=S.cfg;
