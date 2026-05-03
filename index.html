@@ -403,6 +403,9 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <label class="lbl">IIBB %</label><input class="inp" id="cfg_iibb">
           <label class="lbl">Umbral margen OK (%)</label><input class="inp" id="cfg_umbral_ok" placeholder="20">
           <label class="lbl">Umbral margen bajo (%)</label><input class="inp" id="cfg_umbral_warn" placeholder="10">
+          <label class="lbl">Umbral envío gratis ML ($)</label>
+          <input class="inp" id="cfg_umbral_free_ship" placeholder="33000">
+          <div style="font-size:10px;color:var(--t3);margin-top:-8px">Productos por debajo de este valor: el comprador paga el envío en Correo. El toggle de envío bonificado solo aplica a productos por encima de este valor.</div>
           <div style="margin-top:14px;padding:10px;background:var(--s3);border-radius:var(--r);border:1px solid var(--b1)">
             <div style="font-size:11px;font-weight:500;margin-bottom:4px">Costo de envío bonificado</div>
             <div style="font-size:10px;color:var(--t2);margin-bottom:8px">Cuando ML bonifique el envío completo, ¿lo contás igual como gasto?</div>
@@ -714,7 +717,7 @@ window.doRefresh=async()=>{
     if(!uid){toast(acct.id+": sin User ID","err");continue;}
     try{
       toast("Cargando "+acct.id+"...");
-      const r=await fetch(PROXY+"/orders/all?seller_id="+uid+"&from="+encodeURIComponent(from)+"&to="+encodeURIComponent(to)+"&envio_bonif="+(S.cfg.envioBonif?'true':'false'),{headers:{"x-ml-token":acct.token}});
+      const r=await fetch(PROXY+"/orders/all?seller_id="+uid+"&from="+encodeURIComponent(from)+"&to="+encodeURIComponent(to)+"&envio_bonif="+(S.cfg.envioBonif?'true':'false')+"&umbral_free_ship="+(S.cfg.umbral_free_ship||33000),{headers:{"x-ml-token":acct.token}});
       if(!r.ok)throw new Error("HTTP "+r.status);
       const data=await r.json();
       if(data.error)throw new Error(data.error);
@@ -2338,11 +2341,11 @@ window.toggleEnvioBonifMode = function(){
 
 function loadCfgUI(){
   const c=S.cfg;
-  ["dolar","com","pub","iibb","c1","c2","c3","cid","csec","umbral_ok","umbral_warn"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
+  ["dolar","com","pub","iibb","c1","c2","c3","cid","csec","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
   updateEnvioToggleUI();
 }
 window.saveConfig=()=>{
-  ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
+  ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
   ["cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)S.cfg[k]=el.value.trim();});
   fb.set("config",S.cfg);buildAuthLink();toast("Configuración guardada ✓","ok");
 };
