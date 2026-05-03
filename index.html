@@ -675,9 +675,19 @@ function applyProductCosts(orders){
     const iva = o.venta*ivaPct; // directo sobre venta bruta
     const pub = p.pub===false ? 0 : o.venta*0.05;
     const ganancia = o.venta-(o.comision||0)-(o.cuotas||0)-costo-iva-pub-(o.iibb||0)-(o.costoEnvio||0);
-    // Si la comisión parece incorrecta (< 5% para órdenes pack), estimar 14%
-    const comisionOk = (o.comision||0) >= o.venta * 0.05;
-    const comisionFinal = comisionOk ? (o.comision||0) : Math.round(o.venta * 0.14);
+    // Corregir comisión para pack_order con múltiples unidades
+    // El proxy v8.7 ya lo calcula bien, pero el caché puede tener el valor viejo
+    // Si la comisión del caché parece de 1 unidad (< 8% de venta), multiplicar por unidades
+    const comisionCache = o.comision||0;
+    const comisionRatio = o.venta > 0 ? comisionCache/o.venta : 0;
+    const unidades = o.unidades||1;
+    // Si ratio < 8% y es pack_order con >1 unidad, multiplicar
+    const comisionCorregida = (comisionRatio < 0.08 && unidades > 1)
+      ? Math.round(comisionCache * unidades)
+      : comisionCache;
+    // Sanity check final
+    const comisionOk = comisionCorregida >= o.venta * 0.05;
+    const comisionFinal = comisionOk ? comisionCorregida : Math.round(o.venta * 0.14);
     // Recalcular IIBB 4% (no confiar en caché que puede tener valor viejo o 0)
     const iibbFinal = Math.round(o.venta * 0.04);
     const retML = o.retencionesML ?? Math.round(o.venta * 0.012); // usar el del proxy o estimar
