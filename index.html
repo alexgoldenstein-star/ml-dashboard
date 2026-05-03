@@ -1274,7 +1274,10 @@ window.verDetalle=(id,acctId)=>{
   const m=o.modal||"Correo";
   const cfg=S.cfg;
   const cordCost=o.cordon===1?cfg.c1:o.cordon===2?cfg.c2:cfg.c3;
-  const envDesc=m==="Full"?"Full — ML absorbe el costo":m==="Flex"?"Flex cordón "+(o.cordon||3)+" → $"+(cordCost||cfg.c3).toLocaleString("es-AR")+" − bonif $"+(o.bonifEnvio||849).toLocaleString("es-AR"):o.costoEnvio>0?"Envío gratis para el comprador — ML te descuenta a vos":"Comprador pagó el envío";
+      const costoCordonFlex = cordCost||cfg.c3;
+    const ingresoEnvioFlex = o.ingresoEnvio||0;
+    const gananciaEnvioFlex = ingresoEnvioFlex - costoCordonFlex;
+    const envDesc=m==="Full"?"Full — ML absorbe el costo":m==="Flex"?`Flex cordón ${o.cordon||3} → logística $${costoCordonFlex.toLocaleString("es-AR")}`:o.costoEnvio>0?"Envío gratis para el comprador — ML te descuenta a vos":"Comprador pagó el envío";
   const row=(lbl,val,cls,sub)=>'<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--b1)"><div><div style="font-size:12px;color:var(--t2)">'+lbl+'</div>'+(sub?'<div style="font-size:10px;color:var(--t3)">'+sub+'</div>':'')+' </div><span class="mono '+cls+'" style="font-size:12px;flex-shrink:0;margin-left:12px">'+val+'</span></div>';
   let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+
     '<span style="font-size:11px;padding:3px 9px;border-radius:4px;background:'+ac(o.acct)+'22;color:'+ac(o.acct)+';font-weight:600">'+o.acct+'</span>'+
@@ -1293,7 +1296,14 @@ window.verDetalle=(id,acctId)=>{
     ((o.pub||0)>0?row("Publicidad 5%","−"+fF(o.pub||0),"m",""):"")+
     row("IIBB 4%","−"+fF(o.iibb||0),"m","Gasto fiscal estimado")+
     ((o.retencionesML||0)>0?row("Retenciones ML","−"+fF(o.retencionesML||Math.round((o.venta||0)*0.012)),"m","Créd/Déb 0.6% + SIRTAC 0.6%"):"")+
-    row("Envío",m==="Full"?"$0":"−"+fF(o.costoEnvio||0),"m",envDesc)+
+    (m==='Flex'
+      ? row("Envío Flex",
+          gananciaEnvioFlex >= 0
+            ? "+"+fF(gananciaEnvioFlex)+" neto"
+            : "−"+fF(Math.abs(gananciaEnvioFlex))+" neto",
+          gananciaEnvioFlex >= 0 ? "g" : "r",
+          `Comprador pagó $${ingresoEnvioFlex.toLocaleString('es-AR')} · logística $${costoCordonFlex.toLocaleString('es-AR')}`)
+      : row("Envío",m==="Full"?"$0":"−"+fF(o.costoEnvio||0),"m",envDesc))+
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 6px;margin-top:4px;border-top:2px solid var(--b2)">'+
     '<div><div style="font-weight:600;font-size:13px">Ganancia neta</div><div style="font-size:10px;color:var(--t3)">Sobre precio de venta</div></div>'+
     '<div style="text-align:right"><div class="mono '+((o.ganancia||0)>=0?"g":"r")+'" style="font-size:18px;font-weight:700">'+fF(o.ganancia||0)+'</div><div class="'+((o.pct||0)>.15?"g":(o.pct||0)<0?"r":"m")+'" style="font-size:12px">'+pct(o.pct||0)+"</div></div></div>";
