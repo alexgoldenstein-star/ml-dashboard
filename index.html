@@ -691,7 +691,11 @@ function applyProductCosts(orders){
     // Recalcular IIBB 4% (no confiar en caché que puede tener valor viejo o 0)
     const iibbFinal = Math.round(o.venta * 0.04);
     const retML = o.retencionesML ?? Math.round(o.venta * 0.012); // usar el del proxy o estimar
-    const gananciafinal = o.venta - comisionFinal - (o.cuotas||0) - costo - iva - pub - iibbFinal - (o.costoEnvio||0) - retML;
+    // Cuotas del caché: solo usar si son razonables (<30% de venta)
+    // Valores altos probablemente son el recargo al comprador, no costo del vendedor
+    const cuotasCache = o.cuotas||0;
+    const cuotasFinal = cuotasCache < o.venta * 0.30 ? cuotasCache : 0;
+    const gananciafinal = o.venta - comisionFinal - cuotasFinal - costo - iva - pub - iibbFinal - (o.costoEnvio||0) - retML;
     return {
       ...o,
       costo: Math.round(costo),
