@@ -2517,7 +2517,7 @@ window.loadReclamos = async function(){
   }
   
   if(!allClaims.length){
-    listEl.innerHTML='<div class="card"><p style="color:var(--t2);text-align:center;padding:20px">No hay reclamos '+status==='opened'?'abiertos':'cerrados'+'.</p></div>';
+    listEl.innerHTML=`<div class="card"><p style="color:var(--t2);text-align:center;padding:20px">No hay reclamos ${status==='opened'?'abiertos':'cerrados'}.</p></div>`;
     return;
   }
   
