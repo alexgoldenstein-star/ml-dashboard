@@ -157,6 +157,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="envios"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="10" height="8" rx="1.5"/><path d="M11 7l3-2v6l-3-2"/></svg>Envíos</div>
     <div class="ns">Gestión</div>
     <div class="ni" data-p="productos"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>Productos</div>
+    <div class="ni" data-p="plataforma"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 11h4M5 5h6"/></svg>Gestión ML</div>
     <div class="ni" data-p="ctrl_prod"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>Control Productos</div>
     <div class="ni" data-p="zonas"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1C5.2 1 3 3.2 3 6c0 4 5 9 5 9s5-5 5-9c0-2.8-2.2-5-5-5z"/><circle cx="8" cy="6" r="1.5"/></svg>Zonas Flex</div>
     <div class="ni" data-p="mercado"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v6l3 3"/></svg>Inteligencia ML</div>
@@ -315,6 +316,17 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         <div class="tab"     onclick="sMTab('ean',this)">Item/EAN</div>
       </div>
       <div id="mercCont"></div>
+    </div>
+
+    <!-- GESTIÓN DE PLATAFORMA -->
+    <div class="page" id="page-plataforma">
+      <div class="tabs">
+        <div class="tab on"  onclick="sPlatTab('reputacion',this)">Reputación & Algoritmo</div>
+        <div class="tab"     onclick="sPlatTab('publicaciones',this)">Publicaciones</div>
+        <div class="tab"     onclick="sPlatTab('reclamos',this)">Reclamos</div>
+        <div class="tab"     onclick="sPlatTab('descuentos',this)">Descuentos</div>
+      </div>
+      <div id="platCont" style="margin-top:12px"></div>
     </div>
 
     <!-- CONTROL PRODUCTOS -->
@@ -625,7 +637,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -2236,6 +2248,387 @@ window.doCatSearch=async()=>{
     </table></div>`;
   }catch(e){el.innerHTML=`<p style="color:var(--red);font-size:12px">Error: ${e.message}</p>`;}
 };
+
+
+// ── GESTIÓN DE PLATAFORMA ─────────────────────────────────────
+let _platTab = 'reputacion';
+let _platData = {}; // cache por cuenta
+
+window.renderPlataforma = function(){
+  const el = document.getElementById('platCont');
+  if(!el) return;
+  const accounts = S.accounts||[];
+  if(!accounts.length){
+    el.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">⚠ Conectá una cuenta ML.</p></div>';
+    return;
+  }
+  if(_platTab==='reputacion') renderReputacion(el, accounts);
+  else if(_platTab==='publicaciones') renderPublicaciones(el, accounts);
+  else if(_platTab==='reclamos') renderReclamos(el, accounts);
+  else if(_platTab==='descuentos') renderDescuentos(el, accounts);
+};
+
+window.sPlatTab = function(t,el){
+  _platTab=t;
+  document.querySelectorAll('#page-plataforma .tab').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+  renderPlataforma();
+};
+
+// ── 1. REPUTACIÓN ────────────────────────────────────────────
+async function renderReputacion(el, accounts){
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px" id="repGrid">
+    ${accounts.map(a=>`<div class="card" id="rep_${a.id}">
+      <div class="ch"><span class="sku" style="background:var(--s3)">${a.name||a.id}</span>
+      <span style="font-size:10px;color:var(--t3)">cargando...</span></div>
+    </div>`).join('')}
+  </div>`;
+
+  for(const acct of accounts){
+    try{
+      const r=await fetch(`${PROXY}/plataforma/reputacion?seller_id=${acct.id}`,{headers:{'x-ml-token':acct.token}});
+      const d=await r.json();
+      const card=document.getElementById(`rep_${acct.id}`);
+      if(!card||d.error)continue;
+      
+      const nivelColor=d.nivel?.includes('5_green')?'var(--grn)':d.nivel?.includes('4')?'var(--org)':'var(--red)';
+      const nivelLabel=d.nivel?.includes('5_green')?'🟢 Verde':d.nivel?.includes('4')?'🟡 Amarillo':d.nivel?.includes('3')?'🟠 Naranja':'🔴 Rojo';
+      
+      card.innerHTML=`
+        <div class="ch">
+          <span class="sku" style="background:var(--s3)">${acct.name||acct.id}</span>
+          <span style="font-size:13px;font-weight:600;color:${nivelColor}">${nivelLabel}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+          <div style="text-align:center;padding:8px;background:var(--s3);border-radius:var(--r)">
+            <div style="font-size:10px;color:var(--t3)">Cancelaciones</div>
+            <div style="font-size:16px;font-weight:700;color:${(d.cancelaciones?.pct||0)>0.02?'var(--red)':'var(--grn)'}">${((d.cancelaciones?.pct||0)*100).toFixed(1)}%</div>
+            <div style="font-size:9px;color:var(--t3)">${d.cancelaciones?.valor||0} órdenes</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--s3);border-radius:var(--r)">
+            <div style="font-size:10px;color:var(--t3)">Reclamos</div>
+            <div style="font-size:16px;font-weight:700;color:${(d.reclamos?.pct||0)>0.01?'var(--red)':'var(--grn)'}">${((d.reclamos?.pct||0)*100).toFixed(1)}%</div>
+            <div style="font-size:9px;color:var(--t3)">${d.reclamos?.valor||0} órdenes</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--s3);border-radius:var(--r)">
+            <div style="font-size:10px;color:var(--t3)">Despacho tarde</div>
+            <div style="font-size:16px;font-weight:700;color:${(d.despacho_tarde?.pct||0)>0.02?'var(--red)':'var(--grn)'}">${((d.despacho_tarde?.pct||0)*100).toFixed(1)}%</div>
+            <div style="font-size:9px;color:var(--t3)">${d.despacho_tarde?.valor||0} órdenes</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;color:var(--t2)">
+          <span>📦 ${(d.transacciones_ok||0).toLocaleString()} ventas</span>
+          <span>❓ ${d.preguntas_sin_responder||0} preguntas sin responder</span>
+        </div>
+        <div style="border-top:1px solid var(--b1);padding-top:8px">
+          ${(d.recomendaciones||[]).map(r=>`
+            <div style="display:flex;gap:6px;margin-bottom:5px;align-items:flex-start">
+              <span style="font-size:12px">${r.urgencia==='critica'?'🚨':r.urgencia==='alta'?'⚠️':r.urgencia==='baja'?'✅':'💡'}</span>
+              <span style="font-size:10px;color:${r.urgencia==='critica'?'var(--red)':r.urgencia==='alta'?'var(--org)':'var(--t2)'};line-height:1.4">${esc(r.msg)}</span>
+            </div>`).join('')}
+        </div>`;
+    }catch(e){
+      const card=document.getElementById(`rep_${acct.id}`);
+      if(card) card.innerHTML+=`<p style="color:var(--red);font-size:11px">Error: ${e.message}</p>`;
+    }
+  }
+}
+
+// ── 2. PUBLICACIONES ─────────────────────────────────────────
+async function renderPublicaciones(el, accounts){
+  el.innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <select class="sel" id="pubAcctSel" onchange="loadPublicaciones()">
+        ${accounts.map(a=>`<option value="${a.id}" data-token="${a.token}">${a.name||a.id}</option>`).join('')}
+      </select>
+      <select class="sel" id="pubFilter">
+        <option value="all">Todas</option>
+        <option value="low_score">Score bajo</option>
+        <option value="sin_stock">Sin stock</option>
+        <option value="no_catalog">Sin catálogo</option>
+      </select>
+      <button class="btn" onclick="loadPublicaciones()">Cargar publicaciones</button>
+    </div>
+    <div id="pubList"></div>`;
+}
+
+window.loadPublicaciones = async function(){
+  const sel=document.getElementById('pubAcctSel');
+  const acctId=sel?.value;
+  const token=sel?.options[sel.selectedIndex]?.dataset?.token;
+  if(!acctId||!token)return;
+  
+  const listEl=document.getElementById('pubList');
+  listEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando publicaciones...</div>';
+  
+  try{
+    const r=await fetch(`${PROXY}/plataforma/publicaciones?seller_id=${acctId}&limit=50`,{headers:{'x-ml-token':token}});
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    
+    const filter=document.getElementById('pubFilter')?.value||'all';
+    let items=d.items||[];
+    if(filter==='low_score') items=items.filter(i=>i.score!==null&&i.score<70);
+    if(filter==='sin_stock') items=items.filter(i=>i.sin_stock);
+    if(filter==='no_catalog') items=items.filter(i=>!i.catalogo);
+    
+    // KPIs
+    const total=d.items?.length||0;
+    const sinScore=d.items?.filter(i=>i.score===null).length||0;
+    const lowScore=d.items?.filter(i=>i.score!==null&&i.score<70).length||0;
+    const sinStock=d.items?.filter(i=>i.sin_stock).length||0;
+    const enCatalogo=d.items?.filter(i=>i.catalogo).length||0;
+    
+    listEl.innerHTML=`
+      <div class="g4" style="margin-bottom:12px">
+        <div class="kpi acc"><div class="kl">Publicaciones activas</div><div class="kv">${total}</div></div>
+        <div class="kpi ${lowScore>0?'red':'grn'}"><div class="kl">Score bajo (&lt;70)</div><div class="kv">${lowScore}</div></div>
+        <div class="kpi ${sinStock>0?'org':'grn'}"><div class="kl">Sin stock</div><div class="kv">${sinStock}</div></div>
+        <div class="kpi blu"><div class="kl">En catálogo</div><div class="kv">${enCatalogo}<span style="font-size:12px;color:var(--t2)">/${total}</span></div></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">${items.length} publicaciones ${filter!=='all'?'(filtradas)':''}</span>
+          <span style="font-size:10px;color:var(--t3)">Click en → para análisis IA</span>
+        </div>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr>
+          <th>Foto</th><th>Publicación</th><th>Precio</th><th>Stock</th>
+          <th>Vendidos</th><th>Score</th><th>Catálogo</th><th>IA</th>
+        </tr></thead><tbody>
+          ${items.map(item=>{
+            const scoreColor=item.score===null?'var(--t3)':item.score>=80?'var(--grn)':item.score>=60?'var(--org)':'var(--red)';
+            const scoreBg=item.score===null?'var(--s3)':item.score>=80?'rgba(71,232,127,.1)':item.score>=60?'rgba(255,138,77,.1)':'rgba(255,77,77,.1)';
+            return `<tr>
+              <td><img src="${item.thumbnail||''}" style="width:36px;height:36px;object-fit:contain;border-radius:4px;background:var(--s3)"></td>
+              <td style="max-width:200px"><div style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(item.titulo||'')}">${esc(item.titulo||'—')}</div>
+                <div style="font-size:9px;color:var(--t3);margin-top:2px">${item.id}</div>
+                ${item.sin_stock?'<span style="font-size:9px;color:var(--red)">⚠ Sin stock</span>':''}
+              </td>
+              <td class="mono">${fF(item.precio||0)}</td>
+              <td style="color:${(item.stock||0)===0?'var(--red)':'var(--t1)'}">${item.stock||0}</td>
+              <td>${(item.vendidos||0).toLocaleString()}</td>
+              <td>
+                <div style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;background:${scoreBg}">
+                  <span style="font-size:12px;font-weight:700;color:${scoreColor}">${item.score!==null?item.score:'—'}</span>
+                  ${item.score!==null?`<span style="font-size:9px;color:${scoreColor}">/100</span>`:''}
+                </div>
+              </td>
+              <td style="text-align:center">${item.catalogo?'<span style="color:var(--grn)">✓</span>':'<span style="color:var(--t3)">—</span>'}</td>
+              <td>
+                <div style="display:flex;gap:3px">
+                  <button class="btn-icon" onclick="analizarPublicacion('${item.id}','${esc(item.titulo||'')}',${item.precio||0},${item.score||0},${item.vendidos||0})" title="Analizar con IA">🤖</button>
+                  <a href="${item.permalink||'#'}" target="_blank" class="btn-icon" title="Ver en ML" style="text-decoration:none">↗</a>
+                </div>
+              </td>
+            </tr>
+            ${(item.score_detalles||[]).length>0?`<tr style="background:rgba(255,77,77,.03)">
+              <td colspan="8" style="padding:4px 8px 8px 52px">
+                ${item.score_detalles.map(issue=>`<span style="font-size:9px;color:var(--org);margin-right:8px">⚠ ${esc(issue.title||issue.type||JSON.stringify(issue))}</span>`).join('')}
+              </td>
+            </tr>`:''}`;
+          }).join('')}
+        </tbody></table></div>
+      </div>
+      <div id="pubAIResult"></div>`;
+  }catch(e){
+    listEl.innerHTML=`<div class="card"><p style="color:var(--red);font-size:12px">Error: ${e.message}</p></div>`;
+  }
+};
+
+window.analizarPublicacion = async function(id, titulo, precio, score, vendidos){
+  const el=document.getElementById('pubAIResult');
+  el.innerHTML=`<div class="card" style="margin-top:12px">
+    <div class="ch"><span class="ct">🤖 Analizando publicación con IA...</span></div>
+    <div style="color:var(--t2);font-size:12px">Buscando en MercadoLibre Argentina...</div>
+  </div>`;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+  try{
+    const r=await fetch(`${PROXY}/ai/publicacion`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({item_id:id,titulo,precio,score,vendidos})
+    });
+    const d=await r.json();
+    if(!d.ok||!d.data){el.innerHTML=`<div class="card"><p style="color:var(--red)">Error IA: ${d.error||'Sin respuesta'}</p></div>`;return;}
+    const a=d.data;
+    const priColor=a.prioridad==='alta'?'var(--red)':a.prioridad==='media'?'var(--org)':'var(--grn)';
+    el.innerHTML=`<div class="card" style="margin-top:12px;border:1px solid rgba(232,255,71,.2)">
+      <div class="ch">
+        <span class="ct">🤖 Análisis IA — ${esc(titulo?.substring(0,40))}...</span>
+        <span style="padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;background:${priColor}22;color:${priColor}">Prioridad ${a.prioridad||'—'}</span>
+      </div>
+      <p style="font-size:12px;color:var(--t2);margin-bottom:10px">${esc(a.resumen||'')}</p>
+      ${a.titulo_sugerido?`<div style="padding:10px;background:rgba(232,255,71,.06);border:1px solid rgba(232,255,71,.2);border-radius:var(--r);margin-bottom:10px">
+        <div style="font-size:10px;color:var(--t3);margin-bottom:3px">TÍTULO SUGERIDO</div>
+        <div style="font-size:12px;color:var(--acc)">${esc(a.titulo_sugerido)}</div>
+      </div>`:''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Mejoras de título</div>
+          ${(a.mejoras_titulo||[]).map(m=>`<div style="font-size:11px;color:var(--t2);margin-bottom:4px;display:flex;gap:6px"><span style="color:var(--acc)">→</span>${esc(m)}</div>`).join('')}
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Alertas</div>
+          ${(a.alertas||[]).map(m=>`<div style="font-size:11px;color:var(--org);margin-bottom:4px;display:flex;gap:6px"><span>⚠</span>${esc(m)}</div>`).join('')}
+        </div>
+      </div>
+      ${a.mejoras_precio?`<div style="margin-top:8px;font-size:11px;color:var(--t2)">💰 Precio: ${esc(a.mejoras_precio)}</div>`:''}
+    </div>`;
+  }catch(e){el.innerHTML=`<div class="card"><p style="color:var(--red)">Error: ${e.message}</p></div>`;}
+};
+
+// ── 3. RECLAMOS ──────────────────────────────────────────────
+async function renderReclamos(el, accounts){
+  el.innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <select class="sel" id="recAcctSel">
+        <option value="all">Todas las cuentas</option>
+        ${accounts.map(a=>`<option value="${a.id}" data-token="${a.token}">${a.name||a.id}</option>`).join('')}
+      </select>
+      <select class="sel" id="recStatus">
+        <option value="opened">Abiertos</option>
+        <option value="closed">Cerrados</option>
+      </select>
+      <button class="btn" onclick="loadReclamos()">Cargar reclamos</button>
+    </div>
+    <div id="recList"></div>`;
+}
+
+window.loadReclamos = async function(){
+  const sel=document.getElementById('recAcctSel');
+  const status=document.getElementById('recStatus')?.value||'opened';
+  const listEl=document.getElementById('recList');
+  listEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando reclamos...</div>';
+  
+  const acctId=sel?.value;
+  const toLoad=acctId==='all'?S.accounts:S.accounts.filter(a=>a.id==acctId);
+  
+  let allClaims=[];
+  for(const acct of toLoad){
+    try{
+      const r=await fetch(`${PROXY}/plataforma/reclamos?seller_id=${acct.id}&status=${status}&limit=20`,{headers:{'x-ml-token':acct.token}});
+      const d=await r.json();
+      const claims=(d.claims||[]).map(c=>({...c,_acct:acct.name||acct.id}));
+      allClaims=[...allClaims,...claims];
+    }catch(e){}
+  }
+  
+  if(!allClaims.length){
+    listEl.innerHTML='<div class="card"><p style="color:var(--t2);text-align:center;padding:20px">No hay reclamos '+status==='opened'?'abiertos':'cerrados'+'.</p></div>';
+    return;
+  }
+  
+  // Stats
+  const tipos={};
+  allClaims.forEach(c=>{
+    const t=c.reason_id||c.type||'otro';
+    tipos[t]=(tipos[t]||0)+1;
+  });
+  
+  listEl.innerHTML=`
+    <div class="g4" style="margin-bottom:12px">
+      <div class="kpi red"><div class="kl">Total reclamos</div><div class="kv">${allClaims.length}</div></div>
+      ${Object.entries(tipos).slice(0,3).map(([t,n])=>`<div class="kpi org"><div class="kl">${esc(t)}</div><div class="kv">${n}</div></div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="ch"><span class="ct">Reclamos ${status==='opened'?'abiertos':'cerrados'}</span></div>
+      ${allClaims.map(c=>{
+        const diasAbierto=c.date_created?Math.floor((Date.now()-new Date(c.date_created).getTime())/(1000*60*60*24)):0;
+        const urgente=diasAbierto>2&&status==='opened';
+        return `<div style="padding:12px;border:1px solid ${urgente?'rgba(255,77,77,.3)':'var(--b1)'};border-radius:var(--r);margin-bottom:8px;background:${urgente?'rgba(255,77,77,.03)':'transparent'}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div>
+              <span class="sku" style="background:var(--s3)">${esc(c._acct)}</span>
+              ${urgente?'<span style="font-size:9px;color:var(--red);margin-left:6px">⚠ +${diasAbierto}d sin resolver</span>':''}
+            </div>
+            <div style="font-size:10px;color:var(--t3)">${c.id}</div>
+          </div>
+          <div style="font-size:11px;color:var(--t2);margin-bottom:6px">
+            <strong style="color:var(--t1)">${esc(c.reason_id||c.type||'Reclamo')}</strong>
+            ${c.resource_label?` — ${esc(c.resource_label)}`:''}
+          </div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:8px">
+            Abierto: ${c.date_created?new Date(c.date_created).toLocaleDateString('es-AR'):diasAbierto+'d'} · 
+            Stage: ${esc(c.stage||'—')}
+          </div>
+          <button class="btn-g btn-sm" onclick="generarRespuestaReclamo('${c.id}','${esc(c.reason_id||'reclamo')}','${esc(c.resource_label||'')}',${diasAbierto})">
+            🤖 Generar respuesta con IA
+          </button>
+          <div id="respuesta_${c.id}"></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+};
+
+window.generarRespuestaReclamo = async function(id,tipo,producto,dias){
+  const el=document.getElementById(`respuesta_${id}`);
+  el.innerHTML='<div style="color:var(--t2);font-size:11px;margin-top:8px">🤖 Generando respuesta...</div>';
+  try{
+    const r=await fetch(`${PROXY}/ai/reclamo`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({tipo,producto,dias_abierto:dias,descripcion:`Reclamo tipo ${tipo} sobre ${producto}`})
+    });
+    const d=await r.json();
+    if(!d.ok||!d.data){el.innerHTML=`<p style="color:var(--red);font-size:11px">Error: ${d.error}</p>`;return;}
+    const a=d.data;
+    el.innerHTML=`<div style="margin-top:8px;padding:10px;background:rgba(71,232,127,.05);border:1px solid rgba(71,232,127,.2);border-radius:var(--r)">
+      <div style="font-size:10px;color:var(--t3);margin-bottom:4px">RESPUESTA SUGERIDA</div>
+      <p style="font-size:12px;color:var(--t1);line-height:1.5;white-space:pre-wrap">${esc(a.respuesta_sugerida||'')}</p>
+      <div style="margin-top:6px;display:flex;gap:6px">
+        <button class="btn-g btn-sm" onclick="navigator.clipboard.writeText(${JSON.stringify(a.respuesta_sugerida||'')}).then(()=>toast('Copiado ✓','ok'))">Copiar</button>
+        ${(a.acciones_recomendadas||[]).map(ac=>`<span style="font-size:10px;color:var(--org)">→ ${esc(ac)}</span>`).join(' ')}
+      </div>
+    </div>`;
+  }catch(e){el.innerHTML=`<p style="color:var(--red);font-size:11px">Error: ${e.message}</p>`;}
+};
+
+// ── 4. DESCUENTOS ────────────────────────────────────────────
+async function renderDescuentos(el, accounts){
+  el.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando descuentos de todas las cuentas...</div>';
+  
+  let html='';
+  for(const acct of accounts){
+    try{
+      const r=await fetch(`${PROXY}/plataforma/descuentos?seller_id=${acct.id}`,{headers:{'x-ml-token':acct.token}});
+      const d=await r.json();
+      const activas=d.activas||[];
+      const deals=d.deals||[];
+      const todo=[...activas,...deals];
+      
+      html+=`<div class="card" style="margin-bottom:12px">
+        <div class="ch">
+          <span class="sku" style="background:var(--s3)">${acct.name||acct.id}</span>
+          <span style="font-size:11px;color:var(--t2)">${todo.length} descuentos/campañas</span>
+        </div>
+        ${todo.length===0
+          ?'<p style="color:var(--t3);font-size:11px">Sin descuentos activos.</p>'
+          :`<table class="tbl"><thead><tr><th>Nombre</th><th>Tipo</th><th>Descuento</th><th>Items</th><th>Vence</th><th>Estado</th></tr></thead><tbody>
+            ${todo.map(p=>{
+              const vence=p.end_date?new Date(p.end_date).toLocaleDateString('es-AR'):'Sin fecha';
+              const diasRestantes=p.end_date?Math.floor((new Date(p.end_date)-Date.now())/(1000*60*60*24)):null;
+              const urgente=diasRestantes!==null&&diasRestantes<3;
+              return `<tr style="${urgente?'background:rgba(255,138,77,.05)':''}">
+                <td style="font-size:11px">${esc(p.name||p.label||'—')}</td>
+                <td><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:var(--s3)">${esc(p.type||p.deal_type||'—')}</span></td>
+                <td class="mono" style="color:var(--grn)">${p.percentage?p.percentage+'%':p.discount?p.discount+'%':'—'}</td>
+                <td>${p.items_count||p.items?.length||'—'}</td>
+                <td style="font-size:11px"><span style="color:${urgente?'var(--red)':'var(--t2)'}">${vence}</span>${urgente?` <strong style="color:var(--red)">(¡${diasRestantes}d!)</strong>`:''}</td>
+                <td><span style="font-size:10px;color:${p.status==='active'?'var(--grn)':'var(--t3)'}">${esc(p.status||'—')}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody></table>`
+        }
+      </div>`;
+    }catch(e){
+      html+=`<div class="card" style="margin-bottom:12px">
+        <div class="ch"><span class="sku" style="background:var(--s3)">${acct.name||acct.id}</span></div>
+        <p style="color:var(--red);font-size:11px">Error: ${e.message}</p>
+      </div>`;
+    }
+  }
+  el.innerHTML=html||'<div class="card"><p style="color:var(--t3);text-align:center">Sin datos</p></div>';
+}
+
 
 // ── CUENTAS ───────────────────────────────────────────────────
 function renderCuentas(){
