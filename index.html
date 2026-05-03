@@ -2279,14 +2279,15 @@ window.sPlatTab = function(t,el){
 async function renderReputacion(el, accounts){
   el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px" id="repGrid">
     ${accounts.map(a=>`<div class="card" id="rep_${a.id}">
-      <div class="ch"><span class="sku" style="background:var(--s3)">${a.name||a.id}</span>
+      <div class="ch"><span class="sku" style="background:var(--s3)">${a.id}</span>
       <span style="font-size:10px;color:var(--t3)">cargando...</span></div>
     </div>`).join('')}
   </div>`;
 
   for(const acct of accounts){
+    const sellerId = UID[acct.id]||acct.userId||acct.id;
     try{
-      const r=await fetch(`${PROXY}/plataforma/reputacion?seller_id=${acct.id}`,{headers:{'x-ml-token':acct.token}});
+      const r=await fetch(`${PROXY}/plataforma/reputacion?seller_id=${sellerId}`,{headers:{'x-ml-token':acct.token}});
       const d=await r.json();
       const card=document.getElementById(`rep_${acct.id}`);
       if(!card||d.error)continue;
@@ -2296,7 +2297,7 @@ async function renderReputacion(el, accounts){
       
       card.innerHTML=`
         <div class="ch">
-          <span class="sku" style="background:var(--s3)">${acct.name||acct.id}</span>
+          <span class="sku" style="background:var(--s3)">${acct.id}</span>
           <span style="font-size:13px;font-weight:600;color:${nivelColor}">${nivelLabel}</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
@@ -2339,7 +2340,7 @@ async function renderPublicaciones(el, accounts){
   el.innerHTML=`
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <select class="sel" id="pubAcctSel" onchange="loadPublicaciones()">
-        ${accounts.map(a=>`<option value="${a.id}" data-token="${a.token}">${a.name||a.id}</option>`).join('')}
+        ${accounts.map(a=>`<option value="${a.id}">${a.id}</option>`).join('')}
       </select>
       <select class="sel" id="pubFilter">
         <option value="all">Todas</option>
@@ -2355,14 +2356,16 @@ async function renderPublicaciones(el, accounts){
 window.loadPublicaciones = async function(){
   const sel=document.getElementById('pubAcctSel');
   const acctId=sel?.value;
-  const token=sel?.options[sel.selectedIndex]?.dataset?.token;
-  if(!acctId||!token)return;
+  const acct=S.accounts.find(a=>a.id===acctId);
+  const token=acct?.token;
+  if(!acctId||!token){toast('Sin token para esta cuenta','err');return;}
   
   const listEl=document.getElementById('pubList');
   listEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando publicaciones...</div>';
   
   try{
-    const r=await fetch(`${PROXY}/plataforma/publicaciones?seller_id=${acctId}&limit=50`,{headers:{'x-ml-token':token}});
+    const sellerId = UID[acctId]||acctId;
+  const r=await fetch(`${PROXY}/plataforma/publicaciones?seller_id=${sellerId}&limit=50`,{headers:{'x-ml-token':token}});
     const d=await r.json();
     if(d.error)throw new Error(d.error);
     
@@ -2482,7 +2485,7 @@ async function renderReclamos(el, accounts){
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <select class="sel" id="recAcctSel">
         <option value="all">Todas las cuentas</option>
-        ${accounts.map(a=>`<option value="${a.id}" data-token="${a.token}">${a.name||a.id}</option>`).join('')}
+        ${accounts.map(a=>`<option value="${a.id}">${a.id}</option>`).join('')}
       </select>
       <select class="sel" id="recStatus">
         <option value="opened">Abiertos</option>
@@ -2505,9 +2508,10 @@ window.loadReclamos = async function(){
   let allClaims=[];
   for(const acct of toLoad){
     try{
-      const r=await fetch(`${PROXY}/plataforma/reclamos?seller_id=${acct.id}&status=${status}&limit=20`,{headers:{'x-ml-token':acct.token}});
+      const sellerId=UID[acct.id]||acct.userId||acct.id;
+      const r=await fetch(`${PROXY}/plataforma/reclamos?seller_id=${sellerId}&status=${status}&limit=20`,{headers:{'x-ml-token':acct.token}});
       const d=await r.json();
-      const claims=(d.claims||[]).map(c=>({...c,_acct:acct.name||acct.id}));
+      const claims=(d.claims||[]).map(c=>({...c,_acct:acct.id}));
       allClaims=[...allClaims,...claims];
     }catch(e){}
   }
@@ -2589,7 +2593,8 @@ async function renderDescuentos(el, accounts){
   let html='';
   for(const acct of accounts){
     try{
-      const r=await fetch(`${PROXY}/plataforma/descuentos?seller_id=${acct.id}`,{headers:{'x-ml-token':acct.token}});
+      const sellerId=UID[acct.id]||acct.userId||acct.id;
+      const r=await fetch(`${PROXY}/plataforma/descuentos?seller_id=${sellerId}`,{headers:{'x-ml-token':acct.token}});
       const d=await r.json();
       const activas=d.activas||[];
       const deals=d.deals||[];
@@ -2597,7 +2602,7 @@ async function renderDescuentos(el, accounts){
       
       html+=`<div class="card" style="margin-bottom:12px">
         <div class="ch">
-          <span class="sku" style="background:var(--s3)">${acct.name||acct.id}</span>
+          <span class="sku" style="background:var(--s3)">${acct.id}</span>
           <span style="font-size:11px;color:var(--t2)">${todo.length} descuentos/campañas</span>
         </div>
         ${todo.length===0
@@ -2621,7 +2626,7 @@ async function renderDescuentos(el, accounts){
       </div>`;
     }catch(e){
       html+=`<div class="card" style="margin-bottom:12px">
-        <div class="ch"><span class="sku" style="background:var(--s3)">${acct.name||acct.id}</span></div>
+        <div class="ch"><span class="sku" style="background:var(--s3)">${acct.id}</span></div>
         <p style="color:var(--red);font-size:11px">Error: ${e.message}</p>
       </div>`;
     }
