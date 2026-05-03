@@ -2257,9 +2257,10 @@ let _platData = {}; // cache por cuenta
 window.renderPlataforma = function(){
   const el = document.getElementById('platCont');
   if(!el) return;
-  const accounts = S.accounts||[];
+  const accounts = (S.accounts||[]).filter(a=>a.token);
+  console.log('[plataforma] accounts with token:', accounts.length, accounts.map(a=>a.id));
   if(!accounts.length){
-    el.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">⚠ Conectá una cuenta ML.</p></div>';
+    el.innerHTML='<div class="card"><p style="color:var(--org);font-size:12px">⚠ No hay cuentas con token activo. Actualizá las ventas primero para cargar los tokens.</p></div>';
     return;
   }
   if(_platTab==='reputacion') renderReputacion(el, accounts);
@@ -2287,6 +2288,7 @@ async function renderReputacion(el, accounts){
   for(const acct of accounts){
     const sellerId = UID[acct.id]||acct.userId||acct.id;
     try{
+      console.log('[rep] Fetching:', sellerId, 'token exists:', !!acct.token);
       const r=await fetch(`${PROXY}/plataforma/reputacion?seller_id=${sellerId}`,{headers:{'x-ml-token':acct.token}});
       const d=await r.json();
       const card=document.getElementById(`rep_${acct.id}`);
@@ -2365,8 +2367,10 @@ window.loadPublicaciones = async function(){
   
   try{
     const sellerId = UID[acctId]||acctId;
-  const r=await fetch(`${PROXY}/plataforma/publicaciones?seller_id=${sellerId}&limit=50`,{headers:{'x-ml-token':token}});
+    console.log('[pub] Fetching seller:', sellerId, 'acct:', acctId);
+    const r=await fetch(`${PROXY}/plataforma/publicaciones?seller_id=${sellerId}&limit=50`,{headers:{'x-ml-token':token}});
     const d=await r.json();
+    console.log('[pub] Response:', {items:d.items?.length, total:d.total, raw:d.raw, error:d.error});
     if(d.error)throw new Error(d.error);
     
     const filter=document.getElementById('pubFilter')?.value||'all';
