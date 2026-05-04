@@ -1430,7 +1430,7 @@ function renderRent(){
   });
   const rows=Object.entries(sm).map(([sku,d])=>({sku,d:{...d,pct:d.v>0?d.g/d.v:0}}));
   const {col,dir}=_rentSort;
-  rows.sort((a,b)=>(a.d[col]??0)>(b.d[col]??0)?dir:-dir);
+  rows.sort((a,b)=>((b.d[col]??0)-(a.d[col]??0))*dir);
   ['costo','u','v','g','pct'].forEach(c=>{
     const el=document.getElementById('rs_'+c);
     if(el)el.textContent=_rentSort.col===c?(_rentSort.dir===-1?' ↓':' ↑'):'';
