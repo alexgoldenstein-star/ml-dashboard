@@ -1135,38 +1135,58 @@ async function runReconcile(){
 
 // Auto-refresh tokens
 let _autoRef=null;
+let _autoRefStarted=false; // evitar re-init por snapshots de Firestore
 function startAutoRefresh(){
   if(!S.accounts.length)return;
-  // Clear existing interval and restart fresh
+  // Si ya está corriendo, NO reiniciar (evita loop por onSnapshot)
+  if(_autoRefStarted&&_autoRef)return;
   if(_autoRef){clearInterval(_autoRef);_autoRef=null;}
+  _autoRefStarted=true;
   // Refresh every 4 hours
   _autoRef=setInterval(refreshTokens,4*60*60*1000);
   // Run immediately to refresh any expired/near-expiry tokens
   refreshTokens();
 }
+let _refreshRunning=false; // mutex para evitar ejecuciones simultáneas
 async function refreshTokens(){
-  const cid=S.cfg.cid||'';
-  const csec=S.cfg.csec||'';
-  if(!cid||!csec){console.warn('refreshTokens: sin client_id/secret en config');return;}
-  let changed=false;const upd=[...S.accounts];
-  for(let i=0;i<upd.length;i++){
-    const a=upd[i];if(!a.refresh_token)continue;
-    // Refrescar si expira en menos de 3 horas o ya está expirado
-    const timeLeft = a.expires_at ? (a.expires_at - Date.now()) : 0;
-    const expiresSoon = !a.expires_at || timeLeft < 3*60*60*1000;
-    if(!expiresSoon){
-      const hLeft = Math.round(timeLeft/3600000*10)/10;
-      console.log('[refresh] '+a.id+' OK — vence en '+hLeft+'h');
-      continue;
+  if(_refreshRunning){console.log('[refresh] Ya en ejecución, skip');return;}
+  _refreshRunning=true;
+  try{
+    const cid=S.cfg.cid||'';
+    const csec=S.cfg.csec||'';
+    if(!cid||!csec){console.warn('[refresh] Sin client_id/secret en Config — guardá las credenciales OAuth primero');return;}
+    let changed=false;const upd=[...S.accounts];
+    for(let i=0;i<upd.length;i++){
+      const a=upd[i];
+      if(!a.refresh_token){console.warn('[refresh] '+a.id+' sin refresh_token — re-autorizar manualmente');continue;}
+      // Refrescar si expira en menos de 3 horas o ya está expirado
+      const timeLeft = a.expires_at ? (a.expires_at - Date.now()) : 0;
+      const expiresSoon = !a.expires_at || timeLeft < 3*60*60*1000;
+      if(!expiresSoon){
+        const hLeft = Math.round(timeLeft/3600000*10)/10;
+        console.log('[refresh] '+a.id+' OK — vence en '+hLeft+'h');
+        continue;
+      }
+      console.log('[refresh] Renovando '+a.id+'...');
+      try{
+        const r=await fetch(PROXY+"/auth/refresh",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid,client_secret:csec,refresh_token:a.refresh_token})});
+        const d=await r.json();
+        if(d.access_token){
+          upd[i]={...a,token:d.access_token,refresh_token:d.refresh_token||a.refresh_token,expires_at:Date.now()+(d.expires_in||21600)*1000};
+          changed=true;
+          console.log('[refresh] '+a.id+' renovado OK — nuevo expiry en '+(d.expires_in||21600)/3600+'h');
+        } else {
+          console.error('[refresh] '+a.id+' error ML:',d.error||d.message||JSON.stringify(d));
+          toast(a.id+' error refresh: '+(d.message||d.error||'ver consola'),'err');
+        }
+      }catch(e){console.error('[refresh] '+a.id+' fetch error:',e.message);}
     }
-    console.log('[refresh] Renovando '+a.id+'...');
-    try{
-      const r=await fetch(PROXY+"/auth/refresh",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid,client_secret:csec,refresh_token:a.refresh_token})});
-      const d=await r.json();
-      if(d.access_token){upd[i]={...a,token:d.access_token,refresh_token:d.refresh_token||a.refresh_token,expires_at:Date.now()+(d.expires_in||21600)*1000};changed=true;}
-    }catch{}
+    // Guardar sin triggerear el loop: actualizamos S.accounts directamente
+    // El onSnapshot de Firestore se disparará pero _autoRefStarted=true lo bloqueará
+    if(changed){S.accounts=upd;await fb.set("accounts",{list:upd});toast("✓ Tokens renovados","ok");}
+  } finally {
+    _refreshRunning=false;
   }
-  if(changed){S.accounts=upd;await fb.set("accounts",{list:upd});toast("Tokens renovados","ok");}
 }
 
 function checkAlertas(){
@@ -2661,26 +2681,32 @@ function renderCuentas(){
   const grid=document.getElementById("cuentasGrid");if(!grid)return;
   const base=[{id:"GBA",color:"#4DA3FF",bg:"rgba(77,163,255,.1)",uid:"16454562"},{id:"BHO",color:"#A78BFA",bg:"rgba(167,139,250,.1)",uid:"1102446957"},{id:"IURA",color:"#FF8A4D",bg:"rgba(255,138,77,.1)",uid:"189587994"},{id:"GBS",color:"#47E87F",bg:"rgba(71,232,127,.1)",uid:"169823966"}];
   const now=Date.now();
-  let h="";
+  const sinCid=!S.cfg.cid||!S.cfg.csec;
+  let h='<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">'+'<button class="btn btn-sm" id="btnForceRefresh" onclick="forceRefreshTokens()" style="font-size:11px">↻ Renovar tokens ahora</button>'+'<span style="font-size:10px;color:'+(_autoRef?'var(--grn)':'var(--org)')+'">'+(_autoRef?'● Auto-refresh activo (c/ 4h)':'○ Auto-refresh inactivo')+'</span>'+(sinCid?'<span style="font-size:10px;color:var(--red)">⚠ Faltan Client ID/Secret en Config</span>':'')+'</div>';
   base.forEach(a=>{
     const conn=S.accounts.find(x=>x.id===a.id);
     const exp=conn?.expires_at?new Date(conn.expires_at):null;
     const expirado=exp&&exp.getTime()<now;
     const minLeft=exp?Math.max(0,Math.round((exp.getTime()-now)/60000)):0;
-    h+='<div style="background:var(--s2);border:1px solid '+(expirado?"rgba(255,77,77,.3)":"var(--b1)")+';border-radius:var(--r2);padding:12px;display:flex;align-items:center;gap:10px">'+
-      '<div style="width:40px;height:40px;border-radius:8px;background:'+a.bg+';color:'+a.color+';display:flex;align-items:center;justify-content:center;font-family:\'Syne\',sans-serif;font-weight:800;font-size:12px;flex-shrink:0">'+a.id+'</div>'+
-      '<div style="flex:1;min-width:0"><div style="font-weight:500;font-size:12px">NIVIKO '+a.id+'</div>'+
-      '<div style="font-size:10px;color:'+(expirado?"var(--red)":conn?"var(--grn)":"var(--t3)")+'">'+(expirado?"● Token expirado":conn?"● Conectada":"○ Sin conectar")+(conn&&exp?" · "+(expirado?"Expiró":minLeft<60?"Expira en "+minLeft+"min":"Expira en "+Math.round(minLeft/60)+"h"):"")+'</div>'+
-      (conn?.refresh_token?'<div style="font-size:9px;color:var(--grn)">✓ Auto-refresh activo</div>'+
-        (!expirado&&minLeft>0?'<div style="font-size:9px;color:var(--t3)">próximo refresh en '+(_autoRef?'4h':'—')+'</div>':''):"")+
-      '</div><div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'+
-      (conn?'<button class="btn-g btn-sm" onclick="desconectar(\''+a.id+'\')" style="color:var(--red);border-color:rgba(255,77,77,.3)">Desconectar</button>':
-             '<button class="btn btn-sm" onclick="abrirConectar(\''+a.id+'\',\''+a.uid+'\')">Conectar</button>')+
-      (expirado?'<button class="btn btn-sm" style="background:var(--org);border:none;font-size:9px" onclick="goPage(\'gettoken\')">Renovar</button>':"")+
+    const sinRefTok=conn&&!conn.refresh_token;
+    h+='<div style="background:var(--s2);border:1px solid '+(expirado?"rgba(255,77,77,.3)":"var(--b1)")+';border-radius:var(--r2);padding:12px;display:flex;align-items:center;gap:10px">'+'<div style="width:40px;height:40px;border-radius:8px;background:'+a.bg+';color:'+a.color+';display:flex;align-items:center;justify-content:center;font-family:\'Syne\',sans-serif;font-weight:800;font-size:12px;flex-shrink:0">'+a.id+'</div>'+'<div style="flex:1;min-width:0">'+'<div style="font-weight:500;font-size:12px">NIVIKO '+a.id+'</div>'+'<div style="font-size:10px;color:'+(expirado?"var(--red)":conn?"var(--grn)":"var(--t3)")+'">'+
+      (expirado?"● Token expirado":conn?"● Conectada":"○ Sin conectar")+
+      (conn&&exp?" · "+(expirado?"Expirado":minLeft<60?"Expira en "+minLeft+"min":"Expira en "+Math.round(minLeft/60)+"h"):"")+
+    '</div>'+(conn?.refresh_token  ?'<div style="font-size:9px;color:var(--grn)">✓ Refresh token disponible</div>'  :conn?'<div style="font-size:9px;color:var(--org)">⚠ Sin refresh_token — re-autorizar en Get Token</div>':"")+
+'</div>'+'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'+(conn?'<button class="btn-g btn-sm" onclick="desconectar(\''+a.id+'\')" style="color:var(--red);border-color:rgba(255,77,77,.3)">Desconectar</button>':
+       '<button class="btn btn-sm" onclick="abrirConectar(\''+a.id+'\',\''+a.uid+'\')">Conectar</button>')+(expirado||sinRefTok?'<button class="btn btn-sm" style="background:var(--org);border:none;font-size:9px" onclick="goPage(\'gettoken\')">Re-autorizar</button>':"")+
       "</div></div>";
   });
   grid.innerHTML=h;
 }
+window.forceRefreshTokens=async()=>{
+  const btn=document.getElementById("btnForceRefresh");
+  if(btn){btn.disabled=true;btn.textContent="Renovando...";}
+  _refreshRunning=false;
+  await refreshTokens();
+  if(btn){btn.disabled=false;btn.textContent="↻ Renovar tokens ahora";}
+  renderCuentas();
+};
 function updateSbStat(){const el=document.getElementById("sbStat");if(el)el.textContent=S.accounts.length+" cuenta"+(S.accounts.length!==1?"s":"")+" conectada"+(S.accounts.length!==1?"s":"");}
 window.abrirConectar=(id,uid)=>{document.getElementById("mc_name").value=id;document.getElementById("mc_uid").value=uid;openModal("mCuenta");};
 window.conectar=async()=>{
