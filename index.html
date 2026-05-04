@@ -1136,16 +1136,27 @@ async function runReconcile(){
 // Auto-refresh tokens
 let _autoRef=null;
 function startAutoRefresh(){
-  if(_autoRef||!S.accounts.length||!S.cfg.cid||!S.cfg.csec)return;
-  _autoRef=setInterval(refreshTokens,5*60*60*1000);
-  refreshTokens();
+  if(_autoRef)return;
+  if(!S.accounts.length)return;
+  // Refresh every 4 hours (tokens expire in 6h - safe margin)
+  _autoRef=setInterval(refreshTokens,4*60*60*1000);
+  // Also check on startup if any token is close to expiring (< 2h left)
+  const needsRefresh=S.accounts.some(a=>a.expires_at&&(a.expires_at-Date.now())<2*60*60*1000);
+  if(needsRefresh)refreshTokens();
 }
 async function refreshTokens(){
+  const cid=S.cfg.cid||'';
+  const csec=S.cfg.csec||'';
+  if(!cid||!csec){console.warn('refreshTokens: sin client_id/secret en config');return;}
   let changed=false;const upd=[...S.accounts];
   for(let i=0;i<upd.length;i++){
     const a=upd[i];if(!a.refresh_token)continue;
+    // Solo refrescar si expira en menos de 2 horas o ya está expirado
+    const expiresSoon=!a.expires_at||(a.expires_at-Date.now())<2*60*60*1000;
+    if(!expiresSoon){console.log('Token '+a.id+' OK, vence en '+Math.round((a.expires_at-Date.now())/60000)+'min');continue;}
+    console.log('Refreshing token for '+a.id+'...');
     try{
-      const r=await fetch(PROXY+"/auth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({client_id:S.cfg.cid,client_secret:S.cfg.csec,refresh_token:a.refresh_token})});
+      const r=await fetch(PROXY+"/auth/refresh",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid,client_secret:csec,refresh_token:a.refresh_token})});
       const d=await r.json();
       if(d.access_token){upd[i]={...a,token:d.access_token,refresh_token:d.refresh_token||a.refresh_token,expires_at:Date.now()+(d.expires_in||21600)*1000};changed=true;}
     }catch{}
@@ -2685,19 +2696,44 @@ window.limpiarCuentas=async()=>{
   toast((antes-S.accounts.length)+" extras eliminadas ✓","ok");renderCuentas();
 };
 window.autoConnect=async(token,userId,refreshToken)=>{
-  const knownId=Object.entries(UID).find(([,uid])=>uid===String(userId));
-  const name=knownId?knownId[0]:prompt("¿A qué cuenta? (GBA/BHO/IURA/GBS)");
+  const knownId=Object.entries(UID).find(([k,v])=>v===String(userId));
+  let name=knownId?knownId[0]:null;
+  if(!name){
+    name=await new Promise(res=>{
+      const d=document.createElement('div');
+      d.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a1a2e;border:1px solid #333;border-radius:12px;padding:20px;z-index:9999;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+      d.innerHTML='<div style="font-weight:600;margin-bottom:8px;color:#fff">A que cuenta corresponde?</div><div style="font-size:10px;color:#888;margin-bottom:12px">User ID: '+userId+'</div>';
+      ['GBA','BHO','IURA','GBS'].forEach(function(o){
+        var b=document.createElement('button');
+        b.textContent=o;
+        b.style.cssText='display:block;width:100%;padding:8px;margin-bottom:6px;background:#252540;border:1px solid #444;border-radius:6px;color:#fff;cursor:pointer;font-size:13px';
+        b.onclick=function(){d.remove();res(o);};
+        d.appendChild(b);
+      });
+      var c=document.createElement('button');
+      c.textContent='Cancelar';
+      c.style.cssText='display:block;width:100%;padding:6px;background:transparent;border:none;color:#666;cursor:pointer;font-size:11px;margin-top:4px';
+      c.onclick=function(){d.remove();res(null);};
+      d.appendChild(c);
+      document.body.appendChild(d);
+    });
+  }
   if(!name)return;
-  const acct={id:name,token,userId:UID[name]||String(userId),nickname:name,refresh_token:refreshToken||"",expires_at:Date.now()+6*60*60*1000};
-  S.accounts=S.accounts.filter(a=>a.id!==name);S.accounts.push(acct);
-  await fb.set("accounts",{list:S.accounts});toast("✓ "+name+" conectado","ok");startAutoRefresh();
+  const acct={id:name,token:token,userId:UID[name]||String(userId),nickname:name,refresh_token:refreshToken||'',expires_at:Date.now()+6*60*60*1000};
+  S.accounts=S.accounts.filter(function(a){return a.id!==name;});
+  S.accounts.push(acct);
+  await fb.set('accounts',{list:S.accounts});
+  renderCuentas();
+  toast('✓ '+name+' conectado','ok');
+  startAutoRefresh();
 };
+
 
 // ── GET TOKEN ─────────────────────────────────────────────────
 window.buildAuthLink=()=>{
   const cid=document.getElementById("gt_cid")?.value||S.cfg.cid;
   const el=document.getElementById("authLink");if(!el||!cid)return;
-  const url="https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id="+cid+"&redirect_uri="+encodeURIComponent(REDIRECT);
+  const url="https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id="+cid+"&redirect_uri="+encodeURIComponent(REDIRECT)+"&scope=offline_access+orders+payments+read_sales+read_items+write_items+claims+questions+promotions";
   el.href=url;el.textContent=url;
 };
 window.doGetToken=async()=>{
