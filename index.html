@@ -1136,13 +1136,13 @@ async function runReconcile(){
 // Auto-refresh tokens
 let _autoRef=null;
 function startAutoRefresh(){
-  if(_autoRef)return;
   if(!S.accounts.length)return;
-  // Refresh every 4 hours (tokens expire in 6h - safe margin)
+  // Clear existing interval and restart fresh
+  if(_autoRef){clearInterval(_autoRef);_autoRef=null;}
+  // Refresh every 4 hours
   _autoRef=setInterval(refreshTokens,4*60*60*1000);
-  // Also check on startup if any token is close to expiring (< 2h left)
-  const needsRefresh=S.accounts.some(a=>a.expires_at&&(a.expires_at-Date.now())<2*60*60*1000);
-  if(needsRefresh)refreshTokens();
+  // Run immediately to refresh any expired/near-expiry tokens
+  refreshTokens();
 }
 async function refreshTokens(){
   const cid=S.cfg.cid||'';
@@ -1151,10 +1151,15 @@ async function refreshTokens(){
   let changed=false;const upd=[...S.accounts];
   for(let i=0;i<upd.length;i++){
     const a=upd[i];if(!a.refresh_token)continue;
-    // Solo refrescar si expira en menos de 2 horas o ya está expirado
-    const expiresSoon=!a.expires_at||(a.expires_at-Date.now())<2*60*60*1000;
-    if(!expiresSoon){console.log('Token '+a.id+' OK, vence en '+Math.round((a.expires_at-Date.now())/60000)+'min');continue;}
-    console.log('Refreshing token for '+a.id+'...');
+    // Refrescar si expira en menos de 3 horas o ya está expirado
+    const timeLeft = a.expires_at ? (a.expires_at - Date.now()) : 0;
+    const expiresSoon = !a.expires_at || timeLeft < 3*60*60*1000;
+    if(!expiresSoon){
+      const hLeft = Math.round(timeLeft/3600000*10)/10;
+      console.log('[refresh] '+a.id+' OK — vence en '+hLeft+'h');
+      continue;
+    }
+    console.log('[refresh] Renovando '+a.id+'...');
     try{
       const r=await fetch(PROXY+"/auth/refresh",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid,client_secret:csec,refresh_token:a.refresh_token})});
       const d=await r.json();
@@ -2666,7 +2671,8 @@ function renderCuentas(){
       '<div style="width:40px;height:40px;border-radius:8px;background:'+a.bg+';color:'+a.color+';display:flex;align-items:center;justify-content:center;font-family:\'Syne\',sans-serif;font-weight:800;font-size:12px;flex-shrink:0">'+a.id+'</div>'+
       '<div style="flex:1;min-width:0"><div style="font-weight:500;font-size:12px">NIVIKO '+a.id+'</div>'+
       '<div style="font-size:10px;color:'+(expirado?"var(--red)":conn?"var(--grn)":"var(--t3)")+'">'+(expirado?"● Token expirado":conn?"● Conectada":"○ Sin conectar")+(conn&&exp?" · "+(expirado?"Expiró":minLeft<60?"Expira en "+minLeft+"min":"Expira en "+Math.round(minLeft/60)+"h"):"")+'</div>'+
-      (conn?.refresh_token?'<div style="font-size:9px;color:var(--grn)">✓ Auto-refresh</div>':"")+
+      (conn?.refresh_token?'<div style="font-size:9px;color:var(--grn)">✓ Auto-refresh activo</div>'+
+        (!expirado&&minLeft>0?'<div style="font-size:9px;color:var(--t3)">próximo refresh en '+(_autoRef?'4h':'—')+'</div>':''):"")+
       '</div><div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'+
       (conn?'<button class="btn-g btn-sm" onclick="desconectar(\''+a.id+'\')" style="color:var(--red);border-color:rgba(255,77,77,.3)">Desconectar</button>':
              '<button class="btn btn-sm" onclick="abrirConectar(\''+a.id+'\',\''+a.uid+'\')">Conectar</button>')+
