@@ -259,7 +259,14 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         <div class="card"><div class="ch"><span class="ct">Composición costos</span></div><div id="costBars"></div></div>
       </div>
       <div class="card"><div class="ch"><span class="ct">Por producto</span></div>
-        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>SKU</th><th>Descripción</th><th>Costo</th><th>Unid.</th><th>Venta</th><th>Ganancia</th><th>%</th></tr></thead><tbody id="rentBody"></tbody></table></div>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr>
+          <th>SKU</th><th>Descripción</th>
+          <th onclick="sortRent('costo')" style="cursor:pointer" title="Ordenar">Costo <span id="rs_costo"></span></th>
+          <th onclick="sortRent('u')" style="cursor:pointer" title="Ordenar">Unid. <span id="rs_u"></span></th>
+          <th onclick="sortRent('v')" style="cursor:pointer" title="Ordenar">Venta <span id="rs_v"></span></th>
+          <th onclick="sortRent('g')" style="cursor:pointer" title="Ordenar">Ganancia <span id="rs_g"></span></th>
+          <th onclick="sortRent('pct')" style="cursor:pointer" title="Ordenar">% <span id="rs_pct"></span></th>
+        </tr></thead><tbody id="rentBody"></tbody></table></div>
       </div>
     </div>
 
@@ -1226,12 +1233,18 @@ function renderAlertasPage(){
 function renderOverview(){
   const o=getOrders();
   const v=o.reduce((s,x)=>s+x.venta,0),g=o.reduce((s,x)=>s+x.ganancia,0),u=o.reduce((s,x)=>s+x.unidades,0);
-  const bc=g>=0?"up":"dn";
-  document.getElementById("kpis").innerHTML=
-    '<div class="kpi acc"><div class="kl">Ganancia neta</div><div class="kv">'+fS(g)+'</div><div class="badge '+bc+'">'+pct(v>0?Math.abs(g)/v:0)+'</div></div>'+
+  const costo=o.reduce((s,x)=>s+(x.costo||0),0);
+  const pctVenta=v>0?g/v:0;
+  const pctCosto=costo>0?g/costo:0;
+  const bc=g>=0?'up':'dn';
+  document.getElementById('kpis').innerHTML=
+    '<div class="kpi acc"><div class="kl">Ganancia neta</div><div class="kv">'+fS(g)+'</div>'+
+      '<div class="badge '+(pctVenta>=0?'up':'dn')+'">'+pct(Math.abs(pctVenta))+' s/venta</div>'+
+      '<div class="ks" style="margin-top:4px;color:'+(pctCosto>=0?'var(--grn)':'var(--red)')+'">'+pct(Math.abs(pctCosto))+' s/costo</div>'+
+    '</div>'+
     '<div class="kpi grn"><div class="kl">Facturación</div><div class="kv">'+fS(v)+'</div><div class="ks">'+o.length+' órdenes</div></div>'+
-    '<div class="kpi blu"><div class="kl">Ticket promedio</div><div class="kv">'+fS(o.length?v/o.length:0)+'</div></div>'+
-    '<div class="kpi org"><div class="kl">Unidades</div><div class="kv">'+u.toLocaleString("es-AR")+'</div></div>';
+    '<div class="kpi red"><div class="kl">Costo mercadería</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+' de la facturación</div></div>'+
+    '<div class="kpi org"><div class="kl">Unidades</div><div class="kv">'+u.toLocaleString('es-AR')+'</div><div class="ks">Ticket prom: '+fS(o.length?v/o.length:0)+'</div></div>';
   const accts=["GBA","BHO","IURA","GBS"];
   const gA={};accts.forEach(a=>{gA[a]=S.orders.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
   const maxG=Math.max(...Object.values(gA).map(Math.abs),1);
@@ -1386,33 +1399,57 @@ window.verDebugOrden=async(id,acctId)=>{
 };
 
 // ── RENTABILIDAD ──────────────────────────────────────────────
+let _rentSort={col:'g',dir:-1};
+function sortRent(col){
+  if(_rentSort.col===col)_rentSort.dir*=-1;else{_rentSort.col=col;_rentSort.dir=-1;}
+  renderRent();
+}
 function renderRent(){
   const o=getOrders();
   const v=o.reduce((s,x)=>s+x.venta,0),g=o.reduce((s,x)=>s+x.ganancia,0);
   const com=o.reduce((s,x)=>s+(x.comision||0),0),iva=o.reduce((s,x)=>s+(x.iva||0),0);
   const pub=o.reduce((s,x)=>s+(x.pub||0),0),costo=o.reduce((s,x)=>s+(x.costo||0),0);
   const iibb=o.reduce((s,x)=>s+(x.iibb||0),0),env=o.reduce((s,x)=>s+(x.costoEnvio||0),0);
-  const bc=g>=0?"up":"dn";
-  document.getElementById("rentKpi").innerHTML=
+  const bc=g>=0?'up':'dn';
+  document.getElementById('rentKpi').innerHTML=
     '<div class="kpi acc"><div class="kl">Ganancia neta</div><div class="kv">'+fS(g)+'</div><div class="badge '+bc+'">'+pct(v>0?g/v:0)+'/venta</div></div>'+
     '<div class="kpi grn"><div class="kl">Facturación</div><div class="kv">'+fS(v)+'</div></div>'+
     '<div class="kpi red"><div class="kl">Costo productos</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+'</div></div>'+
     '<div class="kpi org"><div class="kl">Comisiones ML</div><div class="kv">'+fS(com)+'</div><div class="ks">'+pct(v>0?com/v:0)+'</div></div>';
-  const accts=["GBA","BHO","IURA","GBS"];
+  const accts=['GBA','BHO','IURA','GBS'];
   const rA={};accts.forEach(a=>{const oa=S.orders.filter(x=>x.acct===a);const va=oa.reduce((s,x)=>s+x.venta,0);rA[a]=va>0?oa.reduce((s,x)=>s+x.ganancia,0)/va:0;});
   const maxR=Math.max(...Object.values(rA).map(Math.abs),.01);
-  document.getElementById("rentBars").innerHTML=accts.map(a=>'<div class="br"><div class="bl">'+a+'</div><div class="bt"><div class="bf" style="width:'+Math.abs(rA[a])/maxR*100+'%;background:'+ac(a)+'"></div></div><div class="bv" style="color:'+(rA[a]>=0?"var(--grn)":"var(--red)")+'">'+pct(rA[a])+"</div></div>").join("");
-  const costs=[{l:"Costo prod.",v:costo,c:"var(--red)"},{l:"Comisión ML",v:com,c:"var(--blu)"},{l:"IVA",v:iva,c:"var(--org)"},{l:"IIBB",v:iibb,c:"var(--acc)"},{l:"Publicidad",v:pub,c:"var(--pur,#A78BFA)"},{l:"Envío",v:env,c:"var(--grn)"}];
+  document.getElementById('rentBars').innerHTML=accts.map(a=>'<div class="br"><div class="bl">'+a+'</div><div class="bt"><div class="bf" style="width:'+Math.abs(rA[a])/maxR*100+'%;background:'+ac(a)+'"></div></div><div class="bv" style="color:'+(rA[a]>=0?'var(--grn)':'var(--red)')+'">'+pct(rA[a])+'</div></div>').join('');
+  const costs=[{l:'Costo prod.',v:costo,c:'var(--red)'},{l:'Comisión ML',v:com,c:'var(--blu)'},{l:'IVA',v:iva,c:'var(--org)'},{l:'IIBB',v:iibb,c:'var(--acc)'},{l:'Publicidad',v:pub,c:'var(--pur,#A78BFA)'},{l:'Envío',v:env,c:'var(--grn)'}];
   const maxC=Math.max(...costs.map(c=>c.v),1);
-  document.getElementById("costBars").innerHTML=costs.map(c=>'<div class="br"><div class="bl">'+c.l+'</div><div class="bt"><div class="bf" style="width:'+c.v/maxC*100+'%;background:'+c.c+'"></div></div><div class="bv">'+fS(c.v)+"</div></div>").join("");
-  const sm={};o.forEach(x=>{if(!sm[x.sku])sm[x.sku]={desc:x.desc,u:0,v:0,g:0,iva:x.ivaPct||21};sm[x.sku].u+=x.unidades;sm[x.sku].v+=x.venta;sm[x.sku].g+=x.ganancia;});
-  let rH="";
-  Object.entries(sm).sort((a,b)=>b[1].g-a[1].g).forEach(([sku,d])=>{
-    const cls=d.v>0&&d.g/d.v>.15?"g":d.g<0?"r":"m";
-    const pp=S.products.find(p=>p.sku===sku);
-    rH+="<tr><td><span class=\"sku\">"+esc(sku)+"</span></td><td style=\"max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)\">"+esc(d.desc)+"</td><td class=\"mono\">"+(pp?fF(pp.ars):"—")+"</td><td>"+d.u+"</td><td class=\"mono\">"+fF(d.v)+"</td><td class=\"mono "+(d.g>=0?"g":"r")+"\">"+fF(d.g)+"</td><td class=\""+cls+"\">"+( d.v>0?pct(d.g/d.v):"—")+"</td></tr>";
+  document.getElementById('costBars').innerHTML=costs.map(c=>'<div class="br"><div class="bl">'+c.l+'</div><div class="bt"><div class="bf" style="width:'+c.v/maxC*100+'%;background:'+c.c+'"></div></div><div class="bv">'+fS(c.v)+'</div></div>').join('');
+  const sm={};
+  o.forEach(x=>{
+    if(!sm[x.sku])sm[x.sku]={desc:x.desc,u:0,v:0,g:0,costo:0};
+    sm[x.sku].u+=x.unidades;sm[x.sku].v+=x.venta;sm[x.sku].g+=x.ganancia;sm[x.sku].costo+=(x.costo||0);
   });
-  document.getElementById("rentBody").innerHTML=rH||'<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:16px">Sin datos</td></tr>';
+  const rows=Object.entries(sm).map(([sku,d])=>({sku,d:{...d,pct:d.v>0?d.g/d.v:0}}));
+  const {col,dir}=_rentSort;
+  rows.sort((a,b)=>(a.d[col]??0)>(b.d[col]??0)?dir:-dir);
+  ['costo','u','v','g','pct'].forEach(c=>{
+    const el=document.getElementById('rs_'+c);
+    if(el)el.textContent=_rentSort.col===c?(_rentSort.dir===-1?' ↓':' ↑'):'';
+  });
+  let rH='';
+  rows.forEach(({sku,d})=>{
+    const cls=d.v>0&&d.g/d.v>.15?'g':d.g<0?'r':'m';
+    const pp=S.products.find(p=>p.sku===sku);
+    rH+='<tr>'+
+      '<td><span class="sku">'+esc(sku)+'</span></td>'+
+      '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)">'+esc(d.desc)+'</td>'+
+      '<td class="mono">'+(pp?fF(pp.ars):'—')+'</td>'+
+      '<td>'+d.u+'</td>'+
+      '<td class="mono">'+fF(d.v)+'</td>'+
+      '<td class="mono '+(d.g>=0?'g':'r')+'">'+fF(d.g)+'</td>'+
+      '<td class="'+cls+'">'+(d.v>0?pct(d.g/d.v):'—')+'</td>'+
+      '</tr>';
+  });
+  document.getElementById('rentBody').innerHTML=rH||'<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:16px">Sin datos</td></tr>';
 }
 
 // ── ENVÍOS ────────────────────────────────────────────────────
