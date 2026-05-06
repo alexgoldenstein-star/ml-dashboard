@@ -420,6 +420,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <label class="lbl">Comisión % estimada</label><input class="inp" id="cfg_com">
           <label class="lbl">Publicidad %</label><input class="inp" id="cfg_pub">
           <label class="lbl">IIBB %</label><input class="inp" id="cfg_iibb">
+          <label class="lbl">Retenciones ML %</label><input class="inp" id="cfg_ret" placeholder="1.2">
           <label class="lbl">Umbral margen OK (%)</label><input class="inp" id="cfg_umbral_ok" placeholder="20">
           <label class="lbl">Umbral margen bajo (%)</label><input class="inp" id="cfg_umbral_warn" placeholder="10">
           <label class="lbl">Umbral envío gratis ML ($)</label>
@@ -686,35 +687,50 @@ function getRange(){
 // de productos actualizada. Se llama al cargar del caché o de la API.
 // Resuelve el problema de órdenes cacheadas con costo=0.
 function applyProductCosts(orders){
+  // Leer porcentajes desde Config (con fallbacks a los valores default)
+  const pubPct = (S.cfg.pub ?? 5) / 100;
+  const iibbPct = (S.cfg.iibb ?? 4) / 100;
+  const retPct = (S.cfg.ret ?? 1.2) / 100;
   return orders.map(o=>{
     const p = S.products.find(x=>x.sku===o.sku);
     if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
     const costo = p.ars * (o.unidades||1); // multiplicar por unidades
     const ivaPct = p.iva/100;
     const iva = o.venta*ivaPct; // directo sobre venta bruta
-    const pub = p.pub===false ? 0 : o.venta*0.05;
-    const ganancia = o.venta-(o.comision||0)-(o.cuotas||0)-costo-iva-pub-(o.iibb||0)-(o.costoEnvio||0);
+    const pub = p.pub===false ? 0 : o.venta*pubPct;
     // Corregir comisión para pack_order con múltiples unidades
-    // El proxy v8.7 ya lo calcula bien, pero el caché puede tener el valor viejo
-    // Si la comisión del caché parece de 1 unidad (< 8% de venta), multiplicar por unidades
     const comisionCache = o.comision||0;
     const comisionRatio = o.venta > 0 ? comisionCache/o.venta : 0;
     const unidades = o.unidades||1;
-    // Si ratio < 8% y es pack_order con >1 unidad, multiplicar
     const comisionCorregida = (comisionRatio < 0.08 && unidades > 1)
       ? Math.round(comisionCache * unidades)
       : comisionCache;
-    // Sanity check final
     const comisionOk = comisionCorregida >= o.venta * 0.05;
     const comisionFinal = comisionOk ? comisionCorregida : Math.round(o.venta * 0.14);
-    // Recalcular IIBB 4% (no confiar en caché que puede tener valor viejo o 0)
-    const iibbFinal = Math.round(o.venta * 0.04);
-    const retML = o.retencionesML ?? Math.round(o.venta * 0.012); // usar el del proxy o estimar
-    // Cuotas del caché: solo usar si son razonables (<30% de venta)
-    // Valores altos probablemente son el recargo al comprador, no costo del vendedor
+    const iibbFinal = Math.round(o.venta * iibbPct);
+    const retML = o.retencionesML ?? Math.round(o.venta * retPct);
     const cuotasCache = o.cuotas||0;
     const cuotasFinal = cuotasCache < o.venta * 0.30 ? cuotasCache : 0;
-    const gananciafinal = o.venta - comisionFinal - cuotasFinal - costo - iva - pub - iibbFinal - (o.costoEnvio||0) - retML;
+    // Recalcular envío Flex: ingresoEnvio $850 fijo si mlBonifica, sino 0
+    // Para Correo: respetar costoEnvio del proxy (ya tiene list_cost si not_delivered)
+    let costoEnvioFinal = o.costoEnvio||0;
+    let ingresoEnvioFinal = o.ingresoEnvio||0;
+    let costoCordonFinal = o.costoCordon||0;
+    if(o.modal==='Flex'){
+      const CORD_MAP = {1: S.cfg.c1||3330, 2: S.cfg.c2||5355, 3: S.cfg.c3||6600};
+      costoCordonFinal = CORD_MAP[o.cordon||3];
+      // Si ingresoEnvio es 0 pero hay bonificacion (order_has_discount o similar), usar $850
+      ingresoEnvioFinal = (o.ingresoEnvio > 0) ? o.ingresoEnvio : 850;
+      costoEnvioFinal = 0; // para Flex el costo lo manejamos via cordon
+    }
+    let gananciafinal;
+    if(o.modal==='Flex' && (o.totalPaid||0) > 0){
+      gananciafinal = (o.totalPaid||0) + ingresoEnvioFinal - comisionFinal - cuotasFinal - costoCordonFinal - costo - iva - pub - iibbFinal - retML;
+    } else if(o.modal==='Flex'){
+      gananciafinal = o.venta + ingresoEnvioFinal - comisionFinal - cuotasFinal - costoCordonFinal - costo - iva - pub - iibbFinal - retML;
+    } else {
+      gananciafinal = o.venta - comisionFinal - cuotasFinal - costo - iva - pub - iibbFinal - costoEnvioFinal - retML;
+    }
     return {
       ...o,
       costo: Math.round(costo),
@@ -724,6 +740,9 @@ function applyProductCosts(orders){
       iibb: iibbFinal,
       retencionesML: retML,
       comision: comisionFinal,
+      ingresoEnvio: Math.round(ingresoEnvioFinal),
+      costoCordon: Math.round(costoCordonFinal),
+      costoEnvio: Math.round(costoEnvioFinal),
       _comisionEstimada: !comisionOk,
       ganancia: Math.round(gananciafinal),
       pct: o.venta>0 ? gananciafinal/o.venta : 0,
@@ -1352,7 +1371,11 @@ window.verDetalle=(id,acctId)=>{
       const costoCordonFlex = cordCost||cfg.c3;
     const ingresoEnvioFlex = o.ingresoEnvio||0;
     const gananciaEnvioFlex = ingresoEnvioFlex - costoCordonFlex;
-    const envDesc=m==="Full"?"Full — ML absorbe el costo":m==="Flex"?`Flex cordón ${o.cordon||3} → logística $${costoCordonFlex.toLocaleString("es-AR")}`:o.costoEnvio>0?"Envío gratis para el comprador — ML te descuenta a vos":"Comprador pagó el envío";
+    const envDesc=m==='Full'
+      ? (o.costoEnvio>0 ? `Full — ML te cobra $${(o.costoEnvio).toLocaleString('es-AR')} logística` : 'Full — ML absorbe el costo')
+      : m==='Flex'
+        ? `Flex cordón ${o.cordon||3} → logística $${costoCordonFlex.toLocaleString('es-AR')}`
+        : o.costoEnvio>0 ? 'Envío gratis para el comprador — ML te descuenta a vos' : 'Comprador pagó el envío';
   const row=(lbl,val,cls,sub)=>'<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--b1)"><div><div style="font-size:12px;color:var(--t2)">'+lbl+'</div>'+(sub?'<div style="font-size:10px;color:var(--t3)">'+sub+'</div>':'')+' </div><span class="mono '+cls+'" style="font-size:12px;flex-shrink:0;margin-left:12px">'+val+'</span></div>';
   let h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+
     '<span style="font-size:11px;padding:3px 9px;border-radius:4px;background:'+ac(o.acct)+'22;color:'+ac(o.acct)+';font-weight:600">'+o.acct+'</span>'+
@@ -1378,7 +1401,9 @@ window.verDetalle=(id,acctId)=>{
             : "−"+fF(Math.abs(gananciaEnvioFlex))+" neto",
           gananciaEnvioFlex >= 0 ? "g" : "r",
           `Comprador pagó $${ingresoEnvioFlex.toLocaleString('es-AR')} · logística $${costoCordonFlex.toLocaleString('es-AR')}`)
-      : row("Envío",m==="Full"?"$0":"−"+fF(o.costoEnvio||0),"m",envDesc))+
+      : row('Envío', m==='Full'
+          ? (o.costoEnvio>0 ? '−'+fF(o.costoEnvio) : '$0')
+          : '−'+fF(o.costoEnvio||0), 'm', envDesc))+
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0 6px;margin-top:4px;border-top:2px solid var(--b2)">'+
     '<div><div style="font-weight:600;font-size:13px">Ganancia neta</div><div style="font-size:10px;color:var(--t3)">Sobre precio de venta</div></div>'+
     '<div style="text-align:right"><div class="mono '+((o.ganancia||0)>=0?"g":"r")+'" style="font-size:18px;font-weight:700">'+fF(o.ganancia||0)+'</div><div class="'+((o.pct||0)>.15?"g":(o.pct||0)<0?"r":"m")+'" style="font-size:12px">'+pct(o.pct||0)+"</div></div></div>";
@@ -2872,13 +2897,15 @@ window.toggleEnvioBonifMode = function(){
 
 function loadCfgUI(){
   const c=S.cfg;
-  ["dolar","com","pub","iibb","c1","c2","c3","cid","csec","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
+  ["dolar","com","pub","iibb","ret","c1","c2","c3","cid","csec","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
   updateEnvioToggleUI();
 }
 window.saveConfig=()=>{
-  ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
+  ["dolar","com","pub","iibb","ret","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
   ["cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)S.cfg[k]=el.value.trim();});
-  fb.set("config",S.cfg);buildAuthLink();toast("Configuración guardada ✓","ok");
+  fb.set("config",S.cfg);
+  if(S.orders.length) S.orders = applyProductCosts(S.orders);
+  buildAuthLink();toast("Configuracion guardada y recalculada ✓","ok");
 };
 
 // ── CALENDARIO ────────────────────────────────────────────────
