@@ -714,18 +714,25 @@ function applyProductCosts(orders){
     const cuotasFinal = cuotasCache < o.venta * 0.30 ? cuotasCache : 0;
     // Recalcular envío:
     // - Flex: ingresoEnvio $850 fijo + costoCordon desde config
-    // - Correo/Full: respetar costoEnvio del proxy; si es 0 pero debería tener costo,
-    //   no podemos recalcularlo desde el caché (no tenemos list_cost aquí)
-    //   → el proxy ya tiene el fix, se corrige al hacer Actualizar Ventas
+    const umbral = S.cfg.umbral_free_ship || 33000;
+    const sobreUmbral = o.venta >= umbral;
     let costoEnvioFinal = o.costoEnvio||0;
     let ingresoEnvioFinal = o.ingresoEnvio||0;
     let costoCordonFinal = o.costoCordon||0;
     if(o.modal==='Flex'){
       const CORD_MAP = {1: S.cfg.c1||3330, 2: S.cfg.c2||5355, 3: S.cfg.c3||6600};
       costoCordonFinal = CORD_MAP[o.cordon||3];
-      // Si ingresoEnvio es 0 pero hay bonificacion (order_has_discount o similar), usar $850
-      ingresoEnvioFinal = (o.ingresoEnvio > 0) ? o.ingresoEnvio : 850;
-      costoEnvioFinal = 0; // para Flex el costo lo manejamos via cordon
+      if(sobreUmbral){
+        // >= umbral: ML bonifica al vendedor ~$900
+        ingresoEnvioFinal = (o.ingresoEnvio > 0) ? o.ingresoEnvio : 900;
+      } else {
+        // < umbral: ingreso = lo que pagó el comprador (soCost del caché)
+        ingresoEnvioFinal = (o.ingresoEnvio > 0) ? o.ingresoEnvio : 0;
+      }
+      costoEnvioFinal = 0;
+    } else {
+      // Correo / Full: si < umbral → comprador pagó → vendedor $0
+      if(!sobreUmbral) costoEnvioFinal = 0;
     }
     let gananciafinal;
     if(o.modal==='Flex' && (o.totalPaid||0) > 0){
