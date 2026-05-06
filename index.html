@@ -722,12 +722,18 @@ function applyProductCosts(orders){
     if(o.modal==='Flex'){
       const CORD_MAP = {1: S.cfg.c1||3330, 2: S.cfg.c2||5355, 3: S.cfg.c3||6600};
       costoCordonFinal = CORD_MAP[o.cordon||3];
-      if(sobreUmbral){
-        // >= umbral: ML bonifica al vendedor ~$900
-        ingresoEnvioFinal = (o.ingresoEnvio > 0) ? o.ingresoEnvio : 900;
+      if(o.ingresoEnvio > 0 && o.ingresoEnvio !== 850 && o.ingresoEnvio !== 900){
+        // Tiene un valor real (fee_detail o soCost) — respetar
+        ingresoEnvioFinal = o.ingresoEnvio;
+      } else if(o.costoEnvio === 0 && o.ingresoEnvio === 0 && o.bonifEnvio === 0){
+        // loyal_discount: ML cubrió todo → vendedor $0 neto
+        // Usar costoCordon como ingreso para que el neto sea 0
+        ingresoEnvioFinal = costoCordonFinal;
+      } else if(sobreUmbral){
+        ingresoEnvioFinal = 900;
       } else {
-        // < umbral: ingreso = lo que pagó el comprador (soCost del caché)
-        ingresoEnvioFinal = (o.ingresoEnvio > 0) ? o.ingresoEnvio : 0;
+        // < umbral: ingreso = soCost del caché, si no hay → 0
+        ingresoEnvioFinal = 0;
       }
       costoEnvioFinal = 0;
     } else {
