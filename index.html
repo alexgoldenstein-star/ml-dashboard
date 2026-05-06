@@ -420,7 +420,6 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <label class="lbl">Comisión % estimada</label><input class="inp" id="cfg_com">
           <label class="lbl">Publicidad %</label><input class="inp" id="cfg_pub">
           <label class="lbl">IIBB %</label><input class="inp" id="cfg_iibb">
-          <label class="lbl">Retenciones ML %</label><input class="inp" id="cfg_ret" placeholder="1.2">
           <label class="lbl">Umbral margen OK (%)</label><input class="inp" id="cfg_umbral_ok" placeholder="20">
           <label class="lbl">Umbral margen bajo (%)</label><input class="inp" id="cfg_umbral_warn" placeholder="10">
           <label class="lbl">Umbral envío gratis ML ($)</label>
@@ -690,7 +689,6 @@ function applyProductCosts(orders){
   // Leer porcentajes desde Config (con fallbacks a los valores default)
   const pubPct = (S.cfg.pub ?? 5) / 100;
   const iibbPct = (S.cfg.iibb ?? 4) / 100;
-  const retPct = (S.cfg.ret ?? 1.2) / 100;
   return orders.map(o=>{
     const p = S.products.find(x=>x.sku===o.sku);
     if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
@@ -708,7 +706,9 @@ function applyProductCosts(orders){
     const comisionOk = comisionCorregida >= o.venta * 0.05;
     const comisionFinal = comisionOk ? comisionCorregida : Math.round(o.venta * 0.14);
     const iibbFinal = Math.round(o.venta * iibbPct);
-    const retML = o.retencionesML ?? Math.round(o.venta * retPct);
+    // Retenciones ML: siempre 1.2% fijo (Créd/Déb 0.6% + SIRTAC 0.6%)
+    // NO usar S.cfg.ret ni el caché — este valor es fijo por ley y no configurable
+    const retML = Math.round(o.venta * 0.012);
     const cuotasCache = o.cuotas||0;
     const cuotasFinal = cuotasCache < o.venta * 0.30 ? cuotasCache : 0;
     // Recalcular envío Flex: ingresoEnvio $850 fijo si mlBonifica, sino 0
@@ -2897,11 +2897,11 @@ window.toggleEnvioBonifMode = function(){
 
 function loadCfgUI(){
   const c=S.cfg;
-  ["dolar","com","pub","iibb","ret","c1","c2","c3","cid","csec","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
+  ["dolar","com","pub","iibb","c1","c2","c3","cid","csec","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
   updateEnvioToggleUI();
 }
 window.saveConfig=()=>{
-  ["dolar","com","pub","iibb","ret","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
+  ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
   ["cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)S.cfg[k]=el.value.trim();});
   fb.set("config",S.cfg);
   if(S.orders.length) S.orders = applyProductCosts(S.orders);
