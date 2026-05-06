@@ -434,6 +434,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
             </div>
           </div>
           <button class="btn" onclick="saveConfig()" style="margin-top:12px">Guardar</button>
+          <button class="btn-g btn-sm" onclick="clearOrdersCache()" style="margin-top:8px;color:var(--org);border-color:rgba(255,165,0,.3)">🗑 Borrar caché y recargar</button>
         </div>
         <div class="card">
           <div class="ch"><span class="ct">Costos Flex</span></div>
@@ -711,8 +712,11 @@ function applyProductCosts(orders){
     const retML = Math.round(o.venta * 0.012);
     const cuotasCache = o.cuotas||0;
     const cuotasFinal = cuotasCache < o.venta * 0.30 ? cuotasCache : 0;
-    // Recalcular envío Flex: ingresoEnvio $850 fijo si mlBonifica, sino 0
-    // Para Correo: respetar costoEnvio del proxy (ya tiene list_cost si not_delivered)
+    // Recalcular envío:
+    // - Flex: ingresoEnvio $850 fijo + costoCordon desde config
+    // - Correo/Full: respetar costoEnvio del proxy; si es 0 pero debería tener costo,
+    //   no podemos recalcularlo desde el caché (no tenemos list_cost aquí)
+    //   → el proxy ya tiene el fix, se corrige al hacer Actualizar Ventas
     let costoEnvioFinal = o.costoEnvio||0;
     let ingresoEnvioFinal = o.ingresoEnvio||0;
     let costoCordonFinal = o.costoCordon||0;
@@ -2900,6 +2904,19 @@ function loadCfgUI(){
   ["dolar","com","pub","iibb","c1","c2","c3","cid","csec","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
   updateEnvioToggleUI();
 }
+window.clearOrdersCache=async()=>{
+  if(!confirm("Esto borra el caché de órdenes y fuerza una recarga completa desde ML. ¿Continuar?"))return;
+  toast("Borrando caché...","ok");
+  S.orders=[];S.page_="ventas";
+  // Borrar todos los chunks de Firebase
+  const meta=await fb.get("orders_cache");
+  const chunks=(meta?.chunks||1);
+  const dels=[fb.set("orders_cache",null)];
+  for(let i=0;i<chunks;i++)dels.push(fb.set("orders_cache_"+i,null));
+  await Promise.all(dels);
+  toast("Caché borrado. Actualizando ventas...","ok");
+  doRefresh();
+};
 window.saveConfig=()=>{
   ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
   ["cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)S.cfg[k]=el.value.trim();});
