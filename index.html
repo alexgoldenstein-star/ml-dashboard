@@ -208,6 +208,9 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <!-- OVERVIEW -->
     <div class="page on" id="page-overview">
       <div id="alertPanel"></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button class="btn btn-sm" onclick="exportarPDF()" style="font-size:11px">📄 Exportar informe PDF</button>
+      </div>
       <div class="g4" id="kpis"></div>
       <div class="g2">
         <div class="card"><div class="ch"><span class="ct">Ganancia por cuenta</span></div><div id="acctBars"></div></div>
@@ -438,10 +441,18 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         </div>
         <div class="card">
           <div class="ch"><span class="ct">Costos Flex</span></div>
-          <label class="lbl">Cordón 1 CABA</label><input class="inp" id="cfg_c1">
-          <label class="lbl">Cordón 2 1er GBA</label><input class="inp" id="cfg_c2">
-          <label class="lbl">Cordón 3 2do GBA</label><input class="inp" id="cfg_c3">
-          <label class="lbl">OAuth Client ID</label><input class="inp" id="cfg_cid">
+          <label class="lbl">Cordón 1 CABA ($)</label><input class="inp" id="cfg_c1">
+          <label class="lbl">Cordón 2 1er GBA ($)</label><input class="inp" id="cfg_c2">
+          <label class="lbl">Cordón 3 2do GBA ($)</label><input class="inp" id="cfg_c3">
+          <div class="ch" style="margin-top:12px"><span class="ct" style="font-size:11px">Bonificación Flex — Precio unit &lt; $33k</span></div>
+          <label class="lbl">Bonif C1 &lt;$33k</label><input class="inp" id="cfg_bonif_bajo_c1" placeholder="4490">
+          <label class="lbl">Bonif C2 &lt;$33k</label><input class="inp" id="cfg_bonif_bajo_c2" placeholder="6490">
+          <label class="lbl">Bonif C3 &lt;$33k</label><input class="inp" id="cfg_bonif_bajo_c3" placeholder="8490">
+          <div class="ch" style="margin-top:12px"><span class="ct" style="font-size:11px">Bonificación Flex — Precio unit ≥ $33k</span></div>
+          <label class="lbl">Bonif C1 ≥$33k</label><input class="inp" id="cfg_bonif_alto_c1" placeholder="449">
+          <label class="lbl">Bonif C2 ≥$33k</label><input class="inp" id="cfg_bonif_alto_c2" placeholder="649">
+          <label class="lbl">Bonif C3 ≥$33k</label><input class="inp" id="cfg_bonif_alto_c3" placeholder="849">
+          <label class="lbl" style="margin-top:12px">OAuth Client ID</label><input class="inp" id="cfg_cid">
           <label class="lbl">OAuth Client Secret</label><input class="inp" type="password" id="cfg_csec">
           <button class="btn" onclick="saveConfig()" style="margin-top:12px">Guardar todo</button>
         </div>
@@ -715,23 +726,25 @@ function applyProductCosts(orders){
     // Recalcular envío:
     // - Flex: ingresoEnvio $850 fijo + costoCordon desde config
     const umbral = S.cfg.umbral_free_ship || 33000;
-    const sobreUmbral = o.venta >= umbral;
+    const precioUnit = o.venta / (o.unidades || 1);
+    const sobreUmbral = precioUnit >= umbral;
     let costoEnvioFinal = o.costoEnvio||0;
     let ingresoEnvioFinal = o.ingresoEnvio||0;
     let costoCordonFinal = o.costoCordon||0;
     if(o.modal==='Flex'){
       const CORD_MAP = {1: S.cfg.c1||3330, 2: S.cfg.c2||5355, 3: S.cfg.c3||6600};
       costoCordonFinal = CORD_MAP[o.cordon||3];
-      if(o.ingresoEnvio > 0 && o.ingresoEnvio !== 850 && o.ingresoEnvio !== 900 && o.ingresoEnvio !== costoCordonFinal){
+      // Tabla de bonificaciones desde Config (con defaults oficiales ML)
+      const BONIF_BAJO = {1: S.cfg.bonif_bajo_c1||4490, 2: S.cfg.bonif_bajo_c2||6490, 3: S.cfg.bonif_bajo_c3||8490};
+      const BONIF_ALTO = {1: S.cfg.bonif_alto_c1||449,  2: S.cfg.bonif_alto_c2||649,  3: S.cfg.bonif_alto_c3||849};
+      const bonifTable = sobreUmbral ? BONIF_ALTO : BONIF_BAJO;
+      const bonifEstimada = bonifTable[o.cordon||3];
+      if(o.ingresoEnvio > 0 && ![449,649,849,4490,6490,8490,850,900].includes(o.ingresoEnvio) && o.ingresoEnvio !== costoCordonFinal){
         // Tiene fee_detail real — respetar
         ingresoEnvioFinal = o.ingresoEnvio;
-      } else if(sobreUmbral){
-        // >= umbral: bonificación ML ~$900
-        ingresoEnvioFinal = 900;
       } else {
-        // < umbral: soCost del comprador (del caché)
-        // Si no está en caché → 0 (se corrige al hacer Actualizar Ventas)
-        ingresoEnvioFinal = (o.ingresoEnvio > 0 && o.ingresoEnvio !== 850) ? o.ingresoEnvio : 0;
+        // Usar tabla oficial de bonificaciones
+        ingresoEnvioFinal = bonifEstimada;
       }
       costoEnvioFinal = 0;
     } else {
@@ -1522,7 +1535,7 @@ window.verDebugOrden=async(id,acctId)=>{
 
 // ── RENTABILIDAD ──────────────────────────────────────────────
 let _rentSort={col:'g',dir:-1};
-function sortRent(col){
+window.sortRent=function sortRent(col){
   if(_rentSort.col===col)_rentSort.dir*=-1;else{_rentSort.col=col;_rentSort.dir=-1;}
   renderRent();
 }
@@ -2994,7 +3007,7 @@ window.toggleEnvioBonifMode = function(){
 
 function loadCfgUI(){
   const c=S.cfg;
-  ["dolar","com","pub","iibb","c1","c2","c3","cid","csec","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
+  ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship","bonif_bajo_c1","bonif_bajo_c2","bonif_bajo_c3","bonif_alto_c1","bonif_alto_c2","bonif_alto_c3","cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
   updateEnvioToggleUI();
 }
 window.clearOrdersCache=async()=>{
@@ -3011,7 +3024,7 @@ window.clearOrdersCache=async()=>{
   doRefresh();
 };
 window.saveConfig=()=>{
-  ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
+  ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship","bonif_bajo_c1","bonif_bajo_c2","bonif_bajo_c3","bonif_alto_c1","bonif_alto_c2","bonif_alto_c3"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el&&el.value)S.cfg[k]=parseFloat(el.value)||0;});
   ["cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)S.cfg[k]=el.value.trim();});
   fb.set("config",S.cfg);
   if(S.orders.length) S.orders = applyProductCosts(S.orders);
@@ -3086,6 +3099,157 @@ window.closeMob=()=>{document.getElementById("sb").classList.remove("open");docu
 
 init();
 
+window.exportarPDF=async()=>{
+  // Cargar jsPDF y autoTable si no están cargados
+  if(!window.jspdf){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);
+    });
+  }
+  if(!window.jspdf?.jsPDF?.API?.autoTable){
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
+      s.onload=res;s.onerror=rej;document.head.appendChild(s);
+    });
+  }
+  toast('Generando PDF...','ok');
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const o=getOrders();
+  if(!o.length){toast('Sin datos para exportar','err');return;}
+  // Datos generales
+  const v=o.reduce((s,x)=>s+x.venta,0);
+  const g=o.reduce((s,x)=>s+x.ganancia,0);
+  const costo=o.reduce((s,x)=>s+(x.costo||0),0);
+  const com=o.reduce((s,x)=>s+(x.comision||0),0);
+  const iva=o.reduce((s,x)=>s+(x.iva||0),0);
+  const pub=o.reduce((s,x)=>s+(x.pub||0),0);
+  const iibb=o.reduce((s,x)=>s+(x.iibb||0),0);
+  const env=o.reduce((s,x)=>s+(x.costoEnvio||0),0);
+  const ret=o.reduce((s,x)=>s+(x.retencionesML||0),0);
+  const u=o.reduce((s,x)=>s+x.unidades,0);
+  const pctG=v>0?g/v:0;
+  const pctC=costo>0?g/costo:0;
+  // Colores NIVIKO
+  const NEGRO=[26,26,26];const ROJO=[204,0,0];const GRIS=[245,245,245];const BLANCO=[255,255,255];
+  const fs=n=>('$'+Math.round(n).toLocaleString('es-AR'));
+  const pp=n=>(Math.round(n*1000)/10).toFixed(1)+'%';
+  // Fechas del período
+  const fechas=o.map(x=>x.fecha).filter(Boolean).sort();
+  const desde=fechas[0]||'—';const hasta=fechas[fechas.length-1]||'—';
+  let y=15;
+  // ── HEADER ──────────────────────────────────────────────────────────────
+  doc.setFillColor(...NEGRO);doc.rect(0,0,210,28,'F');
+  doc.setTextColor(...BLANCO);doc.setFontSize(18);doc.setFont('helvetica','bold');
+  doc.text('NIVIKO',14,13);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text('ML Analytics Dashboard — Informe de Rentabilidad',14,20);
+  doc.setFontSize(8);doc.text('Período: '+desde+' al '+hasta,14,26);
+  doc.setFontSize(8);doc.text('Generado: '+new Date().toLocaleDateString('es-AR'),140,26);
+  y=35;
+  // ── KPIs PRINCIPALES ────────────────────────────────────────────────────
+  doc.setTextColor(...NEGRO);doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text('Resumen del Período',14,y);y+=6;
+  const kpis=[
+    ['Facturación total',fs(v)],['Ganancia neta',fs(g)],
+    ['Margen s/venta',pp(pctG)],['Margen s/costo',pp(pctC)],
+    ['Órdenes',o.length.toLocaleString('es-AR')],['Unidades',u.toLocaleString('es-AR')],
+    ['Ticket promedio',fs(o.length?v/o.length:0)],['Costo mercadería',fs(costo)],
+  ];
+  doc.autoTable({startY:y,head:[['Métrica','Valor']],body:kpis,
+    styles:{fontSize:9,cellPadding:3},
+    headStyles:{fillColor:NEGRO,textColor:BLANCO,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:GRIS},
+    columnStyles:{0:{fontStyle:'bold'},1:{halign:'right'}},
+    margin:{left:14,right:14},tableWidth:85});
+  // KPIs de costos al lado
+  const costos=[
+    ['Comisiones ML',fs(com),pp(v?com/v:0)],
+    ['Costo productos',fs(costo),pp(v?costo/v:0)],
+    ['IVA',fs(iva),pp(v?iva/v:0)],
+    ['Publicidad',fs(pub),pp(v?pub/v:0)],
+    ['IIBB',fs(iibb),pp(v?iibb/v:0)],
+    ['Envíos',fs(env),pp(v?env/v:0)],
+    ['Retenciones ML',fs(ret),pp(v?ret/v:0)],
+    ['Ganancia neta',fs(g),pp(v?g/v:0)],
+  ];
+  doc.autoTable({startY:y,head:[['Desglose de costos','Monto','% ventas']],body:costos,
+    styles:{fontSize:9,cellPadding:3},
+    headStyles:{fillColor:ROJO,textColor:BLANCO,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:GRIS},
+    columnStyles:{1:{halign:'right'},2:{halign:'right'}},
+    margin:{left:111,right:14},tableWidth:85});
+  y=doc.lastAutoTable.finalY+8;
+  // ── POR CUENTA ──────────────────────────────────────────────────────────
+  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(...NEGRO);
+  doc.text('Resultado por Cuenta',14,y);y+=4;
+  const accts=['GBA','BHO','IURA','GBS'];
+  const porCuenta=accts.map(a=>{
+    const oa=S.orders.filter(x=>x.acct===a);
+    const va=oa.reduce((s,x)=>s+x.venta,0);
+    const ga=oa.reduce((s,x)=>s+x.ganancia,0);
+    return[a,oa.length.toString(),fs(va),fs(ga),pp(va?ga/va:0)];
+  }).filter(r=>parseInt(r[1])>0);
+  doc.autoTable({startY:y,head:[['Cuenta','Órdenes','Facturación','Ganancia','Margen']],body:porCuenta,
+    styles:{fontSize:9,cellPadding:3},
+    headStyles:{fillColor:NEGRO,textColor:BLANCO,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:GRIS},
+    columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'}},
+    margin:{left:14,right:14}});
+  y=doc.lastAutoTable.finalY+8;
+  // ── POR MODALIDAD ───────────────────────────────────────────────────────
+  doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text('Resultado por Modalidad de Envío',14,y);y+=4;
+  const mods=['Flex','Full','Correo'];
+  const porMod=mods.map(m=>{
+    const om=o.filter(x=>x.modal===m);
+    const vm=om.reduce((s,x)=>s+x.venta,0);
+    const gm=om.reduce((s,x)=>s+x.ganancia,0);
+    const em=om.reduce((s,x)=>s+(x.costoEnvio||0),0);
+    return[m,om.length.toString(),fs(vm),fs(gm),pp(vm?gm/vm:0),fs(em)];
+  }).filter(r=>parseInt(r[1])>0);
+  doc.autoTable({startY:y,head:[['Modal','Órdenes','Facturación','Ganancia','Margen','Costo envío']],body:porMod,
+    styles:{fontSize:9,cellPadding:3},
+    headStyles:{fillColor:NEGRO,textColor:BLANCO,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:GRIS},
+    columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}},
+    margin:{left:14,right:14}});
+  y=doc.lastAutoTable.finalY+8;
+  // ── TOP PRODUCTOS ────────────────────────────────────────────────────────
+  if(y>230){doc.addPage();y=15;}
+  doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text('Rentabilidad por Producto (Top 30 por ganancia)',14,y);y+=4;
+  const sm={};
+  o.forEach(x=>{
+    if(!sm[x.sku])sm[x.sku]={desc:x.desc,u:0,v:0,g:0,c:0};
+    sm[x.sku].u+=x.unidades;sm[x.sku].v+=x.venta;sm[x.sku].g+=x.ganancia;sm[x.sku].c+=(x.costo||0);
+  });
+  const topProds=Object.entries(sm)
+    .sort((a,b)=>b[1].g-a[1].g).slice(0,30)
+    .map(([sku,d])=>[sku,d.desc.substring(0,35)+(d.desc.length>35?'…':''),
+      d.u.toString(),fs(d.v),fs(d.g),pp(d.v?d.g/d.v:0)]);
+  doc.autoTable({startY:y,head:[['SKU','Descripción','Unid.','Facturación','Ganancia','Margen']],body:topProds,
+    styles:{fontSize:7.5,cellPadding:2.5},
+    headStyles:{fillColor:ROJO,textColor:BLANCO,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:GRIS},
+    columnStyles:{0:{fontStyle:'bold'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}},
+    margin:{left:14,right:14}});
+  // ── FOOTER ──────────────────────────────────────────────────────────────
+  const pageCount=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    doc.setFillColor(...NEGRO);doc.rect(0,285,210,12,'F');
+    doc.setTextColor(...BLANCO);doc.setFontSize(7);doc.setFont('helvetica','normal');
+    doc.text('NIVIKO ML Dashboard  |  Batalla del Pari 1053, CABA  |  Confidencial',14,292);
+    doc.text('Página '+i+' de '+pageCount,190,292,{align:'right'});
+  }
+  const fname='NIVIKO_Informe_'+desde+'_'+hasta+'.pdf';
+  doc.save(fname);
+  toast('PDF descargado: '+fname,'ok');
+};
 </script>
 </body>
 </html>
