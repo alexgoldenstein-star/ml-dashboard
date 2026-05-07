@@ -163,6 +163,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="mercado"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v6l3 3"/></svg>Inteligencia ML</div>
     <div class="ni" data-p="calc"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>Calculadora</div>
     <div class="ni" data-p="container"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="14" height="8" rx="1.5"/><path d="M4 5V3a1 1 0 011-1h6a1 1 0 011 1v2M6 9h4"/></svg>Contenedor</div>
+    <div class="ni" data-p="importacion"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 7l4 4 4-4"/><path d="M1 13h14"/></svg>Importación</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
     <div class="ns">Sistema</div>
     <div class="ni" data-p="cuentas"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M1 14c0-3.3 3.1-6 7-6s7 2.7 7 6"/></svg>Cuentas ML</div>
@@ -485,6 +486,201 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         <div class="card">
           <div class="ch"><span class="ct">📈 Proyección de recupero de inversión</span></div>
           <div id="contRecuperoChart" style="padding:12px 0"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- IMPORTACION -->
+    <div class="page" id="page-importacion">
+      <div style="max-width:700px;margin:0 auto">
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:2px;background:var(--s2);border-radius:var(--r2);padding:3px;margin-bottom:12px">
+          <button id="itab_cont" onclick="impTab('cont')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:var(--acc);color:#000">🚢 Container</button>
+          <button id="itab_cour" onclick="impTab('cour')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">✈ Courier</button>
+          <button id="itab_multi" onclick="impTab('multi')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">📦 Multi</button>
+        </div>
+
+        <!-- CONTAINER TAB -->
+        <div id="ipanel_cont">
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Producto · Arancel NCM</span></div>
+            <select class="inp" id="i_prod_sel" onchange="impSelProd(this.value,'cont')" style="margin-bottom:8px">
+              <option value="">— Seleccioná categoría —</option>
+            </select>
+            <div id="i_prod_info" style="display:none;background:var(--s2);border-radius:var(--r);padding:10px;margin-bottom:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="inp" id="i_manual_der" type="number" placeholder="% derecho manual" style="max-width:160px">
+              <button class="btn-g btn-sm" onclick="impAplicarManual('cont')">Aplicar</button>
+              <a href="https://www.afip.gob.ar/aduana/arancelintegrado/" target="_blank" style="font-size:10px;color:var(--acc)">🔗 Arancel ARCA</a>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Datos generales</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div><label class="lbl">Producto / nombre</label><input class="inp" id="i_producto" type="text" oninput="impRecalc()"></div>
+              <div><label class="lbl">Cantidad (unidades)</label><input class="inp" id="i_cantidad" type="number" placeholder="0" oninput="impRecalc()"></div>
+              <div><label class="lbl">Dólar BNA</label><input class="inp" id="i_dolar_bna" type="number" placeholder="0" oninput="impRecalc()"></div>
+              <div><label class="lbl">Dólar Blue</label><input class="inp" id="i_dolar_blue" type="number" placeholder="0" oninput="impRecalc()"></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Costos FOB</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+              <div><label class="lbl">FOB Flete total (USD)</label><input class="inp" id="i_fob_flete" type="number" placeholder="0" oninput="impRecalc()"></div>
+              <div><label class="lbl">FOB Producto (USD/u)</label><input class="inp" id="i_fob_prod" type="number" placeholder="0" oninput="impRecalc()"></div>
+              <div><label class="lbl">FOB Invoice (USD/u)</label><input class="inp" id="i_fob_inv" type="number" placeholder="0" oninput="impRecalc()"></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Impuestos</span></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <div><label class="lbl">Maury</label><input class="inp" id="i_maury" type="number" placeholder="0" step=".5" oninput="impRecalc()"></div>
+              <div><label class="lbl">Derecho imp. %</label><input class="inp" id="i_derecho" type="number" placeholder="0" step=".5" oninput="impRecalc()"></div>
+              <div><label class="lbl">Estadística %</label><input class="inp" id="i_estad" type="number" placeholder="0" step=".5" oninput="impRecalc()"></div>
+              <div><label class="lbl">IVA %</label><input class="inp" id="i_iva" type="number" placeholder="0" step=".5" oninput="impRecalc()"></div>
+              <div><label class="lbl">IVA Adicional %</label><input class="inp" id="i_ivaad" type="number" placeholder="0" step=".5" oninput="impRecalc()"></div>
+              <div><label class="lbl">Ganancias %</label><input class="inp" id="i_gcias" type="number" placeholder="0" step=".5" oninput="impRecalc()"></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Logística local</span></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <div><label class="lbl">CBM total container (m³)</label><input class="inp" id="i_cbm" type="number" placeholder="0" oninput="impRecalc()"></div>
+              <div><label class="lbl">Flete total (USD)</label><input class="inp" id="i_flete" type="number" placeholder="0" oninput="impRecalc()"></div>
+              <div><label class="lbl">Terminal / Puerto (USD)</label><input class="inp" id="i_terminal" type="number" placeholder="0" oninput="impRecalc()"></div>
+              <div><label class="lbl">Despachante (USD)</label><input class="inp" id="i_desp" type="number" placeholder="0" oninput="impRecalc()"></div>
+              <div><label class="lbl">Extra 1 (USD fijo)</label><input class="inp" id="i_ge1" type="number" placeholder="0" oninput="impRecalc()"></div>
+              <div><label class="lbl">Extra 2 (% FOB)</label><input class="inp" id="i_ge2" type="number" placeholder="0" step=".5" oninput="impRecalc()"></div>
+            </div>
+          </div>
+
+          <!-- Resultado -->
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Resultado · Por unidad</span></div>
+            <div id="i_resultado" style="display:grid;gap:2px"></div>
+            <!-- Totales destacados -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+              <div style="padding:12px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--grn)">
+                <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Total s/IVA (USD/u)</div>
+                <div id="i_tot_siva_usd" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;color:var(--grn)">—</div>
+                <div id="i_tot_siva_ars" style="font-size:11px;color:var(--t3)">—</div>
+              </div>
+              <div style="padding:12px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--red)">
+                <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">Total A+B c/IVA (USD/u)</div>
+                <div id="i_tot_ab_usd" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;color:var(--red)">—</div>
+                <div id="i_tot_ab_ars" style="font-size:11px;color:var(--t3)">—</div>
+              </div>
+            </div>
+            <div style="padding:12px;background:var(--s2);border-radius:var(--r);margin-top:8px;text-align:center">
+              <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">🏭 LOTE COMPLETO · Puesto acá</div>
+              <div id="i_lote_total" style="font-size:24px;font-weight:800;font-family:'Syne',sans-serif">—</div>
+              <div id="i_lote_sub" style="font-size:11px;color:var(--t3)">—</div>
+            </div>
+          </div>
+
+          <!-- Guardar en Productos -->
+          <div class="card" style="margin-bottom:12px">
+            <div class="ch"><span class="ct">💾 Guardar costo en Productos ML</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+              <div>
+                <label class="lbl">SKU (de Firebase Productos)</label>
+                <select class="inp" id="i_save_sku">
+                  <option value="">— Seleccioná SKU —</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Costo a guardar (ARS)</label>
+                <input class="inp" id="i_save_costo" type="number" placeholder="Auto desde resultado">
+              </div>
+              <button class="btn btn-sm" onclick="impGuardarCosto()" style="height:34px;margin-top:auto">Guardar →</button>
+            </div>
+            <div style="font-size:10px;color:var(--t3);margin-top:6px">Usa el "Total A+B s/IVA" como costo de producto (sin IVA recuperable). El IVA lo maneja el dashboard por separado.</div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" onclick="impGuardarHistorial()" style="flex:1">💾 Guardar en historial</button>
+            <button class="btn-g btn-sm" onclick="impReset()" style="color:var(--red)">✕ Limpiar</button>
+          </div>
+        </div>
+
+        <!-- COURIER TAB -->
+        <div id="ipanel_cour" style="display:none">
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Origen del envío</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+              <div style="padding:12px;border-radius:var(--r2);border:2px solid var(--acc);cursor:pointer;text-align:center" id="cpill_china" onclick="impSetOrigen('china')">
+                <div style="font-size:20px">🇨🇳</div><div style="font-weight:600;font-size:12px">China</div>
+                <div style="font-size:11px;color:var(--t3)">US$<span id="crate_china_lbl">16</span>/kg</div>
+              </div>
+              <div style="padding:12px;border-radius:var(--r2);border:2px solid var(--b1);cursor:pointer;text-align:center" id="cpill_miami" onclick="impSetOrigen('miami')">
+                <div style="font-size:20px">🇺🇸</div><div style="font-weight:600;font-size:12px">Miami</div>
+                <div style="font-size:11px;color:var(--t3)">US$<span id="crate_miami_lbl">12</span>/kg</div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div><label class="lbl">Tarifa China (USD/kg)</label><input class="inp" id="c_rate_china" type="number" value="16" step="0.5" oninput="impUpdateRates();impRecalcCourier()"></div>
+              <div><label class="lbl">Tarifa Miami (USD/kg)</label><input class="inp" id="c_rate_miami" type="number" value="12" step="0.5" oninput="impUpdateRates();impRecalcCourier()"></div>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Producto · Arancel</span></div>
+            <select class="inp" id="c_prod_sel" onchange="impSelProd(this.value,'cour')" style="margin-bottom:8px">
+              <option value="">— Seleccioná categoría —</option>
+            </select>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="inp" id="c_manual_der" type="number" placeholder="% derecho manual" style="max-width:160px">
+              <button class="btn-g btn-sm" onclick="impAplicarManual('cour')">Aplicar</button>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Datos del envío</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div><label class="lbl">Producto</label><input class="inp" id="c_producto" type="text" oninput="impRecalcCourier()"></div>
+              <div><label class="lbl">Cantidad (unidades)</label><input class="inp" id="c_cantidad" type="number" placeholder="0" oninput="impRecalcCourier()"></div>
+              <div><label class="lbl">Peso total (kg)</label><input class="inp" id="c_peso" type="number" placeholder="0" step="0.1" oninput="impRecalcCourier()"></div>
+              <div><label class="lbl">FOB Producto (USD/u)</label><input class="inp" id="c_fob_prod" type="number" placeholder="0" oninput="impRecalcCourier()"></div>
+              <div><label class="lbl">FOB Invoice (USD/u)</label><input class="inp" id="c_fob_inv" type="number" placeholder="0" oninput="impRecalcCourier()"></div>
+              <div><label class="lbl">Dólar BNA</label><input class="inp" id="c_bna" type="number" placeholder="0" oninput="impRecalcCourier()"></div>
+              <div><label class="lbl">Dólar Blue</label><input class="inp" id="c_blue" type="number" placeholder="0" oninput="impRecalcCourier()"></div>
+            </div>
+            <div style="margin-top:8px">
+              <div><label class="lbl">Impuestos (auto desde categoría)</label></div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                <div><label class="lbl">Derecho %</label><input class="inp" id="c_derecho" type="number" step=".5" oninput="impRecalcCourier()"></div>
+                <div><label class="lbl">IVA %</label><input class="inp" id="c_iva" type="number" step=".5" oninput="impRecalcCourier()"></div>
+                <div><label class="lbl">IVA Adic. %</label><input class="inp" id="c_ivaad" type="number" step=".5" oninput="impRecalcCourier()"></div>
+                <div><label class="lbl">Estad. %</label><input class="inp" id="c_estad" type="number" step=".5" oninput="impRecalcCourier()"></div>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Resultado Courier · Por unidad</span></div>
+            <div id="c_resultado" style="display:grid;gap:2px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+              <div style="padding:12px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--grn)">
+                <div style="font-size:9px;color:var(--t3);text-transform:uppercase">A+B s/IVA (USD/u)</div>
+                <div id="c_tot_siva" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;color:var(--grn)">—</div>
+              </div>
+              <div style="padding:12px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--red)">
+                <div style="font-size:9px;color:var(--t3);text-transform:uppercase">A+B c/IVA (USD/u)</div>
+                <div id="c_tot_civa" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;color:var(--red)">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:12px">
+            <div class="ch"><span class="ct">💾 Guardar costo en Productos ML</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+              <div><label class="lbl">SKU</label><select class="inp" id="c_save_sku"><option value="">— Seleccioná SKU —</option></select></div>
+              <div><label class="lbl">Costo ARS</label><input class="inp" id="c_save_costo" type="number" placeholder="Auto"></div>
+              <button class="btn btn-sm" onclick="impGuardarCostoCourier()" style="height:34px;margin-top:auto">Guardar →</button>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -868,7 +1064,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -3717,6 +3913,282 @@ function contRenderChart(rows, costoContainer){
     ${breakEven?`<span style="color:var(--grn)">● Break even en ${breakEven.d} días</span>`:'<span style="color:var(--red)">Sin break even proyectado en el período</span>'}
   </div>`;
 }
+// ── IMPORTACIÓN ──────────────────────────────────────────────────────────────
+const PRODUCTOS_NCM = [
+  {nombre:'Notebooks',ncm:'8471.30.11',der:5,iva:10.5,ivaad:0,estad:false,nota:'Sin estadística ni IIBB'},
+  {nombre:'Tablets',ncm:'8471.30.11',der:5,iva:10.5,ivaad:0,estad:false,nota:'Sin estadística ni IIBB'},
+  {nombre:'Kindle / E-readers',ncm:'8543.70.99',der:5,iva:10.5,ivaad:0,estad:false,nota:'Sin estadística ni IIBB'},
+  {nombre:'Pendrives / SD',ncm:'8523.51.00',der:10,iva:21,ivaad:10,estad:true},
+  {nombre:'TV Streaming',ncm:'8528.71.10',der:10,iva:21,ivaad:10,estad:true},
+  {nombre:'Parlantes portátiles',ncm:'8518.22.00',der:10,iva:21,ivaad:10,estad:true},
+  {nombre:'Parlantes hogar',ncm:'8518.22.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'USB genéricos / Auriculares / Relojes (aéreo)',ncm:'8518.30.00',der:10,iva:21,ivaad:10,estad:true},
+  {nombre:'Pequeño Electro (freidora/sandwichera/tostadora)',ncm:'8516.60.00',der:20,iva:21,ivaad:10,estad:true},
+  {nombre:'Horno / Anafe eléctrico',ncm:'8516.60.00',der:20,iva:21,ivaad:10,estad:true},
+  {nombre:'Sillas hogar madera 18%',ncm:'9401.69.00',der:18,iva:21,ivaad:10,estad:true},
+  {nombre:'Sillas hogar madera 35%',ncm:'9401.69.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'Sillas oficina',ncm:'9401.30.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'Mesas / Sillas plegables',ncm:'9401.79.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'Reposeras',ncm:'9401.79.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'Muebles (escritorio/placard)',ncm:'9403.30.00',der:18,iva:21,ivaad:10,estad:true},
+  {nombre:'Mesas comedor / ratona',ncm:'9403.30.00',der:18,iva:21,ivaad:10,estad:true},
+  {nombre:'Muebles exterior / balcón',ncm:'9401.69.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'Soportes de TV',ncm:'8302.50.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'Pisos SPC / Vinílico',ncm:'3918.10.00',der:16,iva:21,ivaad:10,estad:true},
+  {nombre:'Escaleras aluminio',ncm:'7616.99.90',der:13,iva:21,ivaad:10,estad:true},
+  {nombre:'Gazebo / Sombrilla jardín',ncm:'6306.22.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'Decoración hogar',ncm:'6913.90.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'Marroquinería',ncm:'4202.21.00',der:35,iva:21,ivaad:10,estad:true},
+  {nombre:'Moto 110cc',ncm:'8711.20.90',der:15,iva:21,ivaad:10,estad:true},
+  {nombre:'Bicicleta rodado 29',ncm:'8712.00.10',der:20,iva:21,ivaad:10,estad:true},
+  {nombre:'Valija / Mochila',ncm:'4202.12.00',der:35,iva:21,ivaad:10,estad:true},
+];
+let _impOrigen = 'china';
+
+function calcContainerFn(cant,bna,blue,fflet,fprod,finv,maury_pct,der_pct,estad_pct,iva_pct,ivaad_pct,gcias_pct,cbm_tot,flete_tot,term_tot,desp_tot,ge1_total,ge2_pct){
+  cant=cant||1;
+  const fob_flete_u=fflet/cant, ftot=finv+fob_flete_u;
+  const maury_u=(fprod-finv)*maury_pct, der_u=ftot*der_pct, estad_u=ftot*estad_pct;
+  const tsuma=ftot+der_u+estad_u;
+  const iva_u=tsuma*iva_pct, ivaad_u=tsuma*ivaad_pct, gcias_u=tsuma*gcias_pct;
+  const cbm_u=(cbm_tot||1)/cant, vm3=flete_tot/(cbm_tot||1), flete_u=cbm_u*vm3;
+  const term_u=term_tot/cant, desp_u=desp_tot/cant, ge1_u=ge1_total/cant, ge2_u=finv*ge2_pct;
+  const siva_u=finv+maury_u+der_u+estad_u+gcias_u+flete_u+term_u+desp_u+ge1_u+ge2_u;
+  const civa_u=siva_u+iva_u+ivaad_u;
+  const pb_usd=(fprod-finv)*1.05, pb_ars=pb_usd*blue;
+  return {fob_flete_u,ftot,maury_u,der_u,estad_u,iva_u,ivaad_u,gcias_u,
+    cbm_u,flete_u,term_u,desp_u,ge1_u,ge2_u,siva_u,civa_u,pb_usd,pb_ars,
+    ab_siva_usd:siva_u+pb_usd, ab_siva_ars:siva_u*bna+pb_ars,
+    ab_civa_usd:civa_u+pb_usd, ab_civa_ars:civa_u*bna+pb_ars};
+}
+
+function impG(id){const v=parseFloat(document.getElementById(id)?.value);return isNaN(v)?0:v;}
+function impGS(id){return document.getElementById(id)?.value?.trim()||'';}
+function impST(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+function fImpU(n){if(!n&&n!==0)return'—';return'US$'+(Math.abs(n)>=10000?Math.round(n).toLocaleString('es-AR'):n.toFixed(2));}
+function fImpA(n){if(!n&&n!==0)return'—';return'$'+Math.round(n).toLocaleString('es-AR');}
+
+function renderImportacion(){
+  // Poblar selects de NCM
+  const optHtml = PRODUCTOS_NCM.map((p,i)=>`<option value="${i}">${p.nombre} — ${p.der||'?'}%</option>`).join('');
+  ['i_prod_sel','c_prod_sel'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML='<option value="">— Seleccioná categoría —</option>'+optHtml;
+  });
+  // Poblar SKU selects para guardar
+  const skuOpts = '<option value="">— Seleccioná SKU —</option>'+
+    S.products.map(p=>`<option value="${p.sku}">${p.sku} — ${p.desc||''}</option>`).join('');
+  ['i_save_sku','c_save_sku'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=skuOpts;
+  });
+  // Precargar dólar
+  const bnaEl=document.getElementById('i_dolar_bna');
+  const blueEl=document.getElementById('i_dolar_blue');
+  if(bnaEl&&!bnaEl.value) bnaEl.value=S.cfg.dolar||'';
+  if(blueEl&&!blueEl.value) blueEl.value=S.cfg.dolar||'';
+  const cbEl=document.getElementById('c_bna');
+  if(cbEl&&!cbEl.value) cbEl.value=S.cfg.dolar||'';
+  impRecalc();
+}
+
+window.impTab = function(tab){
+  ['cont','cour','multi'].forEach(t=>{
+    const p=document.getElementById('ipanel_'+t);
+    const b=document.getElementById('itab_'+t);
+    if(p) p.style.display=t===tab?'':'none';
+    if(b){b.style.background=t===tab?'var(--acc)':'transparent';b.style.color=t===tab?'#000':'var(--t2)';}
+  });
+};
+
+window.impSelProd = function(idx,mode){
+  if(idx==='') return;
+  const p=PRODUCTOS_NCM[parseInt(idx)];
+  if(!p) return;
+  if(mode==='cont'){
+    const el=document.getElementById('i_derecho');if(el)el.value=p.der||0;
+    const iv=document.getElementById('i_iva');if(iv)iv.value=p.iva||21;
+    const ia=document.getElementById('i_ivaad');if(ia)ia.value=p.ivaad||10;
+    const es=document.getElementById('i_estad');if(es)es.value=p.estad?3:0;
+    // Mostrar info
+    const info=document.getElementById('i_prod_info');
+    if(info){info.style.display='grid';info.innerHTML=
+      `<div style="text-align:center"><div style="font-size:9px;color:var(--t3)">Derecho</div><div style="font-weight:700;color:var(--red)">${p.der||'?'}%</div></div>`+
+      `<div style="text-align:center"><div style="font-size:9px;color:var(--t3)">IVA</div><div style="font-weight:700;color:var(--blu)">${p.iva}%</div></div>`+
+      `<div style="text-align:center"><div style="font-size:9px;color:var(--t3)">NCM</div><div style="font-weight:700;font-size:10px">${p.ncm}</div></div>`+
+      (p.nota?`<div style="grid-column:span 3;font-size:10px;color:var(--org)">${p.nota}</div>`:'');
+    }
+    impRecalc();
+  } else {
+    const el=document.getElementById('c_derecho');if(el)el.value=p.der||0;
+    const iv=document.getElementById('c_iva');if(iv)iv.value=p.iva||21;
+    const ia=document.getElementById('c_ivaad');if(ia)ia.value=p.ivaad||10;
+    const es=document.getElementById('c_estad');if(es)es.value=p.estad?3:0;
+    impRecalcCourier();
+  }
+};
+
+window.impAplicarManual = function(mode){
+  const val=mode==='cont'?impG('i_manual_der'):impG('c_manual_der');
+  const el=mode==='cont'?document.getElementById('i_derecho'):document.getElementById('c_derecho');
+  if(el) el.value=val;
+  if(mode==='cont') impRecalc(); else impRecalcCourier();
+};
+
+window.impRecalc = function(){
+  const cant=impG('i_cantidad')||1, bna=impG('i_dolar_bna'), blue=impG('i_dolar_blue');
+  const fflet=impG('i_fob_flete'), fprod=impG('i_fob_prod'), finv=impG('i_fob_inv');
+  const r=calcContainerFn(cant,bna,blue,fflet,fprod,finv,
+    impG('i_maury')/100,impG('i_derecho')/100,impG('i_estad')/100,
+    impG('i_iva')/100,impG('i_ivaad')/100,impG('i_gcias')/100,
+    impG('i_cbm'),impG('i_flete'),impG('i_terminal'),impG('i_desp'),impG('i_ge1'),impG('i_ge2')/100);
+
+  const rows=[
+    ['FOB flete asignado',r.fob_flete_u,'amber'],['FOB Invoice',finv,'amber'],['FOB Total',r.ftot,'amber'],
+    ['Maury',r.maury_u,''],['Derecho importación',r.der_u,'red'],['Estadística',r.estad_u,'red'],
+    ['IVA',r.iva_u,'blue'],['IVA Adicional',r.ivaad_u,'blue'],['Ganancias',r.gcias_u,''],
+    ['Flete logístico',r.flete_u,'blue'],['Terminal',r.term_u,''],['Despachante',r.desp_u,''],
+    ['Gastos extra 1',r.ge1_u,''],['Gastos extra 2',r.ge2_u,''],
+    ['Parte B (USD)',r.pb_usd,''],['Parte B (ARS)',r.pb_ars,'ars'],
+    ['TOTAL s/IVA',r.siva_u,'green-bold'],['TOTAL c/IVA',r.civa_u,'blue-bold'],
+  ];
+  const el=document.getElementById('i_resultado');
+  if(el) el.innerHTML=rows.filter(([,v])=>v>0.001).map(([l,v,c])=>{
+    const color=c==='green-bold'?'var(--grn)':c==='blue-bold'?'var(--blu)':c==='red'?'var(--red)':c==='blue'?'var(--blu)':c==='amber'?'var(--org)':'var(--t2)';
+    const bold=c.includes('bold');
+    return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <span style="color:var(--t3)">${l}</span>
+      <span style="font-weight:${bold?700:500};color:${color}">${c==='ars'?fImpA(v):fImpU(v)}</span>
+    </div>`;
+  }).join('');
+
+  impST('i_tot_siva_usd',fImpU(r.ab_siva_usd));
+  impST('i_tot_siva_ars',fImpA(r.ab_siva_ars));
+  impST('i_tot_ab_usd',fImpU(r.ab_civa_usd));
+  impST('i_tot_ab_ars',fImpA(r.ab_civa_ars));
+  impST('i_lote_total',fImpU(r.ab_civa_usd*cant));
+  impST('i_lote_sub',Math.round(cant)+'u · '+(impGS('i_producto')||'—'));
+  // Precargar costo sugerido en el guardar (s/IVA)
+  const saveEl=document.getElementById('i_save_costo');
+  if(saveEl&&r.ab_siva_ars>0) saveEl.value=Math.round(r.ab_siva_ars);
+  window._impLastResult=r;
+};
+
+window.impRecalcCourier = function(){
+  const cant=impG('c_cantidad')||1, peso=impG('c_peso');
+  const bna=impG('c_bna'), blue=impG('c_blue');
+  const fprod=impG('c_fob_prod'), finv=impG('c_fob_inv');
+  const rate=_impOrigen==='china'?impG('c_rate_china'):impG('c_rate_miami');
+  const flete_u=peso*rate/cant;
+  const ftot=finv+flete_u;
+  const der_pct=impG('c_derecho')/100, iva_pct=impG('c_iva')/100;
+  const ivaad_pct=impG('c_ivaad')/100, estad_pct=impG('c_estad')/100;
+  const der_u=ftot*der_pct, estad_u=ftot*estad_pct;
+  const tsuma=ftot+der_u+estad_u;
+  const iva_u=tsuma*iva_pct, ivaad_u=tsuma*ivaad_pct;
+  const siva_u=finv+der_u+estad_u+flete_u;
+  const civa_u=siva_u+iva_u+ivaad_u;
+  const pb_usd=(fprod-finv)*1.05, pb_ars=pb_usd*blue;
+  const ab_siva=siva_u+pb_usd, ab_civa=civa_u+pb_usd;
+
+  const rows=[
+    ['FOB Invoice',finv,'amber'],['Flete courier/u',flete_u,'blue'],
+    ['Derecho',der_u,'red'],['Estadística',estad_u,'red'],
+    ['IVA',iva_u,'blue'],['IVA Adicional',ivaad_u,'blue'],
+    ['Parte B',pb_usd,''],['A+B s/IVA',ab_siva,'green-bold'],['A+B c/IVA',ab_civa,'blue-bold'],
+  ];
+  const el=document.getElementById('c_resultado');
+  if(el) el.innerHTML=rows.filter(([,v])=>v>0.001).map(([l,v,c])=>{
+    const color=c==='green-bold'?'var(--grn)':c==='blue-bold'?'var(--blu)':c==='red'?'var(--red)':c==='blue'?'var(--blu)':c==='amber'?'var(--org)':'var(--t2)';
+    return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <span style="color:var(--t3)">${l}</span><span style="font-weight:500;color:${color}">${fImpU(v)}</span></div>`;
+  }).join('');
+  impST('c_tot_siva',fImpU(ab_siva));
+  impST('c_tot_civa',fImpU(ab_civa));
+  const saveEl=document.getElementById('c_save_costo');
+  if(saveEl&&ab_siva>0&&bna>0) saveEl.value=Math.round(ab_siva*bna);
+  window._impLastCourierResult={ab_siva,ab_civa,bna};
+};
+
+window.impSetOrigen = function(origen){
+  _impOrigen=origen;
+  ['china','miami'].forEach(o=>{
+    const el=document.getElementById('cpill_'+o);
+    if(el) el.style.borderColor=o===origen?'var(--acc)':'var(--b1)';
+  });
+  impRecalcCourier();
+};
+
+window.impUpdateRates = function(){
+  const china=impG('c_rate_china'), miami=impG('c_rate_miami');
+  impST('crate_china_lbl',china);impST('crate_miami_lbl',miami);
+};
+
+window.impGuardarCosto = async function(){
+  const sku=document.getElementById('i_save_sku')?.value;
+  const costoARS=impG('i_save_costo');
+  const ivaVal=impG('i_iva');
+  if(!sku){toast('Seleccioná un SKU','err');return;}
+  if(!costoARS){toast('El costo es 0','err');return;}
+  // Leer producto existente para no pisar otros campos
+  const existing=S.products.find(p=>p.sku===sku);
+  const updated={...(existing||{}),sku,ars:Math.round(costoARS),iva:ivaVal||21};
+  // Guardar en Firebase
+  const edits=S.products.reduce((o,p)=>({...o,[p.sku]:p}),{});
+  edits[sku]=updated;
+  await fb.set('products',{edits});
+  // Actualizar S.products en memoria
+  const idx=S.products.findIndex(p=>p.sku===sku);
+  if(idx>=0) S.products[idx]=updated; else S.products.push(updated);
+  S.orders=applyProductCosts(S.orders);
+  toast(`✓ Costo guardado: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')}`, 'ok');
+};
+
+window.impGuardarCostoCourier = async function(){
+  const sku=document.getElementById('c_save_sku')?.value;
+  const costoARS=impG('c_save_costo');
+  const ivaVal=impG('c_iva');
+  if(!sku){toast('Seleccioná un SKU','err');return;}
+  if(!costoARS){toast('El costo es 0','err');return;}
+  const existing=S.products.find(p=>p.sku===sku);
+  const updated={...(existing||{}),sku,ars:Math.round(costoARS),iva:ivaVal||21};
+  const edits=S.products.reduce((o,p)=>({...o,[p.sku]:p}),{});
+  edits[sku]=updated;
+  await fb.set('products',{edits});
+  const idx=S.products.findIndex(p=>p.sku===sku);
+  if(idx>=0) S.products[idx]=updated; else S.products.push(updated);
+  S.orders=applyProductCosts(S.orders);
+  toast(`✓ Costo courier guardado: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')}`,'ok');
+};
+
+window.impGuardarHistorial = async function(){
+  const r=window._impLastResult;
+  if(!r){toast('Calculá primero','err');return;}
+  const entry={
+    tipo:'container',fecha:new Date().toISOString().split('T')[0],
+    producto:impGS('i_producto'),cantidad:impG('i_cantidad'),
+    fob_prod:impG('i_fob_prod'),fob_inv:impG('i_fob_inv'),
+    ab_siva_usd:r.ab_siva_usd,ab_civa_usd:r.ab_civa_usd,
+    ab_siva_ars:r.ab_siva_ars,dolar:impG('i_dolar_bna'),ts:Date.now()
+  };
+  const hist=await fb.get('imp_historial')||{list:[]};
+  hist.list=hist.list||[];
+  hist.list.unshift(entry);
+  if(hist.list.length>100) hist.list=hist.list.slice(0,100);
+  await fb.set('imp_historial',hist);
+  toast('Guardado en historial ✓','ok');
+};
+
+window.impReset = function(){
+  ['i_producto','i_cantidad','i_dolar_bna','i_dolar_blue','i_fob_flete','i_fob_prod','i_fob_inv',
+   'i_maury','i_derecho','i_estad','i_iva','i_ivaad','i_gcias',
+   'i_cbm','i_flete','i_terminal','i_desp','i_ge1','i_ge2'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  const info=document.getElementById('i_prod_info');if(info)info.style.display='none';
+  const sel=document.getElementById('i_prod_sel');if(sel)sel.value='';
+  impRecalc();
+};
 window.exportarPDF=async()=>{
   // Cargar jsPDF y autoTable si no están cargados
   if(!window.jspdf){
