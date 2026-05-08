@@ -4966,7 +4966,15 @@ window.mayOcrProcesar = async function(){
     for(let p=1;p<=pdf.numPages;p++){
       const page=await pdf.getPage(p);
       const content=await page.getTextContent();
-      text+=content.items.map(i=>i.str).join(' ')+'\n';
+      // Preservar saltos de línea: cada item con hasEOL=true es fin de línea
+      let lineText='';
+      for(const item of content.items){
+        lineText+=item.str;
+        if(item.hasEOL) { text+=lineText+'\n'; lineText=''; }
+        else lineText+=' ';
+      }
+      if(lineText.trim()) text+=lineText+'\n';
+      text+='\n';
     }
     const parsed=parsearFacturaNiviko(text);
     _mayOcrData=parsed;
@@ -5068,59 +5076,69 @@ window.ocrAgregarItem = function(){
 };
 
 function parsearFacturaNiviko(rawText){
-  const t=rawText.replace(/\s+/g,' ').trim();
+  // PDF.js extrae columnas separadas: CANT / SKU / DESC / PRECIOS en bloques distintos
+  // Usamos el texto con saltos de línea preservados para separar columnas
 
-  // Nro factura: "N° 0003-00008573"
-  const nroM=t.match(/N°\s*(\d{4}-\d{8})/);
+  // Encabezado: buscar en texto completo
+  const nroM=rawText.match(/N[°o]\s*(\d{4}-\d{8})/);
   const nro_factura=nroM?nroM[1]:null;
 
-  // Fecha: "Fecha : 05/03/2026"
-  const fechaM=t.match(/Fecha\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
+  const fechaM=rawText.match(/Fecha\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
   let fecha=null;
   if(fechaM){const[d,m,y]=fechaM[1].split('/');fecha=`${y}-${m}-${d}`;}
 
-  // Cliente: after "Sres." before address digits
-  const clienteM=t.match(/Sres\.\s+([A-ZÁÉÍÓÚÑÜ][A-Za-záéíóúñü\s]+?)(?=\s+\d{2}\s+DE\s+|\s+Cód\.de)/i);
+  const clienteM=rawText.match(/Sres\.\s*\n+\s*([^\n]+)/i);
   const cliente=clienteM?clienteM[1].trim():null;
 
-  // Condición de pago: before "CANT."
-  const pagoM=t.match(/Condici[oó]n de pago\s+(.+?)(?=\s+CANT\.)/i);
+  const pagoM=rawText.match(/Condici[oó]n de pago\s*\n+\s*([^\n]+)/i);
   let forma_pago=pagoM?pagoM[1].trim():'OTRO';
   if(/contado/i.test(forma_pago))forma_pago='CONTADO';
   else if(/30|60|90/i.test(forma_pago))forma_pago='30-60-90';
   else if(/finan/i.test(forma_pago))forma_pago='FINANCIADO';
 
-  // Vendedor
-  const vendM=t.match(/Vendedor\s+(\d+)/i);
-  const vendedor=vendM?'Vendedor '+vendM[1]:null;
+  const vendM=rawText.match(/Vendedor\s*\n+\s*(\d+)/i);
+  const vendedor=vendM?'Vendedor '+vendM[1].trim():null;
 
-  // Items: extract table between "CANT. ARTICULO..." and "Subtotal"
-  const tableStart=t.indexOf('CANT. ARTICULO UNITARIO IMPORTE');
-  const tableEnd=t.indexOf('Subtotal');
-  const tableText=tableStart>=0?t.substring(tableStart+31,tableEnd>0?tableEnd:undefined):t;
+  // Tabla de items: entre header y "Subtotal"
+  const tblStart=rawText.search(/CANT\.\s+ARTICULO\s+UNITARIO\s+IMPORTE/i);
+  const tblEnd=rawText.search(/Subtotal/i);
+  const tableText=tblStart>=0?rawText.substring(tblStart+40,tblEnd>0?tblEnd:undefined):'';
 
+  // Extraer columnas por tipo de línea
+  const lines=tableText.split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+  const qtys=[], skus=[], descs=[], rawPrices=[];
+
+  for(const line of lines){
+    if(/^\d{1,4}$/.test(line)){qtys.push(parseInt(line));continue;}
+    if(/^[A-Z][A-Z0-9\-]{1,}$/.test(line)&&!/^[A-Z0-9]{8,}$/.test(line)){skus.push(line);continue;}
+    if(/^\d{1,3}(?:\.\d{3})*,\d{2}$/.test(line)){rawPrices.push(parseFloat(line.replace(/\./g,'').replace(',','.')));continue;}
+    if(/^[A-Z0-9]{8,}$/.test(line))continue; // códigos internos tipo 26001IC04014857U
+    descs.push(line);
+  }
+
+  // Zipar: precios vienen en pares unit+total
   const items=[];
-  const itemRx=/(\d+)\s+([A-Z0-9][A-Z0-9\-]*)\s+(.+?)\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s+(\d{1,3}(?:\.\d{3})*,\d{2})/g;
-  let m;
-  while((m=itemRx.exec(tableText))!==null){
-    const cant=parseInt(m[1]);
-    const unit=parseFloat(m[4].replace(/\./g,'').replace(',','.'));
-    const total=parseFloat(m[5].replace(/\./g,'').replace(',','.'));
-    const desc=m[3].trim().replace(/\s+/g,' ');
-    if(cant>0&&unit>100&&!isNaN(unit)){
-      // Buscar SKU en Firebase por código o descripción
-      const sku=m[2].toUpperCase();
-      items.push({codigo:sku,descripcion:desc,cantidad:cant,precio_unitario_siva:unit,descuento_pct:0,iva_pct:21,precio_total_siva:total});
-    }
+  const n=Math.min(qtys.length,skus.length);
+  for(let i=0;i<n;i++){
+    items.push({
+      codigo:skus[i],
+      descripcion:descs[i]||'',
+      cantidad:qtys[i],
+      precio_unitario_siva:rawPrices[i*2]||0,
+      precio_total_siva:rawPrices[i*2+1]||0,
+      descuento_pct:0,
+      iva_pct:21
+    });
   }
 
   // Totales
-  const subM=t.match(/Subtotal\s+([\d\.]+,\d{2})/);
-  const ivaM=t.match(/IVA 21,00%\s+([\d\.]+,\d{2})/);
-  const totM=t.match(/IMPORTE TOTAL\s+([\d\.]+,\d{2})/);
-  const total_siva=subM?parseFloat(subM[1].replace(/\./g,'').replace(',','.')):0;
-  const total_iva=ivaM?parseFloat(ivaM[1].replace(/\./g,'').replace(',','.')):0;
-  const total_civa=totM?parseFloat(totM[1].replace(/\./g,'').replace(',','.')):0;
+  const subM=rawText.match(/Subtotal\s*\n\s*([\d\.]+,\d{2})/);
+  const ivaM=rawText.match(/IVA 21,00%\s*\n\s*([\d\.]+,\d{2})/);
+  const totM=rawText.match(/IMPORTE TOTAL\s*\n\s*([\d\.]+,\d{2})/);
+  const p=(s)=>s?parseFloat(s.replace(/\./g,'').replace(',','.')):0;
+  const total_siva=p(subM?.[1]);
+  const total_iva=p(ivaM?.[1]);
+  const total_civa=p(totM?.[1]);
 
   return{cliente,nro_factura,fecha,forma_pago,vendedor,items,total_siva,total_iva,total_civa};
 }
