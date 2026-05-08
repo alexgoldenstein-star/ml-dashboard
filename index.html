@@ -5222,13 +5222,20 @@ window.calcLoadSku = function(){
     if(costoEl) costoEl.value = prod.ars||'';
     if(ivaEl) ivaEl.value = prod.iva||21;
   }
-  // Buscar en TODAS las órdenes del SKU y también variantes (mismo prefijo sin último código)
-  // Ej: NVK-1428-G-X4 y NVK-1428-N-X4 son la misma familia de producto
-  const skuFamily = sku.replace(/[-_][A-Z]$/, '').replace(/[-_][A-Z0-9]+$/, '');
+  // Buscar órdenes: exact match + variantes del mismo modelo (sin sufijo de color)
+  // NVK-MP180 → NVK-MP180 (sin variantes de color en este caso)
+  // NVK-1428-G-X4 → busca NVK-1428-*-X4
+  const skuParts = sku.split('-');
   const ords = S.orders.filter(o=>{
-    if(o.sku===sku) return true; // exact match
-    // Family match: mismo prefijo
-    if(skuFamily.length>4 && o.sku && o.sku.startsWith(skuFamily)) return true;
+    if(!o.sku) return false;
+    if(o.sku===sku) return true;
+    // Familia: mismo modelo, diferente color (penúltimo segmento suele ser color)
+    const oParts = o.sku.split('-');
+    if(oParts.length===skuParts.length && oParts.length>=3){
+      // Comparar todos los segmentos excepto el de color (penúltimo generalmente)
+      const colorIdx = skuParts.length-2; // posición del color
+      return oParts.every((p,i)=>i===colorIdx || p===skuParts[i]);
+    }
     return false;
   });
   const histCard = document.getElementById('calcHistCard');
@@ -5245,13 +5252,23 @@ window.calcLoadSku = function(){
     const mc = {Flex:0,Full:0,Correo:0};
     ords.forEach(o=>{ if(mc[o.modal]!==undefined) mc[o.modal]++; });
 
-    // Calcular promedios de envío por modalidad
+    // Calcular promedios de envío por modalidad — solo órdenes donde se pagó envío real
     const envioStats = {};
     ['Flex','Full','Correo'].forEach(m=>{
       const om = ords.filter(o=>o.modal===m);
       if(om.length){
-        const totalEnvio = om.reduce((s,o)=>s+Math.abs(o.costoEnvio||0),0);
-        envioStats[m] = {avg: totalEnvio/om.length, n: om.length};
+        // Para Flex: usar ganancia de envío (puede ser positiva)
+        // Para Full/Correo: solo órdenes donde costoEnvio > 0 (vendedor pagó)
+        const conEnvio = m==='Flex' 
+          ? om 
+          : om.filter(o=>Math.abs(o.costoEnvio||0)>100);
+        if(conEnvio.length){
+          const totalEnvio = conEnvio.reduce((s,o)=>s+Math.abs(o.costoEnvio||0),0);
+          envioStats[m] = {avg: totalEnvio/conEnvio.length, n: conEnvio.length, total: om.length};
+        } else {
+          // Hay órdenes pero todas con envío $0 (comprador pagó)
+          envioStats[m] = {avg: 0, n: 0, total: om.length, sinCosto: true};
+        }
       }
     });
     // Total promedio
@@ -5259,17 +5276,20 @@ window.calcLoadSku = function(){
     envioStats['all'] = {avg: totalEnvioAll/ords.length, n: ords.length};
     window._calcEnvioStats = envioStats;
 
-    // Mostrar resumen de envíos
     const statsEl = document.getElementById('calcEnvioStats');
     if(statsEl){
       statsEl.style.display='';
-      const skuNote = ords.some(o=>o.sku!==sku) ? ` <span style="color:var(--org)">(incl. variantes)</span>` : '';
-      statsEl.innerHTML = `<span style="font-weight:600">📦 Costo de envío real del historial${skuNote}:</span> ` +
-        Object.entries({Flex:'Flex',Full:'Full',Correo:'Correo'}).map(([m,lbl])=>{
+      const hasVariants = ords.some(o=>o.sku!==sku);
+      const varNote = hasVariants ? ` <span style="color:var(--org);font-size:10px">(incl. variantes)</span>` : '';
+      statsEl.innerHTML = `<span style="font-weight:600">📦 Envío real histórico${varNote}:</span> ` +
+        ['Flex','Full','Correo'].map(m=>{
           const s=envioStats[m];
-          if(!s) return `<span style="color:var(--t3)">${lbl}: sin datos</span>`;
-          return `<span style="color:${m==='Flex'?'var(--acc)':m==='Full'?'var(--grn)':'var(--org)'}">${lbl}: <strong>${fF(s.avg)}</strong> <span style="color:var(--t3)">(${s.n}ó)</span></span>`;
-        }).join(' · ');
+          if(!s) return `<span style="color:var(--t3)">${m}: sin datos</span>`;
+          if(s.sinCosto) return `<span style="color:var(--t3)">${m}: comprador paga (${s.total}ó)</span>`;
+          if(s.n===0) return `<span style="color:var(--t3)">${m}: sin costo propio</span>`;
+          const c=m==='Flex'?'var(--acc)':m==='Full'?'var(--grn)':'var(--org)';
+          return `<span style="color:${c}">${m}: <strong style="font-size:13px">${fF(s.avg)}</strong> <span style="color:var(--t3);font-size:10px">(${s.n} con envío${s.total>s.n?`, ${s.total} total`:''})</span></span>`;
+        }).join(' &nbsp;·&nbsp; ');
     }
 
     document.getElementById('calcHistGrid').innerHTML = [
