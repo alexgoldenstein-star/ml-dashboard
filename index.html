@@ -5081,81 +5081,79 @@ window.ocrAgregarItem = function(){
 };
 
 function parsearFacturaNiviko(rawText){
-  // Texto viene con \n entre líneas de diferente Y (como pdfminer)
-  // Estructura real del PDF: cada dato en su propia "línea" visual
+  // Formato real de PDF.js para facturas NIVIKO/GBS:
+  // Items en una línea: "CANT DESC TOTAL,00UNIT,00SKU"
+  const ls = rawText.split('\n').map(l=>l.trim());
 
-  // ── ENCABEZADO ────────────────────────────────────────────────────────────
+  // ── CLIENTE ───────────────────────────────────────────────────────────────
+  let cliente = null;
+  const sresIdx = ls.findIndex(l=>/^Sres\.$/.test(l)||l.endsWith('Sres.'));
+  if(sresIdx>=0){
+    for(let i=sresIdx+1;i<Math.min(sresIdx+8,ls.length);i++){
+      const l=ls[i];
+      if(!l||l.length<3) continue;
+      if(/CANT|ARTICULO|UNITARIO|IMPORTE|Factura|Electr[oó]/i.test(l)) continue;
+      if(/^\d+$/.test(l)) continue;
+      if(/^[A-Z0-9]{8,}$/.test(l)) continue;
+      if(/^(Cód|I\.V|CUIT|Inicia|Tel\.|Batalla|GBS |Cod\.)/i.test(l)) continue;
+      cliente=l; break;
+    }
+  }
+
+  // ── NRO FACTURA ──────────────────────────────────────────────────────────
   const nroM = rawText.match(/(\d{4}-\d{8})/);
-  const nro_factura = nroM ? nroM[1] : null;
+  const nro_factura = nroM?nroM[1]:null;
 
-  const fechaM = rawText.match(/Fecha\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
-  let fecha = null;
-  if(fechaM){ const[d,m,y]=fechaM[1].split('/'); fecha=`${y}-${m}-${d}`; }
+  // ── FECHA ─────────────────────────────────────────────────────────────────
+  const fechaM = rawText.match(/(\d{2}\/\d{2}\/\d{4})/);
+  let fecha=null;
+  if(fechaM){const[d,m,y]=fechaM[1].split('/');fecha=`${y}-${m}-${d}`;}
 
-  // Cliente: línea inmediatamente después de "Sres."
-  const clienteM = rawText.match(/Sres\.\s*\n\s*([^\n]+)/i);
-  const cliente = clienteM ? clienteM[1].trim() : null;
-
-  // Pago: línea después de "Condición de pago"
-  const pagoM = rawText.match(/Condici[oó]n de pago\s*\n\s*([^\n]+)/i);
-  let forma_pago = 'OTRO';
-  if(pagoM){
-    const v=pagoM[1].trim();
-    if(/contado/i.test(v)) forma_pago='CONTADO';
-    else if(/30|60|90/i.test(v)) forma_pago='30-60-90';
-    else if(/finan/i.test(v)) forma_pago='FINANCIADO';
+  // ── PAGO ──────────────────────────────────────────────────────────────────
+  let forma_pago='OTRO';
+  for(const l of ls){
+    if(/\d+\s*DIAS/i.test(l)||/CONTADO/i.test(l)||/FINANCIAD/i.test(l)){
+      if(/contado/i.test(l)) forma_pago='CONTADO';
+      else if(/30|60|90/i.test(l)) forma_pago='30-60-90';
+      else if(/finan/i.test(l)) forma_pago='FINANCIADO';
+      break;
+    }
   }
 
-  // Vendedor: número en línea después de "Vendedor"
-  const vendM = rawText.match(/Vendedor\s*\n\s*(\d+)/i);
-  const vendedor = vendM ? 'Vendedor '+vendM[1].trim() : null;
+  // ── VENDEDOR ──────────────────────────────────────────────────────────────
+  const vendM = rawText.match(/Vendedor\s+(\d+)/i);
+  const vendedor = vendM?'Vendedor '+vendM[1]:null;
 
-  // ── TABLA DE ITEMS ────────────────────────────────────────────────────────
-  // Extraer sección entre header de tabla y "Subtotal"
-  const tblStart = rawText.search(/CANT\..*ARTICULO.*UNITARIO.*IMPORTE/i);
-  const afterHeader = tblStart >= 0 ? rawText.substring(tblStart) : rawText;
-  const subIdx = afterHeader.search(/\nSubtotal/i);
-  const tableSection = subIdx > 0 ? afterHeader.substring(0, subIdx) : afterHeader;
-
-  // Separar líneas limpias
-  const tableLines = tableSection.split('\n')
-    .map(l=>l.trim()).filter(l=>l.length>0)
-    .slice(1); // saltar header
-
-  // Clasificar cada línea
-  const qtys=[], skus=[], descs=[], prices=[];
-  for(const line of tableLines){
-    if(/^\d{1,4}$/.test(line) && parseInt(line)<500){ qtys.push(parseInt(line)); continue; }
-    if(/^\d{1,3}(\.\d{3})*,\d{2}$/.test(line)){ prices.push(parseFloat(line.replace(/\./g,'').replace(',','.'))); continue; }
-    if(/^[A-Z][A-Z0-9\-]{1,20}$/.test(line) && !/^[A-Z0-9]{8,}$/.test(line)){ skus.push(line); continue; }
-    if(line.length>3 && !/^[A-Z0-9]{8,}$/.test(line) && !/^(CANT|ARTICULO|UNITARIO|IMPORTE)$/i.test(line)) descs.push(line);
-  }
-
+  // ── ITEMS ─────────────────────────────────────────────────────────────────
+  // Formato: "CANT DESC TOTAL,00UNIT,00SKU"
+  // Los dos precios están pegados y el SKU al final
+  const itemRx = /^(\d+)\s+(.+?)\s+(\d{1,3}(?:\.\d{3})*,\d{2})(\d{1,3}(?:\.\d{3})*,\d{2})([A-Z][A-Z0-9\-]{1,20})$/;
   const items=[];
-  const n=Math.min(qtys.length, skus.length);
-  for(let i=0;i<n;i++){
-    items.push({
-      codigo: skus[i],
-      descripcion: descs[i]||'',
-      cantidad: qtys[i],
-      precio_unitario_siva: prices[i*2]||0,
-      precio_total_siva: prices[i*2+1]||0,
-      descuento_pct: 0,
-      iva_pct: 21
-    });
+  for(const l of ls){
+    const m=itemRx.exec(l);
+    if(!m) continue;
+    const cant=parseInt(m[1]);
+    const desc=m[2].trim();
+    const total=parseFloat(m[3].replace(/\./g,'').replace(',','.'));
+    const unit=parseFloat(m[4].replace(/\./g,'').replace(',','.'));
+    const sku=m[5];
+    if(cant>0&&unit>0) items.push({codigo:sku,descripcion:desc,cantidad:cant,
+      precio_unitario_siva:unit,precio_total_siva:total,descuento_pct:0,iva_pct:21});
   }
 
   // ── TOTALES ───────────────────────────────────────────────────────────────
-  const pN=(s)=>s?parseFloat(s.replace(/\./g,'').replace(',','.')):0;
-  const subM = rawText.match(/Subtotal\s*\n\s*(\d{1,3}(?:\.\d{3})*,\d{2})/);
-  const ivaM = rawText.match(/IVA 21,00%\s*\n\s*(\d{1,3}(?:\.\d{3})*,\d{2})/);
-  const totM = rawText.match(/IMPORTE TOTAL\s*\n\s*(\d{1,3}(?:\.\d{3})*,\d{2})/);
-  const total_siva=pN(subM?.[1]);
-  const total_iva=pN(ivaM?.[1]);
-  const total_civa=pN(totM?.[1]);
+  const subM=rawText.match(/Subtotal\s+([\d\.]+,\d{2})/);
+  const total_siva=subM?parseFloat(subM[1].replace(/\./g,'').replace(',','.')):0;
+  // IVA y total vienen como números sueltos después de "IMPORTE TOTAL"
+  const afterTot=rawText.substring(rawText.indexOf('IMPORTE TOTAL')+13);
+  const numsAfter=[...afterTot.matchAll(/^([\d\.]+,\d{2})$/gm)]
+    .map(m=>parseFloat(m[1].replace(/\./g,'').replace(',','.'))).slice(0,2);
+  const total_civa=numsAfter[0]||0;
+  const total_iva=numsAfter[1]||0;
 
   return{cliente,nro_factura,fecha,forma_pago,vendedor,items,total_siva,total_iva,total_civa};
 }
+
 
 window.mayOcrCargar = function(){
   // Leer datos editados del formulario
