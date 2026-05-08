@@ -863,8 +863,18 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
             </div>
             <div id="may_items_list"></div>
 
-            <!-- Agregar item row -->
+            <!-- Agregar/Editar item row -->
             <div id="may_add_item_row" style="background:var(--s2);border-radius:var(--r);padding:12px;margin-top:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span id="may_item_row_title" style="font-size:11px;font-weight:600;color:var(--t2)">Nuevo item</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <label class="lbl" style="margin:0">Categoría:</label>
+                  <select class="inp" id="may_item_cat" onchange="mayCatChange()" style="font-size:11px;padding:4px 8px;height:auto">
+                    <option value="normal">Normal (21% IVA · 5% com.)</option>
+                    <option value="electronica">Electrónica (10.5% IVA · 3% com.)</option>
+                  </select>
+                </div>
+              </div>
               <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto;gap:6px;align-items:end">
                 <div>
                   <label class="lbl">Producto (SKU o descripción)</label>
@@ -891,12 +901,16 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
                   <label class="lbl">Desc. financiero %</label>
                   <input class="inp" id="may_item_dfin" type="number" placeholder="0" step=".5" value="0" oninput="mayRecalcItem()">
                 </div>
-                <button class="btn btn-sm" onclick="mayConfirmItem()" style="height:34px;margin-top:auto">Agregar</button>
+                <button class="btn btn-sm" id="may_item_btn" onclick="mayConfirmItem()" style="height:34px;margin-top:auto">Agregar</button>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-top:8px">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:6px;margin-top:8px">
                 <div>
                   <label class="lbl">Desc. oferta %</label>
                   <input class="inp" id="may_item_dofe" type="number" placeholder="0" step=".5" value="0" oninput="mayRecalcItem()">
+                </div>
+                <div>
+                  <label class="lbl">Desc. especial %</label>
+                  <input class="inp" id="may_item_desp" type="number" placeholder="0" step=".5" value="0" oninput="mayRecalcItem()">
                 </div>
                 <div>
                   <label class="lbl">IVA %</label>
@@ -925,7 +939,51 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <!-- Resumen del pedido -->
           <div class="card" id="may_resumen_card" style="margin-bottom:10px;display:none">
             <div class="ch"><span class="ct">Resumen del pedido</span></div>
+            <!-- Descuento global -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--b1)">
+              <div>
+                <label class="lbl">Descuento global s/total %</label>
+                <input class="inp" id="may_dto_global" type="number" placeholder="0" step=".5" value="0" oninput="mayRenderItems()">
+              </div>
+              <div>
+                <label class="lbl">Motivo descuento</label>
+                <input class="inp" id="may_dto_motivo" placeholder="Ej: cliente frecuente">
+              </div>
+              <div style="padding:8px;background:var(--s2);border-radius:var(--r)">
+                <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Dto. global aplicado</div>
+                <div id="may_dto_preview" style="font-size:14px;font-weight:600;color:var(--org)">$0</div>
+              </div>
+            </div>
             <div id="may_resumen_body"></div>
+          </div>
+
+          <!-- Calculadora de precio mayorista -->
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">🧮 Calculadora de precio mayorista</span>
+              <button class="btn-g btn-sm" onclick="mayCalcGuardar()" style="font-size:10px">💾 Guardar en historial</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+              <div>
+                <label class="lbl">Costo producto (ARS)</label>
+                <input class="inp" id="maycalc_costo" type="number" placeholder="0" oninput="mayCalcUpdate()">
+              </div>
+              <div>
+                <label class="lbl">Categoría</label>
+                <select class="inp" id="maycalc_cat" onchange="mayCalcUpdate()">
+                  <option value="normal">Normal (21% IVA · 5% com.)</option>
+                  <option value="electronica">Electrónica (10.5% IVA · 3% com.)</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Margen objetivo %</label>
+                <input class="inp" id="maycalc_margen" type="number" placeholder="30" value="30" step="1" oninput="mayCalcUpdate()">
+              </div>
+              <div>
+                <label class="lbl">Descuento esperado %</label>
+                <input class="inp" id="maycalc_dto" type="number" placeholder="0" value="0" step=".5" oninput="mayCalcUpdate()">
+              </div>
+            </div>
+            <div id="maycalc_result" style="margin-top:10px"></div>
           </div>
 
           <!-- Botones -->
@@ -1107,6 +1165,31 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
               <div id="calc_roi" style="font-size:22px;font-weight:700;font-family:'Syne',sans-serif">0%</div>
             </div>
           </div>
+        </div>
+
+        <!-- Calculadora de cuotas -->
+        <div class="card" style="margin-bottom:12px">
+          <div class="ch"><span class="ct">💳 Precio para ganar lo mismo en cuotas</span></div>
+          <p style="font-size:11px;color:var(--t3);margin-bottom:10px">ML te cobra un costo adicional cuando ofrecés cuotas sin interés. Calculá a qué precio publicar para mantener la misma ganancia.</p>
+          <div id="calc_cuotas_cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+        </div>
+
+        <!-- Guardar cálculo -->
+        <div class="card">
+          <div class="ch"><span class="ct">💾 Guardar este cálculo</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+            <div>
+              <label class="lbl">Nombre / referencia</label>
+              <input class="inp" id="calc_save_nombre" placeholder="Ej: NVK-MP180 Mayo 2026">
+            </div>
+            <div>
+              <label class="lbl">Notas</label>
+              <input class="inp" id="calc_save_nota" placeholder="Opcional">
+            </div>
+            <button class="btn btn-sm" onclick="calcGuardar()" style="height:34px;margin-top:auto">Guardar →</button>
+          </div>
+          <!-- Historial de cálculos -->
+          <div id="calc_historial" style="margin-top:12px"></div>
         </div>
 
       </div>
@@ -3832,16 +3915,18 @@ let _mayCfg = {iva:21,iibb:5,com:5,vendedores:[]};
 let _mayEditId = null;      // id del pedido que se está editando
 let _mayItems = [];         // items del pedido actual
 let _maySort = {col:'fecha',dir:-1};
+let _mayEditItemId = null; // id del item que se está editando
 let _mayItemCount = 0;
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function mayCalcItem(it){
-  // Precio final s/IVA = lista - dcom% - dfin% - dofe%
+  // Precio final s/IVA = lista - dcom% - dfin% - dofe% - desp%
   const lista = it.lista||0;
   const dcom = lista * (it.dcom_pct/100||0);
   const dfin = (lista-dcom) * (it.dfin_pct/100||0);
   const dofe = (lista-dcom-dfin) * (it.dofe_pct/100||0);
-  const precio_siva = lista - dcom - dfin - dofe;
+  const desp = (lista-dcom-dfin-dofe) * (it.desp_pct/100||0);
+  const precio_siva = lista - dcom - dfin - dofe - desp;
   const iva_monto = precio_siva * (it.iva_pct/100||0.21);
   const precio_civa = precio_siva + iva_monto;
   const iibb_monto = precio_siva * (it.iibb_pct/100||0.05);
@@ -3851,7 +3936,7 @@ function mayCalcItem(it){
   const costo_total = (it.costo||0) * it.qty;
   const ganancia = total_siva - costo_total - iibb_monto*it.qty - com_monto*it.qty;
   const margen = total_siva > 0 ? ganancia/total_siva : 0;
-  return {...it, dcom_monto:dcom, dfin_monto:dfin, dofe_monto:dofe,
+  return {...it, dcom_monto:dcom, dfin_monto:dfin, dofe_monto:dofe, desp_monto:desp,
     precio_siva, iva_monto, precio_civa, iibb_monto, com_monto,
     total_siva, total_civa, costo_total, ganancia, margen};
 }
@@ -4044,7 +4129,58 @@ window.mayNuevoPedido = function(){
 };
 
 window.mayAddItem = function(){
+  // Reset a modo "agregar nuevo"
+  _mayEditItemId = null;
+  document.getElementById('may_item_row_title').textContent='Nuevo item';
+  document.getElementById('may_item_btn').textContent='Agregar';
+  ['may_item_sku','may_item_qty','may_item_costo','may_item_lista'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  ['may_item_dcom','may_item_dfin','may_item_dofe','may_item_desp'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='0';
+  });
+  document.getElementById('may_item_cat').value='normal';
+  mayCatChange();
   document.getElementById('may_add_item_row').style.display='';
+  document.getElementById('may_item_sku').focus();
+};
+
+window.mayCatChange = function(){
+  const cat=document.getElementById('may_item_cat')?.value||'normal';
+  const ivaEl=document.getElementById('may_item_iva');
+  const comEl=document.getElementById('may_item_com');
+  const iibbEl=document.getElementById('may_item_iibb');
+  if(cat==='electronica'){
+    if(ivaEl) ivaEl.value='10.5';
+    if(comEl) comEl.value='3';
+    if(iibbEl) iibbEl.value=_mayCfg.iibb||5;
+  } else {
+    if(ivaEl) ivaEl.value='21';
+    if(comEl) comEl.value='5';
+    if(iibbEl) iibbEl.value=_mayCfg.iibb||5;
+  }
+  mayRecalcItem();
+};
+
+window.mayEditItem = function(id){
+  const it=_mayItems.find(x=>x.id===id);
+  if(!it) return;
+  _mayEditItemId=id;
+  document.getElementById('may_item_row_title').textContent='Editando item';
+  document.getElementById('may_item_btn').textContent='Actualizar';
+  const set=(elId,v)=>{const e=document.getElementById(elId);if(e)e.value=v??'';};
+  set('may_item_sku',it.sku);set('may_item_qty',it.qty);
+  set('may_item_costo',it.costo);set('may_item_lista',it.lista);
+  set('may_item_dcom',it.dcom_pct||0);set('may_item_dfin',it.dfin_pct||0);
+  set('may_item_dofe',it.dofe_pct||0);set('may_item_desp',it.desp_pct||0);
+  set('may_item_iva',it.iva_pct||21);set('may_item_iibb',it.iibb_pct||5);
+  set('may_item_com',it.com_pct||5);
+  // Detectar categoría
+  const cat = (it.iva_pct||21)<=10.5 ? 'electronica' : 'normal';
+  document.getElementById('may_item_cat').value=cat;
+  document.getElementById('may_add_item_row').style.display='';
+  document.getElementById('may_item_sku').focus();
+  mayRecalcItem();
 };
 
 window.mayAutocompleteSku = function(){
@@ -4083,28 +4219,38 @@ window.mayConfirmItem = function(){
   const lista=parseFloat(document.getElementById('may_item_lista')?.value)||0;
   if(!sku||!qty||!lista){toast('Completá SKU, cantidad y precio lista','err');return;}
   const prod=S.products.find(p=>p.sku===sku||p.sku?.toLowerCase()===sku.toLowerCase());
-  _mayItemCount++;
-  _mayItems.push({
-    id:'i'+_mayItemCount,
+  const itemData={
+    id: _mayEditItemId || ('i'+(++_mayItemCount)),
     sku: prod?.sku||sku,
     desc: prod?.desc||sku,
-    qty, costo,
-    lista,
+    qty, costo, lista,
     dcom_pct:parseFloat(document.getElementById('may_item_dcom')?.value)||0,
     dfin_pct:parseFloat(document.getElementById('may_item_dfin')?.value)||0,
     dofe_pct:parseFloat(document.getElementById('may_item_dofe')?.value)||0,
+    desp_pct:parseFloat(document.getElementById('may_item_desp')?.value)||0,
     iva_pct:parseFloat(document.getElementById('may_item_iva')?.value)||21,
     iibb_pct:parseFloat(document.getElementById('may_item_iibb')?.value)||5,
     com_pct:parseFloat(document.getElementById('may_item_com')?.value)||5,
-  });
+    cat:document.getElementById('may_item_cat')?.value||'normal',
+  };
+  if(_mayEditItemId){
+    const idx=_mayItems.findIndex(i=>i.id===_mayEditItemId);
+    if(idx>=0) _mayItems[idx]=itemData;
+    _mayEditItemId=null;
+  } else {
+    _mayItems.push(itemData);
+  }
   // Limpiar campos item
   ['may_item_sku','may_item_qty','may_item_costo','may_item_lista'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
-  ['may_item_dcom','may_item_dfin','may_item_dofe'].forEach(id=>{
+  ['may_item_dcom','may_item_dfin','may_item_dofe','may_item_desp'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='0';
   });
+  document.getElementById('may_item_row_title').textContent='Nuevo item';
+  document.getElementById('may_item_btn').textContent='Agregar';
   document.getElementById('may_item_preview').textContent='—';
+  document.getElementById('may_add_item_row').style.display='none';
   mayRenderItems();
 };
 
@@ -4122,55 +4268,67 @@ function mayRenderItems(){
     if(resCard) resCard.style.display='none';
     return;
   }
+  const dtoGlobal=parseFloat(document.getElementById('may_dto_global')?.value)||0;
   const calcs=_mayItems.map(mayCalcItem);
+  const totSiva=calcs.reduce((s,i)=>s+i.total_siva,0);
+  const dtoMonto=totSiva*(dtoGlobal/100);
+  const dtoEl=document.getElementById('may_dto_preview');
+  if(dtoEl) dtoEl.textContent=dtoMonto>0?'-'+fF(dtoMonto):'$0';
+  window._mayDtoGlobal={pct:dtoGlobal,monto:dtoMonto,motivo:document.getElementById('may_dto_motivo')?.value||''};
   el.innerHTML=`<table class="tbl" style="margin-bottom:0">
     <thead><tr>
-      <th>SKU</th><th>Descripción</th><th>Cant.</th>
-      <th>Costo unit.</th><th>Lista s/IVA</th>
-      <th>Dto. com%</th><th>Dto. fin%</th>
-      <th>Precio s/IVA</th><th>IVA</th><th>Precio c/IVA</th>
-      <th>Total s/IVA</th><th>IIBB</th><th>Comisión</th><th>Ganancia</th><th>Margen</th><th></th>
+      <th>SKU</th><th>Desc.</th><th>Cat.</th><th>Cant.</th>
+      <th>Costo u.</th><th>Lista s/IVA</th>
+      <th>Dtos.</th><th>Precio s/IVA</th><th>IVA</th><th>Precio c/IVA</th>
+      <th>Total s/IVA</th><th>Costo tot.</th><th>Ganancia</th><th>Margen</th><th></th>
     </tr></thead>
     <tbody>${calcs.map(it=>`<tr>
       <td><span class="sku">${esc(it.sku)}</span></td>
-      <td style="font-size:11px;color:var(--t2);max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc(it.desc)}</td>
+      <td style="font-size:11px;color:var(--t2);max-width:120px;overflow:hidden;text-overflow:ellipsis">${esc(it.desc||'')}</td>
+      <td style="font-size:12px">${it.cat==='electronica'?'⚡':'📦'}</td>
       <td>${it.qty}</td>
       <td class="mono">${fF(it.costo)}</td>
       <td class="mono">${fF(it.lista)}</td>
-      <td style="color:var(--org)">${it.dcom_pct}%</td>
-      <td style="color:var(--org)">${it.dfin_pct}%</td>
+      <td style="font-size:10px;color:var(--org)">${[it.dcom_pct>0?'C:'+it.dcom_pct+'%':'',it.dfin_pct>0?'F:'+it.dfin_pct+'%':'',it.dofe_pct>0?'O:'+it.dofe_pct+'%':'',it.desp_pct>0?'E:'+it.desp_pct+'%':''].filter(Boolean).join(' ')||'—'}</td>
       <td class="mono">${fF(it.precio_siva)}</td>
-      <td style="font-size:11px;color:var(--t3)">${it.iva_pct}%</td>
+      <td style="font-size:10px;color:var(--t3)">${it.iva_pct}%</td>
       <td class="mono">${fF(it.precio_civa)}</td>
       <td class="mono" style="font-weight:600">${fF(it.total_siva)}</td>
-      <td class="mono" style="color:var(--red)">${fF(it.iibb_monto*it.qty)}</td>
-      <td class="mono" style="color:var(--red)">${fF(it.com_monto*it.qty)}</td>
+      <td class="mono" style="color:var(--red)">${fF(it.costo_total)}</td>
       <td class="mono ${it.ganancia>=0?'g':'r'}">${fF(it.ganancia)}</td>
       <td class="${it.margen>=0.3?'g':it.margen>=0.15?'m':'r'}">${(it.margen*100).toFixed(1)}%</td>
-      <td><button class="btn-g btn-sm" onclick="mayRemoveItem('${it.id}')" style="color:var(--red)">×</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn-g btn-sm" onclick="mayEditItem('${it.id}')" title="Editar">✏</button>
+        <button class="btn-g btn-sm" onclick="mayRemoveItem('${it.id}')" style="color:var(--red)">×</button>
+      </td>
     </tr>`).join('')}</tbody>
   </table>`;
-  // Resumen
   const res=mayCalcPedido(_mayItems);
-  if(resCard){resCard.style.display='';}
+  const ganFinal=res.ganancia-dtoMonto;
+  const margenFinal=(res.total_siva-dtoMonto)>0?ganFinal/(res.total_siva-dtoMonto):0;
+  if(resCard) resCard.style.display='';
   const resBody=document.getElementById('may_resumen_body');
   if(resBody) resBody.innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+    <div style="display:grid;grid-template-columns:repeat(${4+(dtoMonto>0?1:0)},1fr);gap:8px">
       <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--grn)">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Total s/IVA</div>
-        <div style="font-size:18px;font-weight:700;color:var(--grn)">${fS(res.total_siva)}</div>
+        <div style="font-size:16px;font-weight:700;color:var(--grn)">${fS(res.total_siva)}</div>
       </div>
       <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--blu)">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Total c/IVA</div>
-        <div style="font-size:18px;font-weight:700;color:var(--blu)">${fS(res.total_civa)}</div>
+        <div style="font-size:16px;font-weight:700;color:var(--blu)">${fS(res.total_civa)}</div>
       </div>
-      <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid ${res.ganancia>=0?'var(--grn)':'var(--red)'}">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Ganancia</div>
-        <div style="font-size:18px;font-weight:700;color:${res.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(res.ganancia)}</div>
+      ${dtoMonto>0?`<div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--org)">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Dto. global ${dtoGlobal}%</div>
+        <div style="font-size:16px;font-weight:700;color:var(--org)">-${fS(dtoMonto)}</div>
+      </div>`:''}
+      <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid ${ganFinal>=0?'var(--grn)':'var(--red)'}">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Ganancia neta</div>
+        <div style="font-size:16px;font-weight:700;color:${ganFinal>=0?'var(--grn)':'var(--red)'}">${fS(ganFinal)}</div>
       </div>
       <div style="padding:10px;background:var(--s2);border-radius:var(--r)">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Margen</div>
-        <div style="font-size:18px;font-weight:700;color:${res.margen>=0.2?'var(--grn)':'var(--org)'}">${(res.margen*100).toFixed(1)}%</div>
+        <div style="font-size:16px;font-weight:700;color:${margenFinal>=0.2?'var(--grn)':'var(--org)'}">${(margenFinal*100).toFixed(1)}%</div>
       </div>
     </div>`;
 }
@@ -4377,6 +4535,170 @@ window.mayGuardarConfig = async function(){
   toast('✓ Configuración guardada','ok');
 };
 
+// ── CALCULADORA ML — CUOTAS Y GUARDADO ───────────────────────────────────────
+const ML_CUOTAS = [
+  {n:3,  label:'3 cuotas s/interés',  costo_pct:8.8,  tag:''},
+  {n:6,  label:'6 cuotas s/interés',  costo_pct:12.7, tag:'recomendado'},
+  {n:9,  label:'9 cuotas s/interés',  costo_pct:15.9, tag:''},
+  {n:12, label:'12 cuotas s/interés', costo_pct:19.3, tag:''},
+];
+
+function calcUpdateCuotas(precioBase, gananciaSinCuotas, comPct, ivaPct, pubPct, iibbPct, costo){
+  const el=document.getElementById('calc_cuotas_cards');
+  if(!el||!precioBase) return;
+  el.innerHTML = ML_CUOTAS.map(c=>{
+    // precio_nuevo tal que ganancia = gananciaSinCuotas
+    // ganancia = precio_nuevo*(1 - com/100 - iva/100 - pub/100 - iibb/100 - 0.012 - cuota/100) - costo
+    const factor = 1 - comPct/100 - ivaPct/100 - pubPct/100 - iibbPct/100 - 0.012 - c.costo_pct/100;
+    if(factor<=0) return '';
+    const precioNuevo = (gananciaSinCuotas + costo) / factor;
+    const aumento = precioNuevo - precioBase;
+    const aumentoPct = precioBase>0 ? aumento/precioBase*100 : 0;
+    return `<div style="padding:12px;border-radius:var(--r2);background:var(--s2);border:1px solid ${c.tag?'var(--acc)':'var(--b1)'}">
+      <div style="font-size:9px;color:${c.tag?'var(--acc)':'var(--t3)'};font-weight:600;text-transform:uppercase;margin-bottom:4px">${c.label}${c.tag?' ★':''}</div>
+      <div style="font-size:10px;color:var(--t3)">Costo ML: ${c.costo_pct}%</div>
+      <div style="font-size:18px;font-weight:700;font-family:'Syne',sans-serif;margin:4px 0">${fF(Math.ceil(precioNuevo/10)*10)}</div>
+      <div style="font-size:10px;color:var(--org)">+${fF(Math.ceil(aumento/10)*10)} (+${aumentoPct.toFixed(1)}%)</div>
+    </div>`;
+  }).join('');
+}
+
+window.calcGuardar = async function(){
+  const nombre=(document.getElementById('calc_save_nombre')?.value||'').trim();
+  if(!nombre){toast('Escribí un nombre para el cálculo','err');return;}
+  const precio=parseFloat(document.getElementById('calc_precio')?.value)||0;
+  const costo=parseFloat(document.getElementById('calc_costo')?.value)||0;
+  if(!precio){toast('Ingresá un precio primero','err');return;}
+  const actR=window._calcLastResult;
+  const entry={
+    id:'C'+Date.now(), nombre,
+    fecha:new Date().toISOString().split('T')[0],
+    sku:document.getElementById('calc_sku')?.value||'',
+    nota:document.getElementById('calc_save_nota')?.value||'',
+    precio, costo, mod:window._calcMod||'FlexC3',
+    ganancia:actR?.ganancia||0, margen:actR?.pct||0, roi:actR?.roi||0,
+    com:parseFloat(document.getElementById('calc_com')?.value)||16,
+    iva:parseFloat(document.getElementById('calc_iva')?.value)||21,
+    pub:parseFloat(document.getElementById('calc_pub')?.value)||5,
+    iibb:parseFloat(document.getElementById('calc_iibb2')?.value)||4,
+    ts:Date.now(),
+  };
+  const hist=await fb.get('calc_historial')||{list:[]};
+  hist.list=[entry,...(hist.list||[])].slice(0,50);
+  await fb.set('calc_historial',hist);
+  document.getElementById('calc_save_nombre').value='';
+  document.getElementById('calc_save_nota').value='';
+  calcRenderHistorial(hist.list);
+  toast(`✓ "${nombre}" guardado`,'ok');
+};
+
+async function calcLoadHistorial(){
+  const hist=await fb.get('calc_historial');
+  calcRenderHistorial(hist?.list||[]);
+}
+
+function calcRenderHistorial(list){
+  const el=document.getElementById('calc_historial');
+  if(!el) return;
+  if(!list?.length){el.innerHTML='';return;}
+  el.innerHTML='<div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Historial guardado</div>'+
+    list.slice(0,10).map(e=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <div>
+        <span style="font-weight:500">${esc(e.nombre)}</span>
+        <span style="color:var(--t3);margin-left:6px">${e.sku?e.sku+' · ':''} ${e.fecha}</span>
+        ${e.nota?`<span style="color:var(--t3)"> · ${esc(e.nota)}</span>`:''}
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="mono">${fF(e.precio)}</span>
+        <span class="${(e.ganancia||0)>=0?'g':'r'} mono">${fF(e.ganancia||0)}</span>
+        <span style="color:var(--t3)">${((e.margen||0)*100).toFixed(1)}%</span>
+        <span style="font-size:10px;background:var(--s2);padding:2px 5px;border-radius:4px">${e.mod||''}</span>
+        <button class="btn-g btn-sm" onclick="calcCargarHistorial('${e.id}')" title="Cargar">↩</button>
+        <button class="btn-g btn-sm" onclick="calcBorrarHistorial('${e.id}')" style="color:var(--red)">×</button>
+      </div>
+    </div>`).join('');
+}
+
+window.calcCargarHistorial = async function(id){
+  const hist=await fb.get('calc_historial');
+  const e=(hist?.list||[]).find(x=>x.id===id);
+  if(!e) return;
+  const set=(elId,v)=>{const el=document.getElementById(elId);if(el)el.value=v??'';};
+  set('calc_precio',e.precio);set('calc_costo',e.costo);
+  set('calc_com',e.com);set('calc_iva',e.iva);
+  set('calc_pub',e.pub);set('calc_iibb2',e.iibb);
+  if(e.sku){const sel=document.getElementById('calc_sku');if(sel)sel.value=e.sku;calcLoadSku();}
+  else calcUpdate();
+  toast(`"${e.nombre}" cargado`,'ok');
+};
+
+window.calcBorrarHistorial = async function(id){
+  const hist=await fb.get('calc_historial');
+  if(!hist) return;
+  hist.list=(hist.list||[]).filter(x=>x.id!==id);
+  await fb.set('calc_historial',hist);
+  calcRenderHistorial(hist.list);
+};
+
+// ── CALCULADORA PRECIO MAYORISTA ──────────────────────────────────────────────
+window.mayCalcUpdate = function(){
+  const costo=parseFloat(document.getElementById('maycalc_costo')?.value)||0;
+  const cat=document.getElementById('maycalc_cat')?.value||'normal';
+  const margenObj=parseFloat(document.getElementById('maycalc_margen')?.value)||30;
+  const dto=parseFloat(document.getElementById('maycalc_dto')?.value)||0;
+  const ivaPct=cat==='electronica'?10.5:21;
+  const comPct=cat==='electronica'?3:5;
+  const iibbPct=_mayCfg?.iibb||5;
+  const el=document.getElementById('maycalc_result');
+  if(!el||!costo) return;
+  const factor=1-iibbPct/100-comPct/100-margenObj/100;
+  if(factor<=0){el.innerHTML='<p style="color:var(--red);font-size:12px">Margen objetivo demasiado alto</p>';return;}
+  const precio_base=costo/factor;
+  const precio_lista=dto>0?precio_base/(1-dto/100):precio_base;
+  const precio_civa=precio_lista*(1+ivaPct/100);
+  const precio_final=precio_lista*(1-dto/100);
+  const com_m=precio_final*comPct/100, iibb_m=precio_final*iibbPct/100;
+  const ganancia=precio_final-costo-com_m-iibb_m;
+  const margenReal=precio_final>0?ganancia/precio_final*100:0;
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--acc)">
+      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Precio lista s/IVA</div>
+      <div style="font-size:18px;font-weight:700">${fS(Math.ceil(precio_lista))}</div>
+    </div>
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--blu)">
+      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Precio c/IVA</div>
+      <div style="font-size:18px;font-weight:700;color:var(--blu)">${fS(Math.ceil(precio_civa))}</div>
+    </div>
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--grn)">
+      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Ganancia unit.</div>
+      <div style="font-size:18px;font-weight:700;color:var(--grn)">${fS(Math.round(ganancia))}</div>
+    </div>
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r)">
+      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Margen real</div>
+      <div style="font-size:18px;font-weight:700;color:${margenReal>=20?'var(--grn)':'var(--org)'}">${margenReal.toFixed(1)}%</div>
+    </div>
+  </div>
+  <div style="margin-top:8px;font-size:11px;color:var(--t3)">
+    Com.${comPct}% ${fS(com_m)} · IIBB${iibbPct}% ${fS(iibb_m)} · IVA${ivaPct}% (incluido en precio c/IVA)
+    ${dto>0?` · Dto.${dto}% aplicado`:''}
+  </div>`;
+};
+
+window.mayCalcGuardar = async function(){
+  const costo=parseFloat(document.getElementById('maycalc_costo')?.value)||0;
+  if(!costo){toast('Calculá primero','err');return;}
+  const cat=document.getElementById('maycalc_cat')?.value||'normal';
+  const entry={id:'MC'+Date.now(),fecha:new Date().toISOString().split('T')[0],
+    cat,margenObj:parseFloat(document.getElementById('maycalc_margen')?.value)||30,
+    dto:parseFloat(document.getElementById('maycalc_dto')?.value)||0,
+    costo,ts:Date.now()};
+  const hist=await fb.get('may_calc_hist')||{list:[]};
+  hist.list=[entry,...(hist.list||[])].slice(0,30);
+  await fb.set('may_calc_hist',hist);
+  toast('✓ Guardado en historial mayorista','ok');
+};
+
 let _calcMod = 'FlexC3';
 
 function renderCalc(){
@@ -4391,6 +4713,7 @@ function renderCalc(){
   if(iibb && !iibb.value) iibb.value = S.cfg.iibb || 4;
   if(current) calcLoadSku();
   else calcUpdate();
+  calcLoadHistorial(); // Cargar historial guardado
 }
 
 window.calcLoadSku = function(){
@@ -4579,6 +4902,10 @@ window.calcUpdate = function(){
     el.textContent=vals[i];
     el.style.color=actR.ganancia>=0?'var(--grn)':'var(--red)';
   });
+  // Guardar resultado para cuotas y guardar
+  window._calcLastResult=actR;
+  // Actualizar calculadora de cuotas
+  calcUpdateCuotas(precio, actR.ganancia, comPct, ivaPct, pubPct, iibbPct, costo);
 };
 // ── CONTENEDOR ───────────────────────────────────────────────────────────────
 let _contData = { nombre:'', costo_usd:0, dolar:0, periodo:90, skus:[] };
