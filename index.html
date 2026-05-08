@@ -4962,35 +4962,25 @@ window.mayOcrProcesar = async function(){
     }
     const ab = await file.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
-    // Recolectar TODOS los tokens con posición X,Y
-    const allTokens=[];
+    let text='';
     for(let p=1;p<=pdf.numPages;p++){
       const page=await pdf.getPage(p);
       const content=await page.getTextContent();
+      // Extraer igual que pdfminer: juntar strings con newline cuando hay salto
+      // Usamos posición Y para detectar cambios de línea
+      let prevY=null;
       for(const item of content.items){
-        if(!item.str.trim()) continue;
-        allTokens.push({
-          x:Math.round(item.transform[4]),
-          y:Math.round(item.transform[5]),
-          str:item.str.trim()
-        });
+        if(!item.str) continue;
+        const y=Math.round(item.transform[5]);
+        if(prevY!==null && Math.abs(y-prevY)>2){
+          text+='\n'; // nueva línea cuando cambia Y
+        }
+        text+=item.str;
+        prevY=y;
       }
+      text+='\n';
     }
-    // Agrupar por Y (líneas), ordenar por X dentro de cada línea
-    const lineMap={};
-    for(const t of allTokens){
-      // Redondear Y a múltiplos de 3 para agrupar tokens de la misma línea
-      const yk=Math.round(t.y/3)*3;
-      if(!lineMap[yk]) lineMap[yk]=[];
-      lineMap[yk].push(t);
-    }
-    const ys=Object.keys(lineMap).map(Number).sort((a,b)=>b-a);
-    // Construir texto preservando columnas con tabulación
-    let text='';
-    for(const y of ys){
-      const tokens=lineMap[y].sort((a,b)=>a.x-b.x);
-      text+=tokens.map(t=>t.str).join('\t')+'\n';
-    }
+    console.log('PDF texto extraído:\n'+text.substring(0,2000));
     const parsed=parsearFacturaNiviko(text);
     _mayOcrData=parsed;
     ocrMostrarEditable(parsed);
@@ -5091,117 +5081,75 @@ window.ocrAgregarItem = function(){
 };
 
 function parsearFacturaNiviko(rawText){
-  // rawText tiene líneas donde los tokens de la misma fila visual están separados por TAB
-  // Ejemplo de línea de tabla: "4	TAMPA	SILLA OFICINA TAMPA (103)	49.999,00	199.996,00"
-  const lines = rawText.split('\n');
+  // Texto viene con \n entre líneas de diferente Y (como pdfminer)
+  // Estructura real del PDF: cada dato en su propia "línea" visual
 
   // ── ENCABEZADO ────────────────────────────────────────────────────────────
-  const flat = rawText.replace(/\t/g,' ');
-
-  const nroM = flat.match(/N[°o]\s*(\d{4}-\d{8})/);
+  const nroM = rawText.match(/(\d{4}-\d{8})/);
   const nro_factura = nroM ? nroM[1] : null;
 
-  const fechaM = flat.match(/Fecha\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
+  const fechaM = rawText.match(/Fecha\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
   let fecha = null;
   if(fechaM){ const[d,m,y]=fechaM[1].split('/'); fecha=`${y}-${m}-${d}`; }
 
-  // Cliente: línea después de "Sres."
-  let cliente = null;
-  for(let i=0;i<lines.length;i++){
-    if(/Sres\./.test(lines[i])){
-      // Buscar la primera línea siguiente con texto real
-      for(let j=i+1;j<Math.min(i+5,lines.length);j++){
-        const t=lines[j].replace(/\t/g,' ').trim();
-        if(t && !/^\d/.test(t) && t.length>3){ cliente=t; break; }
-      }
-      break;
-    }
-  }
+  // Cliente: línea inmediatamente después de "Sres."
+  const clienteM = rawText.match(/Sres\.\s*\n\s*([^\n]+)/i);
+  const cliente = clienteM ? clienteM[1].trim() : null;
 
   // Pago: línea después de "Condición de pago"
+  const pagoM = rawText.match(/Condici[oó]n de pago\s*\n\s*([^\n]+)/i);
   let forma_pago = 'OTRO';
-  for(let i=0;i<lines.length;i++){
-    if(/Condici[oó]n de pago/i.test(lines[i])){
-      const lineVal = lines[i].replace(/\t/g,' ');
-      // Puede estar en la misma línea o la siguiente
-      const afterPago = lineVal.replace(/.*Condici[oó]n de pago/i,'').trim();
-      const val = afterPago || (lines[i+1]||'').replace(/\t/g,' ').trim();
-      if(/contado/i.test(val)) forma_pago='CONTADO';
-      else if(/30|60|90/i.test(val)) forma_pago='30-60-90';
-      else if(/finan/i.test(val)) forma_pago='FINANCIADO';
-      break;
-    }
+  if(pagoM){
+    const v=pagoM[1].trim();
+    if(/contado/i.test(v)) forma_pago='CONTADO';
+    else if(/30|60|90/i.test(v)) forma_pago='30-60-90';
+    else if(/finan/i.test(v)) forma_pago='FINANCIADO';
   }
 
-  // Vendedor
-  let vendedor = null;
-  for(let i=0;i<lines.length;i++){
-    if(/^Vendedor/i.test(lines[i].trim())){
-      const parts = lines[i].split('\t');
-      const num = parts.find(p=>/^\s*\d+\s*$/.test(p));
-      if(num) vendedor='Vendedor '+num.trim();
-      break;
-    }
-  }
+  // Vendedor: número en línea después de "Vendedor"
+  const vendM = rawText.match(/Vendedor\s*\n\s*(\d+)/i);
+  const vendedor = vendM ? 'Vendedor '+vendM[1].trim() : null;
 
   // ── TABLA DE ITEMS ────────────────────────────────────────────────────────
-  // Encontrar línea de header de tabla
-  let tableStartIdx = -1;
-  for(let i=0;i<lines.length;i++){
-    if(/CANT/i.test(lines[i]) && /ARTICULO/i.test(lines[i])){
-      tableStartIdx = i+1; break;
-    }
+  // Extraer sección entre header de tabla y "Subtotal"
+  const tblStart = rawText.search(/CANT\..*ARTICULO.*UNITARIO.*IMPORTE/i);
+  const afterHeader = tblStart >= 0 ? rawText.substring(tblStart) : rawText;
+  const subIdx = afterHeader.search(/\nSubtotal/i);
+  const tableSection = subIdx > 0 ? afterHeader.substring(0, subIdx) : afterHeader;
+
+  // Separar líneas limpias
+  const tableLines = tableSection.split('\n')
+    .map(l=>l.trim()).filter(l=>l.length>0)
+    .slice(1); // saltar header
+
+  // Clasificar cada línea
+  const qtys=[], skus=[], descs=[], prices=[];
+  for(const line of tableLines){
+    if(/^\d{1,4}$/.test(line) && parseInt(line)<500){ qtys.push(parseInt(line)); continue; }
+    if(/^\d{1,3}(\.\d{3})*,\d{2}$/.test(line)){ prices.push(parseFloat(line.replace(/\./g,'').replace(',','.'))); continue; }
+    if(/^[A-Z][A-Z0-9\-]{1,20}$/.test(line) && !/^[A-Z0-9]{8,}$/.test(line)){ skus.push(line); continue; }
+    if(line.length>3 && !/^[A-Z0-9]{8,}$/.test(line) && !/^(CANT|ARTICULO|UNITARIO|IMPORTE)$/i.test(line)) descs.push(line);
   }
-  let tableEndIdx = lines.length;
-  for(let i=tableStartIdx;i<lines.length;i++){
-    if(/Subtotal|IMPORTE TOTAL|Ud\.puede|Banco/i.test(lines[i])){
-      tableEndIdx = i; break;
-    }
-  }
 
-  const items = [];
-  if(tableStartIdx >= 0){
-    const tableLines = lines.slice(tableStartIdx, tableEndIdx)
-      .map(l=>l.replace(/\s+/g,' ').trim()).filter(l=>l.length>0);
-
-    // Cada línea de item tiene: CANT TAB SKU TAB DESC... TAB UNIT TAB TOTAL
-    // O pueden estar en líneas separadas si el PDF las pone así
-    // Estrategia: buscar líneas que empiezan con número (cantidad)
-    const priceRx = /^(\d{1,3}(?:\.\d{3})*,\d{2})$/;
-    const qtyRx = /^\d{1,4}$/;
-    const skuRx = /^[A-Z][A-Z0-9\-]{1,15}$/;
-
-    // Acumular cantidades, skus, descripciones, precios por separado
-    const qtys=[], skus=[], descs=[], prices=[];
-    for(const line of tableLines){
-      const cols = line.split('\t').map(c=>c.trim()).filter(c=>c);
-      for(const col of cols){
-        if(qtyRx.test(col) && parseInt(col)>0 && parseInt(col)<1000) qtys.push(parseInt(col));
-        else if(skuRx.test(col) && !/^[A-Z0-9]{8,}$/.test(col)) skus.push(col);
-        else if(priceRx.test(col)) prices.push(parseFloat(col.replace(/\./g,'').replace(',','.')));
-        else if(col.length>3 && !/^[A-Z0-9]{8,}$/.test(col) && !/^\d+$/.test(col) && !/^[A-Z]{2,4}\.$/.test(col)) descs.push(col);
-      }
-    }
-
-    const n = Math.min(qtys.length, skus.length);
-    for(let i=0;i<n;i++){
-      items.push({
-        codigo: skus[i],
-        descripcion: descs[i]||'',
-        cantidad: qtys[i],
-        precio_unitario_siva: prices[i*2]||0,
-        precio_total_siva: prices[i*2+1]||0,
-        descuento_pct: 0,
-        iva_pct: 21
-      });
-    }
+  const items=[];
+  const n=Math.min(qtys.length, skus.length);
+  for(let i=0;i<n;i++){
+    items.push({
+      codigo: skus[i],
+      descripcion: descs[i]||'',
+      cantidad: qtys[i],
+      precio_unitario_siva: prices[i*2]||0,
+      precio_total_siva: prices[i*2+1]||0,
+      descuento_pct: 0,
+      iva_pct: 21
+    });
   }
 
   // ── TOTALES ───────────────────────────────────────────────────────────────
   const pN=(s)=>s?parseFloat(s.replace(/\./g,'').replace(',','.')):0;
-  const subM=flat.match(/Subtotal\s+(\d{1,3}(?:\.\d{3})*,\d{2})/);
-  const ivaM=flat.match(/IVA 21,00%\s+(\d{1,3}(?:\.\d{3})*,\d{2})/);
-  const totM=flat.match(/IMPORTE TOTAL\s+(\d{1,3}(?:\.\d{3})*,\d{2})/);
+  const subM = rawText.match(/Subtotal\s*\n\s*(\d{1,3}(?:\.\d{3})*,\d{2})/);
+  const ivaM = rawText.match(/IVA 21,00%\s*\n\s*(\d{1,3}(?:\.\d{3})*,\d{2})/);
+  const totM = rawText.match(/IMPORTE TOTAL\s*\n\s*(\d{1,3}(?:\.\d{3})*,\d{2})/);
   const total_siva=pN(subM?.[1]);
   const total_iva=pN(ivaM?.[1]);
   const total_civa=pN(totM?.[1]);
