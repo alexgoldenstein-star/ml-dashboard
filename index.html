@@ -164,6 +164,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="calc"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>Calculadora</div>
     <div class="ni" data-p="container"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="14" height="8" rx="1.5"/><path d="M4 5V3a1 1 0 011-1h6a1 1 0 011 1v2M6 9h4"/></svg>Contenedor</div>
     <div class="ni" data-p="importacion"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 7l4 4 4-4"/><path d="M1 13h14"/></svg>Importación</div>
+    <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
     <div class="ns">Sistema</div>
     <div class="ni" data-p="cuentas"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M1 14c0-3.3 3.1-6 7-6s7 2.7 7 6"/></svg>Cuentas ML</div>
@@ -742,6 +743,258 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       </div>
     </div>
 
+    <!-- MAYORISTA -->
+    <div class="page" id="page-mayorista">
+      <div style="max-width:1100px;margin:0 auto">
+
+        <!-- Tabs principales -->
+        <div style="display:flex;gap:2px;background:var(--s2);border-radius:var(--r2);padding:3px;margin-bottom:12px">
+          <button id="mtab_pedidos" onclick="mayTab('pedidos')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:var(--acc);color:#000">📋 Pedidos</button>
+          <button id="mtab_nuevo" onclick="mayTab('nuevo')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">➕ Nuevo pedido</button>
+          <button id="mtab_analisis" onclick="mayTab('analisis')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">📊 Análisis</button>
+          <button id="mtab_config" onclick="mayTab('config')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">⚙ Config</button>
+        </div>
+
+        <!-- ══ PEDIDOS ══ -->
+        <div id="mpanel_pedidos">
+          <!-- Filtros -->
+          <div class="card" style="margin-bottom:10px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <select class="inp" id="mf_vendedor" onchange="mayRenderPedidos()" style="min-width:160px">
+                <option value="">Todos los vendedores</option>
+              </select>
+              <select class="inp" id="mf_estado" onchange="mayRenderPedidos()" style="min-width:140px">
+                <option value="">Todos los estados</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="facturado">Facturado</option>
+                <option value="enviado">Enviado</option>
+              </select>
+              <select class="inp" id="mf_pago" onchange="mayRenderPedidos()" style="min-width:140px">
+                <option value="">Todos los pagos</option>
+                <option value="CONTADO">Contado</option>
+                <option value="FINANCIADO">Financiado</option>
+                <option value="30/60/90">30/60/90</option>
+              </select>
+              <input class="inp" id="mf_cliente" placeholder="Buscar cliente..." oninput="mayRenderPedidos()" style="min-width:160px">
+              <button class="btn-g btn-sm" onclick="mayRenderPedidos()">↻ Actualizar</button>
+            </div>
+          </div>
+          <!-- KPIs rápidos -->
+          <div id="may_kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px"></div>
+          <!-- Lista de pedidos -->
+          <div class="card">
+            <div class="ch"><span class="ct">Pedidos</span><span id="may_count" style="font-size:10px;color:var(--t3)"></span></div>
+            <div class="tbl-wrap">
+              <table class="tbl" id="may_table">
+                <thead><tr>
+                  <th>Nro</th><th>Fecha</th><th>Vendedor</th><th>Cliente</th>
+                  <th>Pago</th><th>Items</th>
+                  <th onclick="maySort('venta_siva')" style="cursor:pointer">Venta s/IVA <span id="msrt_venta_siva"></span></th>
+                  <th onclick="maySort('venta_civa')" style="cursor:pointer">Venta c/IVA <span id="msrt_venta_civa"></span></th>
+                  <th onclick="maySort('ganancia')" style="cursor:pointer">Ganancia <span id="msrt_ganancia"></span></th>
+                  <th onclick="maySort('margen')" style="cursor:pointer">Margen <span id="msrt_margen"></span></th>
+                  <th>Estado</th><th></th>
+                </tr></thead>
+                <tbody id="may_tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ NUEVO PEDIDO ══ -->
+        <div id="mpanel_nuevo" style="display:none">
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Encabezado del pedido</span>
+              <span id="may_edit_badge" style="display:none;font-size:10px;padding:2px 8px;background:var(--org);color:#000;border-radius:9px">Editando</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+              <div>
+                <label class="lbl">Nro. factura</label>
+                <input class="inp" id="may_nro" placeholder="0001-00012345">
+              </div>
+              <div>
+                <label class="lbl">Fecha</label>
+                <input class="inp" id="may_fecha" type="date">
+              </div>
+              <div>
+                <label class="lbl">Vendedor</label>
+                <select class="inp" id="may_vendedor">
+                  <option value="">— Seleccioná —</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Cliente</label>
+                <input class="inp" id="may_cliente" placeholder="Nombre del cliente" list="may_clientes_dl">
+                <datalist id="may_clientes_dl"></datalist>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px">
+              <div>
+                <label class="lbl">Forma de pago</label>
+                <select class="inp" id="may_pago">
+                  <option value="CONTADO">Contado</option>
+                  <option value="FINANCIADO">Financiado</option>
+                  <option value="30/60/90">30/60/90 días</option>
+                  <option value="OTRO">Otro</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Facturado</label>
+                <select class="inp" id="may_facturado">
+                  <option value="NO">No</option>
+                  <option value="SI">Sí</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">Enviado / Período</label>
+                <input class="inp" id="may_periodo" placeholder="Ej: NOVIEMBRE o SI">
+              </div>
+              <div>
+                <label class="lbl">Período fiscal</label>
+                <input class="inp" id="may_periodo_fiscal" placeholder="Ej: NOVIEMBRE 2024">
+              </div>
+            </div>
+          </div>
+
+          <!-- Items del pedido -->
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Items del pedido</span>
+              <button class="btn-g btn-sm" onclick="mayAddItem()">+ Agregar item</button>
+            </div>
+            <div id="may_items_list"></div>
+
+            <!-- Agregar item row -->
+            <div id="may_add_item_row" style="background:var(--s2);border-radius:var(--r);padding:12px;margin-top:8px">
+              <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto;gap:6px;align-items:end">
+                <div>
+                  <label class="lbl">Producto (SKU o descripción)</label>
+                  <input class="inp" id="may_item_sku" list="may_sku_dl" placeholder="SKU o nombre" oninput="mayAutocompleteSku()">
+                  <datalist id="may_sku_dl"></datalist>
+                </div>
+                <div>
+                  <label class="lbl">Cantidad</label>
+                  <input class="inp" id="may_item_qty" type="number" placeholder="0" min="1" oninput="mayRecalcItem()">
+                </div>
+                <div>
+                  <label class="lbl">Costo unit.</label>
+                  <input class="inp" id="may_item_costo" type="number" placeholder="0" oninput="mayRecalcItem()">
+                </div>
+                <div>
+                  <label class="lbl">Venta lista (s/IVA)</label>
+                  <input class="inp" id="may_item_lista" type="number" placeholder="0" oninput="mayRecalcItem()">
+                </div>
+                <div>
+                  <label class="lbl">Desc. comercial %</label>
+                  <input class="inp" id="may_item_dcom" type="number" placeholder="0" step=".5" value="0" oninput="mayRecalcItem()">
+                </div>
+                <div>
+                  <label class="lbl">Desc. financiero %</label>
+                  <input class="inp" id="may_item_dfin" type="number" placeholder="0" step=".5" value="0" oninput="mayRecalcItem()">
+                </div>
+                <button class="btn btn-sm" onclick="mayConfirmItem()" style="height:34px;margin-top:auto">Agregar</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-top:8px">
+                <div>
+                  <label class="lbl">Desc. oferta %</label>
+                  <input class="inp" id="may_item_dofe" type="number" placeholder="0" step=".5" value="0" oninput="mayRecalcItem()">
+                </div>
+                <div>
+                  <label class="lbl">IVA %</label>
+                  <select class="inp" id="may_item_iva" onchange="mayRecalcItem()">
+                    <option value="21">21%</option>
+                    <option value="10.5">10.5%</option>
+                    <option value="0">Exento</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="lbl">IIBB %</label>
+                  <input class="inp" id="may_item_iibb" type="number" placeholder="5" value="5" step=".5" oninput="mayRecalcItem()">
+                </div>
+                <div>
+                  <label class="lbl">Comisión vend. %</label>
+                  <input class="inp" id="may_item_com" type="number" placeholder="5" value="5" step=".5" oninput="mayRecalcItem()">
+                </div>
+                <div style="background:var(--s1);border-radius:var(--r);padding:8px">
+                  <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Preview ganancia</div>
+                  <div id="may_item_preview" style="font-size:14px;font-weight:700;color:var(--grn)">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumen del pedido -->
+          <div class="card" id="may_resumen_card" style="margin-bottom:10px;display:none">
+            <div class="ch"><span class="ct">Resumen del pedido</span></div>
+            <div id="may_resumen_body"></div>
+          </div>
+
+          <!-- Botones -->
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="mayGuardarPedido()" style="flex:1;font-size:12px">💾 Guardar pedido</button>
+            <button class="btn-g btn-sm" onclick="mayNuevoPedido()" style="color:var(--red)">✕ Cancelar</button>
+          </div>
+        </div>
+
+        <!-- ══ ANÁLISIS ══ -->
+        <div id="mpanel_analisis" style="display:none">
+          <div id="may_analisis_kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="card">
+              <div class="ch"><span class="ct">Por vendedor</span></div>
+              <div id="may_por_vendedor"></div>
+            </div>
+            <div class="card">
+              <div class="ch"><span class="ct">Por forma de pago</span></div>
+              <div id="may_por_pago"></div>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:12px">
+            <div class="ch"><span class="ct">Top productos mayorista</span></div>
+            <div class="tbl-wrap">
+              <table class="tbl" id="may_top_prods">
+                <thead><tr><th>SKU</th><th>Descripción</th><th>Unidades</th><th>Venta s/IVA</th><th>Ganancia</th><th>Margen</th></tr></thead>
+                <tbody id="may_top_prods_body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Top clientes</span></div>
+            <div class="tbl-wrap">
+              <table class="tbl" id="may_top_clientes">
+                <thead><tr><th>Cliente</th><th>Pedidos</th><th>Venta s/IVA</th><th>Ganancia</th><th>Margen</th></tr></thead>
+                <tbody id="may_top_clientes_body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ CONFIG ══ -->
+        <div id="mpanel_config" style="display:none">
+          <div class="card" style="margin-bottom:10px">
+            <div class="ch"><span class="ct">Vendedores</span>
+              <button class="btn-g btn-sm" onclick="mayAddVendedor()">+ Agregar</button>
+            </div>
+            <div id="may_vendedores_list"></div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <input class="inp" id="may_vend_nuevo" placeholder="Nombre del vendedor" style="flex:1">
+              <input class="inp" id="may_vend_com" type="number" placeholder="Comisión %" style="width:120px" value="5" step=".5">
+              <button class="btn btn-sm" onclick="mayGuardarVendedor()">Guardar</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="ch"><span class="ct">Parámetros globales mayorista</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+              <div><label class="lbl">IVA por defecto %</label><input class="inp" id="may_cfg_iva" type="number" value="21"></div>
+              <div><label class="lbl">IIBB por defecto %</label><input class="inp" id="may_cfg_iibb" type="number" value="5"></div>
+              <div><label class="lbl">Comisión vendedor % (default)</label><input class="inp" id="may_cfg_com" type="number" value="5"></div>
+            </div>
+            <button class="btn btn-sm" onclick="mayGuardarConfig()" style="margin-top:10px">Guardar configuración</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- CALCULADORA -->
     <div class="page" id="page-calc">
       <div style="max-width:680px;margin:0 auto">
@@ -1130,7 +1383,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -3573,7 +3826,557 @@ window.closeMob=()=>{document.getElementById("sb").classList.remove("open");docu
 
 init();
 
-// ── CALCULADORA ─────────────────────────────────────────────────────────────
+// ── MAYORISTA ─────────────────────────────────────────────────────────────────
+let _mayPedidos = [];       // todos los pedidos en memoria
+let _mayCfg = {iva:21,iibb:5,com:5,vendedores:[]};
+let _mayEditId = null;      // id del pedido que se está editando
+let _mayItems = [];         // items del pedido actual
+let _maySort = {col:'fecha',dir:-1};
+let _mayItemCount = 0;
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function mayCalcItem(it){
+  // Precio final s/IVA = lista - dcom% - dfin% - dofe%
+  const lista = it.lista||0;
+  const dcom = lista * (it.dcom_pct/100||0);
+  const dfin = (lista-dcom) * (it.dfin_pct/100||0);
+  const dofe = (lista-dcom-dfin) * (it.dofe_pct/100||0);
+  const precio_siva = lista - dcom - dfin - dofe;
+  const iva_monto = precio_siva * (it.iva_pct/100||0.21);
+  const precio_civa = precio_siva + iva_monto;
+  const iibb_monto = precio_siva * (it.iibb_pct/100||0.05);
+  const com_monto = precio_siva * (it.com_pct/100||0.05);
+  const total_siva = precio_siva * it.qty;
+  const total_civa = precio_civa * it.qty;
+  const costo_total = (it.costo||0) * it.qty;
+  const ganancia = total_siva - costo_total - iibb_monto*it.qty - com_monto*it.qty;
+  const margen = total_siva > 0 ? ganancia/total_siva : 0;
+  return {...it, dcom_monto:dcom, dfin_monto:dfin, dofe_monto:dofe,
+    precio_siva, iva_monto, precio_civa, iibb_monto, com_monto,
+    total_siva, total_civa, costo_total, ganancia, margen};
+}
+
+function mayCalcPedido(items){
+  const calc = items.map(mayCalcItem);
+  const total_siva = calc.reduce((s,i)=>s+i.total_siva,0);
+  const total_civa = calc.reduce((s,i)=>s+i.total_civa,0);
+  const total_costo = calc.reduce((s,i)=>s+i.costo_total,0);
+  const ganancia = calc.reduce((s,i)=>s+i.ganancia,0);
+  const margen = total_siva>0 ? ganancia/total_siva : 0;
+  return {items:calc, total_siva, total_civa, total_costo, ganancia, margen};
+}
+
+function mayNextId(){
+  return 'M'+ Date.now();
+}
+
+// ─── RENDER PRINCIPAL ─────────────────────────────────────────────────────────
+async function renderMayorista(){
+  // Cargar datos de Firebase
+  const data = await fb.get('mayorista');
+  _mayPedidos = data?.pedidos || [];
+  _mayCfg = {...{iva:21,iibb:5,com:5,vendedores:[]}, ...(data?.cfg||{})};
+  // Poblar vendedores en selects
+  mayPopularVendedores();
+  // Poblar SKU datalist
+  mayPopularSkus();
+  // Poblar clientes datalist
+  mayPopularClientes();
+  // Config inputs
+  const ci=document.getElementById('may_cfg_iva');if(ci)ci.value=_mayCfg.iva||21;
+  const ch=document.getElementById('may_cfg_iibb');if(ch)ch.value=_mayCfg.iibb||5;
+  const cc=document.getElementById('may_cfg_com');if(cc)cc.value=_mayCfg.com||5;
+  // Fecha hoy
+  const fh=document.getElementById('may_fecha');
+  if(fh&&!fh.value) fh.value=new Date().toISOString().split('T')[0];
+  // Default item fields
+  maySetItemDefaults();
+  // Render pedidos
+  mayRenderPedidos();
+  mayRenderAnalisis();
+  mayRenderConfigVendedores();
+}
+
+function mayPopularVendedores(){
+  const vendedores = _mayCfg.vendedores||[];
+  // Filtro
+  const fv=document.getElementById('mf_vendedor');
+  if(fv){const curr=fv.value;fv.innerHTML='<option value="">Todos los vendedores</option>'+vendedores.map(v=>`<option value="${v.nombre}">${v.nombre}</option>`).join('');fv.value=curr;}
+  // Select nuevo pedido
+  const sv=document.getElementById('may_vendedor');
+  if(sv){sv.innerHTML='<option value="">— Seleccioná —</option>'+vendedores.map(v=>`<option value="${v.nombre}">${v.nombre} (${v.com||5}%)</option>`).join('');}
+  // DIRECTAS como opción
+  if(fv&&![...fv.options].find(o=>o.value==='DIRECTAS')){
+    fv.innerHTML+='<option value="DIRECTAS">DIRECTAS</option>';
+  }
+}
+
+function mayPopularSkus(){
+  const dl=document.getElementById('may_sku_dl');
+  if(!dl) return;
+  dl.innerHTML=S.products.map(p=>`<option value="${p.sku}">${p.sku} — ${p.desc||''}</option>`).join('');
+}
+
+function mayPopularClientes(){
+  const dl=document.getElementById('may_clientes_dl');
+  if(!dl) return;
+  const clientes=[...new Set(_mayPedidos.map(p=>p.cliente).filter(Boolean))].sort();
+  dl.innerHTML=clientes.map(c=>`<option value="${c}">`).join('');
+}
+
+function maySetItemDefaults(){
+  const iibb=document.getElementById('may_item_iibb');
+  const com=document.getElementById('may_item_com');
+  if(iibb) iibb.value=_mayCfg.iibb||5;
+  if(com) com.value=_mayCfg.com||5;
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+window.mayTab = function(tab){
+  ['pedidos','nuevo','analisis','config'].forEach(t=>{
+    const p=document.getElementById('mpanel_'+t);
+    const b=document.getElementById('mtab_'+t);
+    if(p) p.style.display=t===tab?'':'none';
+    if(b){b.style.background=t===tab?'var(--acc)':'transparent';b.style.color=t===tab?'#000':'var(--t2)';}
+  });
+  if(tab==='analisis') mayRenderAnalisis();
+  if(tab==='config') mayRenderConfigVendedores();
+};
+
+// ─── PEDIDOS ──────────────────────────────────────────────────────────────────
+window.maySort = function(col){
+  if(_maySort.col===col) _maySort.dir*=-1; else{_maySort.col=col;_maySort.dir=-1;}
+  mayRenderPedidos();
+};
+
+window.mayRenderPedidos = function(){
+  const fvend = document.getElementById('mf_vendedor')?.value||'';
+  const festado = document.getElementById('mf_estado')?.value||'';
+  const fpago = document.getElementById('mf_pago')?.value||'';
+  const fcliente = (document.getElementById('mf_cliente')?.value||'').toLowerCase();
+
+  let pedidos = _mayPedidos.filter(p=>{
+    if(fvend && p.vendedor!==fvend) return false;
+    if(fpago && p.pago!==fpago) return false;
+    if(fcliente && !(p.cliente||'').toLowerCase().includes(fcliente)) return false;
+    if(festado){
+      if(festado==='facturado' && p.facturado!=='SI') return false;
+      if(festado==='enviado' && p.enviado!=='SI' && p.enviado!==true) return false;
+      if(festado==='pendiente' && p.facturado==='SI') return false;
+    }
+    return true;
+  });
+
+  // Sort
+  pedidos.sort((a,b)=>{
+    const va=a[_maySort.col]??0, vb=b[_maySort.col]??0;
+    return (va>vb?1:-1)*_maySort.dir;
+  });
+  ['venta_siva','venta_civa','ganancia','margen'].forEach(c=>{
+    const el=document.getElementById('msrt_'+c);
+    if(el) el.textContent=_maySort.col===c?(_maySort.dir===-1?' ↓':' ↑'):'';
+  });
+
+  // KPIs
+  const totV=pedidos.reduce((s,p)=>s+(p.venta_siva||0),0);
+  const totG=pedidos.reduce((s,p)=>s+(p.ganancia||0),0);
+  const totCiva=pedidos.reduce((s,p)=>s+(p.venta_civa||0),0);
+  const nItems=pedidos.reduce((s,p)=>s+(p.items?.length||0),0);
+  const kpiEl=document.getElementById('may_kpis');
+  if(kpiEl) kpiEl.innerHTML=[
+    ['Facturación s/IVA',fS(totV),'var(--grn)'],
+    ['Facturación c/IVA',fS(totCiva),'var(--blu)'],
+    ['Ganancia neta',fS(totG),totG>=0?'var(--grn)':'var(--red)'],
+    ['Pedidos / Items',`${pedidos.length} / ${nItems}`,'var(--t2)'],
+  ].map(([l,v,c])=>`<div class="kpi" style="border-left:3px solid ${c}">
+    <div class="kl">${l}</div><div class="kv" style="color:${c}">${v}</div>
+  </div>`).join('');
+
+  document.getElementById('may_count').textContent=`${pedidos.length} pedidos`;
+
+  // Tabla
+  const tbody=document.getElementById('may_tbody');
+  if(!tbody) return;
+  if(!pedidos.length){
+    tbody.innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--t3);padding:20px">Sin pedidos. Creá uno con el botón "Nuevo pedido".</td></tr>';
+    return;
+  }
+  tbody.innerHTML=pedidos.map((p,i)=>{
+    const margenCls=p.margen>=0.3?'g':p.margen>=0.15?'m':'r';
+    return `<tr>
+      <td style="font-size:11px;color:var(--t3)">${p.nro||('M-'+String(i+1).padStart(4,'0'))}</td>
+      <td style="font-size:11px">${p.fecha||'—'}</td>
+      <td><span style="font-size:11px;padding:2px 6px;background:var(--s2);border-radius:4px">${esc(p.vendedor||'—')}</span></td>
+      <td style="font-weight:500">${esc(p.cliente||'—')}</td>
+      <td><span style="font-size:10px;padding:2px 5px;border-radius:4px;background:${p.pago==='CONTADO'?'rgba(0,200,100,.15)':'rgba(255,165,0,.15)'};">${p.pago||'—'}</span></td>
+      <td style="text-align:center">${p.items?.length||0}</td>
+      <td class="mono">${fS(p.venta_siva||0)}</td>
+      <td class="mono">${fS(p.venta_civa||0)}</td>
+      <td class="mono ${p.ganancia>=0?'g':'r'}">${fS(p.ganancia||0)}</td>
+      <td class="${margenCls}">${((p.margen||0)*100).toFixed(1)}%</td>
+      <td><span style="font-size:11px">${p.facturado==='SI'?'✓':'⏳'} ${p.periodo||''}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn-g btn-sm" onclick="mayEditarPedido('${p.id}')">✏</button>
+        <button class="btn-g btn-sm" onclick="mayVerDetalle('${p.id}')">👁</button>
+        <button class="btn-g btn-sm" onclick="mayEliminarPedido('${p.id}')" style="color:var(--red)">×</button>
+      </td>
+    </tr>`;
+  }).join('');
+};
+
+// ─── NUEVO PEDIDO / ITEMS ─────────────────────────────────────────────────────
+window.mayNuevoPedido = function(){
+  _mayEditId = null;
+  _mayItems = [];
+  _mayItemCount = 0;
+  ['may_nro','may_cliente','may_periodo','may_periodo_fiscal'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  document.getElementById('may_vendedor').value='';
+  document.getElementById('may_pago').value='CONTADO';
+  document.getElementById('may_facturado').value='NO';
+  document.getElementById('may_fecha').value=new Date().toISOString().split('T')[0];
+  const badge=document.getElementById('may_edit_badge');
+  if(badge) badge.style.display='none';
+  maySetItemDefaults();
+  mayRenderItems();
+  mayTab('nuevo');
+};
+
+window.mayAddItem = function(){
+  document.getElementById('may_add_item_row').style.display='';
+};
+
+window.mayAutocompleteSku = function(){
+  const val=(document.getElementById('may_item_sku')?.value||'').trim();
+  const prod=S.products.find(p=>p.sku===val||p.sku?.toLowerCase()===val.toLowerCase());
+  if(prod){
+    const cEl=document.getElementById('may_item_costo');if(cEl&&!cEl.value)cEl.value=prod.ars||0;
+    const iEl=document.getElementById('may_item_iva');if(iEl)iEl.value=prod.iva||21;
+  }
+  mayRecalcItem();
+};
+
+window.mayRecalcItem = function(){
+  const qty=parseFloat(document.getElementById('may_item_qty')?.value)||0;
+  const costo=parseFloat(document.getElementById('may_item_costo')?.value)||0;
+  const lista=parseFloat(document.getElementById('may_item_lista')?.value)||0;
+  const dcom=parseFloat(document.getElementById('may_item_dcom')?.value)||0;
+  const dfin=parseFloat(document.getElementById('may_item_dfin')?.value)||0;
+  const dofe=parseFloat(document.getElementById('may_item_dofe')?.value)||0;
+  const iva=parseFloat(document.getElementById('may_item_iva')?.value)||21;
+  const iibb=parseFloat(document.getElementById('may_item_iibb')?.value)||5;
+  const com=parseFloat(document.getElementById('may_item_com')?.value)||5;
+  if(!qty||!lista){document.getElementById('may_item_preview').textContent='—';return;}
+  const it=mayCalcItem({qty,costo,lista,dcom_pct:dcom,dfin_pct:dfin,dofe_pct:dofe,iva_pct:iva,iibb_pct:iibb,com_pct:com});
+  const prev=document.getElementById('may_item_preview');
+  if(prev){
+    prev.textContent=fS(it.ganancia);
+    prev.style.color=it.ganancia>=0?'var(--grn)':'var(--red)';
+  }
+};
+
+window.mayConfirmItem = function(){
+  const sku=(document.getElementById('may_item_sku')?.value||'').trim();
+  const qty=parseFloat(document.getElementById('may_item_qty')?.value)||0;
+  const costo=parseFloat(document.getElementById('may_item_costo')?.value)||0;
+  const lista=parseFloat(document.getElementById('may_item_lista')?.value)||0;
+  if(!sku||!qty||!lista){toast('Completá SKU, cantidad y precio lista','err');return;}
+  const prod=S.products.find(p=>p.sku===sku||p.sku?.toLowerCase()===sku.toLowerCase());
+  _mayItemCount++;
+  _mayItems.push({
+    id:'i'+_mayItemCount,
+    sku: prod?.sku||sku,
+    desc: prod?.desc||sku,
+    qty, costo,
+    lista,
+    dcom_pct:parseFloat(document.getElementById('may_item_dcom')?.value)||0,
+    dfin_pct:parseFloat(document.getElementById('may_item_dfin')?.value)||0,
+    dofe_pct:parseFloat(document.getElementById('may_item_dofe')?.value)||0,
+    iva_pct:parseFloat(document.getElementById('may_item_iva')?.value)||21,
+    iibb_pct:parseFloat(document.getElementById('may_item_iibb')?.value)||5,
+    com_pct:parseFloat(document.getElementById('may_item_com')?.value)||5,
+  });
+  // Limpiar campos item
+  ['may_item_sku','may_item_qty','may_item_costo','may_item_lista'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  ['may_item_dcom','may_item_dfin','may_item_dofe'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='0';
+  });
+  document.getElementById('may_item_preview').textContent='—';
+  mayRenderItems();
+};
+
+window.mayRemoveItem = function(id){
+  _mayItems=_mayItems.filter(i=>i.id!==id);
+  mayRenderItems();
+};
+
+function mayRenderItems(){
+  const el=document.getElementById('may_items_list');
+  const resCard=document.getElementById('may_resumen_card');
+  if(!el) return;
+  if(!_mayItems.length){
+    el.innerHTML='<p style="color:var(--t3);font-size:12px;padding:8px">Sin items. Agregá productos al pedido.</p>';
+    if(resCard) resCard.style.display='none';
+    return;
+  }
+  const calcs=_mayItems.map(mayCalcItem);
+  el.innerHTML=`<table class="tbl" style="margin-bottom:0">
+    <thead><tr>
+      <th>SKU</th><th>Descripción</th><th>Cant.</th>
+      <th>Costo unit.</th><th>Lista s/IVA</th>
+      <th>Dto. com%</th><th>Dto. fin%</th>
+      <th>Precio s/IVA</th><th>IVA</th><th>Precio c/IVA</th>
+      <th>Total s/IVA</th><th>IIBB</th><th>Comisión</th><th>Ganancia</th><th>Margen</th><th></th>
+    </tr></thead>
+    <tbody>${calcs.map(it=>`<tr>
+      <td><span class="sku">${esc(it.sku)}</span></td>
+      <td style="font-size:11px;color:var(--t2);max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc(it.desc)}</td>
+      <td>${it.qty}</td>
+      <td class="mono">${fF(it.costo)}</td>
+      <td class="mono">${fF(it.lista)}</td>
+      <td style="color:var(--org)">${it.dcom_pct}%</td>
+      <td style="color:var(--org)">${it.dfin_pct}%</td>
+      <td class="mono">${fF(it.precio_siva)}</td>
+      <td style="font-size:11px;color:var(--t3)">${it.iva_pct}%</td>
+      <td class="mono">${fF(it.precio_civa)}</td>
+      <td class="mono" style="font-weight:600">${fF(it.total_siva)}</td>
+      <td class="mono" style="color:var(--red)">${fF(it.iibb_monto*it.qty)}</td>
+      <td class="mono" style="color:var(--red)">${fF(it.com_monto*it.qty)}</td>
+      <td class="mono ${it.ganancia>=0?'g':'r'}">${fF(it.ganancia)}</td>
+      <td class="${it.margen>=0.3?'g':it.margen>=0.15?'m':'r'}">${(it.margen*100).toFixed(1)}%</td>
+      <td><button class="btn-g btn-sm" onclick="mayRemoveItem('${it.id}')" style="color:var(--red)">×</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+  // Resumen
+  const res=mayCalcPedido(_mayItems);
+  if(resCard){resCard.style.display='';}
+  const resBody=document.getElementById('may_resumen_body');
+  if(resBody) resBody.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--grn)">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Total s/IVA</div>
+        <div style="font-size:18px;font-weight:700;color:var(--grn)">${fS(res.total_siva)}</div>
+      </div>
+      <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--blu)">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Total c/IVA</div>
+        <div style="font-size:18px;font-weight:700;color:var(--blu)">${fS(res.total_civa)}</div>
+      </div>
+      <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid ${res.ganancia>=0?'var(--grn)':'var(--red)'}">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Ganancia</div>
+        <div style="font-size:18px;font-weight:700;color:${res.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(res.ganancia)}</div>
+      </div>
+      <div style="padding:10px;background:var(--s2);border-radius:var(--r)">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Margen</div>
+        <div style="font-size:18px;font-weight:700;color:${res.margen>=0.2?'var(--grn)':'var(--org)'}">${(res.margen*100).toFixed(1)}%</div>
+      </div>
+    </div>`;
+}
+
+// ─── GUARDAR PEDIDO ───────────────────────────────────────────────────────────
+window.mayGuardarPedido = async function(){
+  if(!_mayItems.length){toast('Agregá al menos un item','err');return;}
+  const cliente=(document.getElementById('may_cliente')?.value||'').trim();
+  if(!cliente){toast('Completá el cliente','err');return;}
+  const res=mayCalcPedido(_mayItems);
+  const pedido={
+    id: _mayEditId || mayNextId(),
+    nro: document.getElementById('may_nro')?.value||'',
+    fecha: document.getElementById('may_fecha')?.value||new Date().toISOString().split('T')[0],
+    vendedor: document.getElementById('may_vendedor')?.value||'',
+    cliente,
+    pago: document.getElementById('may_pago')?.value||'CONTADO',
+    facturado: document.getElementById('may_facturado')?.value||'NO',
+    periodo: document.getElementById('may_periodo')?.value||'',
+    periodo_fiscal: document.getElementById('may_periodo_fiscal')?.value||'',
+    items: _mayItems,
+    venta_siva: res.total_siva,
+    venta_civa: res.total_civa,
+    costo_total: res.total_costo,
+    ganancia: res.ganancia,
+    margen: res.margen,
+    ts: Date.now(),
+  };
+  if(_mayEditId){
+    const idx=_mayPedidos.findIndex(p=>p.id===_mayEditId);
+    if(idx>=0) _mayPedidos[idx]=pedido; else _mayPedidos.push(pedido);
+  } else {
+    _mayPedidos.unshift(pedido);
+  }
+  await fb.set('mayorista',{pedidos:_mayPedidos,cfg:_mayCfg});
+  mayPopularClientes();
+  toast(`✓ Pedido ${_mayEditId?'actualizado':'guardado'}: ${cliente}`,'ok');
+  mayNuevoPedido();
+  mayTab('pedidos');
+  mayRenderPedidos();
+};
+
+window.mayEditarPedido = function(id){
+  const p=_mayPedidos.find(x=>x.id===id);
+  if(!p) return;
+  _mayEditId=id;
+  _mayItems=[...(p.items||[])];
+  _mayItemCount=_mayItems.length;
+  // Poblar campos
+  const set=(elId,v)=>{const e=document.getElementById(elId);if(e)e.value=v||'';};
+  set('may_nro',p.nro);set('may_fecha',p.fecha);set('may_cliente',p.cliente);
+  set('may_pago',p.pago);set('may_facturado',p.facturado);
+  set('may_periodo',p.periodo);set('may_periodo_fiscal',p.periodo_fiscal);
+  document.getElementById('may_vendedor').value=p.vendedor||'';
+  const badge=document.getElementById('may_edit_badge');if(badge)badge.style.display='';
+  mayRenderItems();
+  mayTab('nuevo');
+};
+
+window.mayVerDetalle = function(id){
+  const p=_mayPedidos.find(x=>x.id===id);
+  if(!p) return;
+  // Por ahora editar = ver detalle
+  mayEditarPedido(id);
+};
+
+window.mayEliminarPedido = async function(id){
+  if(!confirm('¿Eliminar este pedido? Esta acción no se puede deshacer.')) return;
+  _mayPedidos=_mayPedidos.filter(p=>p.id!==id);
+  await fb.set('mayorista',{pedidos:_mayPedidos,cfg:_mayCfg});
+  mayRenderPedidos();
+  toast('Pedido eliminado','ok');
+};
+
+// ─── ANÁLISIS ─────────────────────────────────────────────────────────────────
+function mayRenderAnalisis(){
+  const ped=_mayPedidos;
+  if(!ped.length){
+    ['may_analisis_kpis','may_por_vendedor','may_por_pago','may_top_prods_body','may_top_clientes_body']
+      .forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='<p style="color:var(--t3);font-size:12px;padding:8px">Sin datos todavía.</p>';});
+    return;
+  }
+  const totV=ped.reduce((s,p)=>s+(p.venta_siva||0),0);
+  const totG=ped.reduce((s,p)=>s+(p.ganancia||0),0);
+  const totCiva=ped.reduce((s,p)=>s+(p.venta_civa||0),0);
+  const nItems=ped.reduce((s,p)=>s+(p.items?.length||0),0);
+  const kEl=document.getElementById('may_analisis_kpis');
+  if(kEl) kEl.innerHTML=[
+    ['Facturación total s/IVA',fS(totV),'var(--grn)'],
+    ['Facturación total c/IVA',fS(totCiva),'var(--blu)'],
+    ['Ganancia total',fS(totG),totG>=0?'var(--grn)':'var(--red)'],
+    ['Margen promedio',((totV>0?totG/totV:0)*100).toFixed(1)+'%','var(--t2)'],
+  ].map(([l,v,c])=>`<div class="kpi" style="border-left:3px solid ${c}">
+    <div class="kl">${l}</div><div class="kv" style="color:${c}">${v}</div>
+  </div>`).join('');
+
+  // Por vendedor
+  const byVend={};
+  ped.forEach(p=>{
+    const v=p.vendedor||'Sin vendedor';
+    if(!byVend[v])byVend[v]={v:0,g:0,n:0};
+    byVend[v].v+=p.venta_siva||0;byVend[v].g+=p.ganancia||0;byVend[v].n++;
+  });
+  const vendEl=document.getElementById('may_por_vendedor');
+  if(vendEl) vendEl.innerHTML=Object.entries(byVend).sort((a,b)=>b[1].g-a[1].g).map(([v,d])=>`
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <span style="font-weight:500">${esc(v)}</span>
+      <span>${d.n} ped. · ${fS(d.v)} · <span class="${d.g>=0?'g':'r'}">${fS(d.g)}</span> (${(d.v>0?d.g/d.v*100:0).toFixed(1)}%)</span>
+    </div>`).join('');
+
+  // Por pago
+  const byPago={};
+  ped.forEach(p=>{
+    const pg=p.pago||'—';
+    if(!byPago[pg])byPago[pg]={v:0,g:0,n:0};
+    byPago[pg].v+=p.venta_siva||0;byPago[pg].g+=p.ganancia||0;byPago[pg].n++;
+  });
+  const pagoEl=document.getElementById('may_por_pago');
+  if(pagoEl) pagoEl.innerHTML=Object.entries(byPago).sort((a,b)=>b[1].v-a[1].v).map(([pg,d])=>`
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <span style="font-weight:500">${esc(pg)}</span>
+      <span>${d.n} ped. · ${fS(d.v)} · <span class="${d.g>=0?'g':'r'}">${fS(d.g)}</span></span>
+    </div>`).join('');
+
+  // Top productos
+  const bySku={};
+  ped.forEach(p=>(p.items||[]).forEach(it=>{
+    const calc=mayCalcItem(it);
+    if(!bySku[it.sku])bySku[it.sku]={desc:it.desc,u:0,v:0,g:0};
+    bySku[it.sku].u+=it.qty;bySku[it.sku].v+=calc.total_siva;bySku[it.sku].g+=calc.ganancia;
+  }));
+  const tpEl=document.getElementById('may_top_prods_body');
+  if(tpEl) tpEl.innerHTML=Object.entries(bySku).sort((a,b)=>b[1].g-a[1].g).slice(0,20).map(([sku,d])=>`<tr>
+    <td><span class="sku">${esc(sku)}</span></td>
+    <td style="font-size:11px;color:var(--t2)">${esc(d.desc||'')}</td>
+    <td>${d.u}</td>
+    <td class="mono">${fS(d.v)}</td>
+    <td class="mono ${d.g>=0?'g':'r'}">${fS(d.g)}</td>
+    <td class="${d.v>0&&d.g/d.v>=0.3?'g':d.v>0&&d.g/d.v>=0.15?'m':'r'}">${(d.v>0?d.g/d.v*100:0).toFixed(1)}%</td>
+  </tr>`).join('');
+
+  // Top clientes
+  const byCli={};
+  ped.forEach(p=>{
+    const c=p.cliente||'—';
+    if(!byCli[c])byCli[c]={v:0,g:0,n:0};
+    byCli[c].v+=p.venta_siva||0;byCli[c].g+=p.ganancia||0;byCli[c].n++;
+  });
+  const tcEl=document.getElementById('may_top_clientes_body');
+  if(tcEl) tcEl.innerHTML=Object.entries(byCli).sort((a,b)=>b[1].v-a[1].v).slice(0,20).map(([c,d])=>`<tr>
+    <td style="font-weight:500">${esc(c)}</td>
+    <td>${d.n}</td>
+    <td class="mono">${fS(d.v)}</td>
+    <td class="mono ${d.g>=0?'g':'r'}">${fS(d.g)}</td>
+    <td class="${d.v>0&&d.g/d.v>=0.3?'g':'m'}">${(d.v>0?d.g/d.v*100:0).toFixed(1)}%</td>
+  </tr>`).join('');
+}
+
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+function mayRenderConfigVendedores(){
+  const el=document.getElementById('may_vendedores_list');
+  if(!el) return;
+  const vends=_mayCfg.vendedores||[];
+  if(!vends.length){el.innerHTML='<p style="color:var(--t3);font-size:12px">Sin vendedores. Agregá uno.</p>';return;}
+  el.innerHTML=vends.map((v,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b1)">
+      <span style="font-size:13px;font-weight:500">${esc(v.nombre)}</span>
+      <span style="font-size:11px;color:var(--t3)">Com. ${v.com||5}%</span>
+      <button class="btn-g btn-sm" onclick="mayEliminarVendedor(${i})" style="color:var(--red)">×</button>
+    </div>`).join('');
+}
+
+window.mayAddVendedor = function(){ document.getElementById('may_vend_nuevo')?.focus(); };
+
+window.mayGuardarVendedor = async function(){
+  const nombre=(document.getElementById('may_vend_nuevo')?.value||'').trim();
+  const com=parseFloat(document.getElementById('may_vend_com')?.value)||5;
+  if(!nombre){toast('Escribí el nombre del vendedor','err');return;}
+  if(!_mayCfg.vendedores)_mayCfg.vendedores=[];
+  if(_mayCfg.vendedores.find(v=>v.nombre.toLowerCase()===nombre.toLowerCase())){
+    toast('Ya existe ese vendedor','err');return;
+  }
+  _mayCfg.vendedores.push({nombre,com});
+  await fb.set('mayorista',{pedidos:_mayPedidos,cfg:_mayCfg});
+  document.getElementById('may_vend_nuevo').value='';
+  mayPopularVendedores();
+  mayRenderConfigVendedores();
+  toast(`✓ Vendedor ${nombre} agregado`,'ok');
+};
+
+window.mayEliminarVendedor = async function(idx){
+  _mayCfg.vendedores.splice(idx,1);
+  await fb.set('mayorista',{pedidos:_mayPedidos,cfg:_mayCfg});
+  mayPopularVendedores();
+  mayRenderConfigVendedores();
+};
+
+window.mayGuardarConfig = async function(){
+  _mayCfg.iva=parseFloat(document.getElementById('may_cfg_iva')?.value)||21;
+  _mayCfg.iibb=parseFloat(document.getElementById('may_cfg_iibb')?.value)||5;
+  _mayCfg.com=parseFloat(document.getElementById('may_cfg_com')?.value)||5;
+  await fb.set('mayorista',{pedidos:_mayPedidos,cfg:_mayCfg});
+  maySetItemDefaults();
+  toast('✓ Configuración guardada','ok');
+};
+
 let _calcMod = 'FlexC3';
 
 function renderCalc(){
