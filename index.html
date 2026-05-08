@@ -337,6 +337,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       <div class="tabs">
         <div class="tab on"  onclick="sPlatTab('reputacion',this)">Reputación & Algoritmo</div>
         <div class="tab"     onclick="sPlatTab('publicaciones',this)">Publicaciones</div>
+        <div class="tab"     onclick="sPlatTab('conversion',this)">📊 Conversión</div>
         <div class="tab"     onclick="sPlatTab('reclamos',this)">Reclamos</div>
         <div class="tab"     onclick="sPlatTab('descuentos',this)">Descuentos</div>
       </div>
@@ -3441,6 +3442,7 @@ window.renderPlataforma = function(){
   }
   if(_platTab==='reputacion') renderReputacion(el, accounts);
   else if(_platTab==='publicaciones') renderPublicaciones(el, accounts);
+  else if(_platTab==='conversion') renderConversion(el, accounts);
   else if(_platTab==='reclamos') renderReclamos(el, accounts);
   else if(_platTab==='descuentos') renderDescuentos(el, accounts);
 };
@@ -3450,6 +3452,151 @@ window.sPlatTab = function(t,el){
   document.querySelectorAll('#page-plataforma .tab').forEach(x=>x.classList.remove('on'));
   el.classList.add('on');
   renderPlataforma();
+};
+
+// ── CONVERSIÓN ───────────────────────────────────────────────
+let _convSort = {col:'conv_pct', dir:1}; // menor conversión primero
+
+async function renderConversion(el, accounts){
+  el.innerHTML=`<div class="card" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">📊 Conversión por publicación</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="inp" id="conv_periodo" style="font-size:11px;padding:4px 8px;height:auto" onchange="renderConversion(document.getElementById('platCont'), ${JSON.stringify(accounts)})">
+          <option value="7">Últimos 7 días</option>
+          <option value="30" selected>Últimos 30 días</option>
+          <option value="60">Últimos 60 días</option>
+        </select>
+        <input class="inp" id="conv_search" placeholder="Buscar..." style="width:140px;font-size:11px" oninput="convRenderTable()">
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Visitas vs ventas por publicación. Conversión = ventas / visitas. Bajo conversión con muchas visitas = oportunidad de mejora.</p>
+    <div id="conv_kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px"></div>
+    <div class="tbl-wrap"><table class="tbl" id="conv_table">
+      <thead><tr>
+        <th>Cuenta</th>
+        <th>Publicación</th>
+        <th onclick="convSort('visits')" style="cursor:pointer">Visitas <span id="csort_visits"></span></th>
+        <th onclick="convSort('sales_qty')" style="cursor:pointer">Ventas <span id="csort_sales_qty"></span></th>
+        <th onclick="convSort('conv_pct')" style="cursor:pointer">Conv. % <span id="csort_conv_pct"></span></th>
+        <th onclick="convSort('revenue')" style="cursor:pointer">Facturación <span id="csort_revenue"></span></th>
+        <th>Estado</th>
+        <th>Acción</th>
+      </tr></thead>
+      <tbody id="conv_tbody"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">Cargando datos de visitas...</td></tr></tbody>
+    </table></div>
+    <div style="margin-top:10px;padding:10px;background:var(--s2);border-radius:var(--r);font-size:11px;color:var(--t3)">
+      💡 <strong style="color:var(--t2)">Cómo mejorar conversión:</strong> Fotos principales, precio competitivo, título con palabras clave, descripción completa, preguntas respondidas, envío rápido.
+    </div>
+  </div>`;
+
+  const dias = parseInt(document.getElementById('conv_periodo')?.value)||30;
+  const dateFrom = new Date(Date.now()-dias*24*60*60*1000).toISOString().split('T')[0];
+  const dateTo = new Date().toISOString().split('T')[0];
+
+  // Cargar items activos de cada cuenta y sus visitas
+  window._convItems = [];
+  for(const acct of accounts){
+    const sellerId = UID[acct.id]||acct.userId||acct.id;
+    try{
+      // Obtener items activos
+      const itemsR = await fetch(`${PROXY}/plataforma/items?seller_id=${sellerId}`,
+        {headers:{'x-ml-token':acct.token}});
+      if(!itemsR.ok) continue;
+      const itemsD = await itemsR.json();
+      const items = itemsD.items||[];
+
+      // Para cada item, obtener visitas del período
+      for(const item of items.slice(0,50)){ // max 50 por cuenta
+        try{
+          const visR = await fetch(`${PROXY}/plataforma/visitas?item_id=${item.id}&date_from=${dateFrom}&date_to=${dateTo}`,
+            {headers:{'x-ml-token':acct.token}});
+          const visD = visR.ok ? await visR.json() : {};
+          const visits = visD.total_visits||visD.visits||0;
+          // Ventas reales del SKU en el período desde S.orders
+          const itemOrds = S.orders.filter(o=>{
+            if(!o.fecha) return false;
+            return o.fecha>=dateFrom && o.fecha<=dateTo &&
+              (o.mlItemId===item.id||o.sku===item.seller_sku);
+          });
+          const salesQty = itemOrds.reduce((s,o)=>s+o.unidades,0);
+          const revenue  = itemOrds.reduce((s,o)=>s+o.venta,0);
+          const convPct  = visits>0 ? salesQty/visits : 0;
+          window._convItems.push({
+            acct: acct.id,
+            id: item.id,
+            sku: item.seller_sku||'—',
+            title: item.title||'—',
+            price: item.price||0,
+            status: item.status||'—',
+            visits, salesQty, revenue, convPct,
+          });
+        } catch(e){ /* skip item */ }
+      }
+    } catch(e){ console.warn('Conv error acct',acct.id,e); }
+  }
+  convRenderTable();
+}
+
+window.convSort = function(col){
+  if(_convSort.col===col) _convSort.dir*=-1; else{_convSort.col=col;_convSort.dir=-1;}
+  convRenderTable();
+};
+
+window.convRenderTable = function(){
+  const items = window._convItems||[];
+  const q = (document.getElementById('conv_search')?.value||'').toLowerCase();
+  let filtered = items.filter(it=>!q||it.sku.toLowerCase().includes(q)||it.title.toLowerCase().includes(q));
+
+  // Sort
+  const {col,dir}=_convSort;
+  filtered.sort((a,b)=>((b[col]??0)-(a[col]??0))*dir);
+  ['visits','sales_qty','conv_pct','revenue'].forEach(c=>{
+    const el=document.getElementById('csort_'+c);
+    if(el) el.textContent=_convSort.col===c?(_convSort.dir===-1?' ↓':' ↑'):'';
+  });
+
+  // KPIs
+  const totVisits=filtered.reduce((s,i)=>s+i.visits,0);
+  const totSales=filtered.reduce((s,i)=>s+i.salesQty,0);
+  const totRev=filtered.reduce((s,i)=>s+i.revenue,0);
+  const avgConv=totVisits>0?totSales/totVisits:0;
+  const kpiEl=document.getElementById('conv_kpis');
+  if(kpiEl) kpiEl.innerHTML=[
+    ['Total visitas',totVisits.toLocaleString('es-AR'),'var(--blu)'],
+    ['Ventas totales',totSales.toLocaleString('es-AR'),'var(--grn)'],
+    ['Conversión prom.',(avgConv*100).toFixed(2)+'%',avgConv>=0.02?'var(--grn)':avgConv>=0.01?'var(--org)':'var(--red)'],
+    ['Facturación',fS(totRev),'var(--grn)'],
+  ].map(([l,v,c])=>`<div class="kpi" style="border-left:3px solid ${c}">
+    <div class="kl">${l}</div><div class="kv" style="color:${c}">${v}</div>
+  </div>`).join('');
+
+  // Tabla
+  const tbody=document.getElementById('conv_tbody');
+  if(!tbody) return;
+  if(!filtered.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">Sin datos de visitas disponibles.<br><small>Asegurate de tener cuentas conectadas con token activo.</small></td></tr>';
+    return;
+  }
+  tbody.innerHTML=filtered.map(it=>{
+    const convColor=it.convPct>=0.03?'var(--grn)':it.convPct>=0.01?'var(--org)':'var(--red)';
+    const convLabel=it.convPct>=0.03?'✅ Buena':it.convPct>=0.01?'⚠ Media':it.visits>100?'🔴 Baja':'—';
+    const opp = it.visits>200 && it.convPct<0.01;
+    return `<tr style="${opp?'background:rgba(255,100,0,.05)':''}">
+      <td><span style="font-size:10px;padding:2px 5px;background:var(--s2);border-radius:4px">${esc(it.acct)}</span></td>
+      <td>
+        <div style="font-size:11px;font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.title)}">${esc(it.title)}</div>
+        <div style="font-size:10px;color:var(--t3)">${esc(it.sku)} · ${fF(it.price)}</div>
+      </td>
+      <td class="mono">${it.visits.toLocaleString('es-AR')}</td>
+      <td class="mono">${it.salesQty}</td>
+      <td style="font-weight:600;color:${convColor}">${(it.convPct*100).toFixed(2)}%</td>
+      <td class="mono">${it.revenue>0?fS(it.revenue):'—'}</td>
+      <td><span style="font-size:11px">${convLabel}${opp?' 💡':''}</span></td>
+      <td>
+        <a href="https://www.mercadolibre.com.ar/p/${it.id}" target="_blank" class="btn-g btn-sm" style="font-size:10px;text-decoration:none">Ver →</a>
+      </td>
+    </tr>`;
+  }).join('');
 };
 
 // ── 1. REPUTACIÓN ────────────────────────────────────────────
@@ -4736,23 +4883,27 @@ function calcUpdateCuotas(precioBase, gananciaSinCuotas, comPct, ivaPct, pubPct,
 function calcRenderCuotasDesglose(){
   const el=document.getElementById('calc_cuotas_desglose_body');
   const rows=window._calcCuotasRows||[];
-  if(!el||!rows.length) return;
-  el.innerHTML=`<table class="tbl" style="font-size:11px">
-    <thead><tr>
-      <th>Opción</th><th>Precio publicar</th><th>Costo ML cuotas</th>
-      <th>Comisión</th><th>IVA</th><th>Pub+IIBB+Ret</th><th>Costo prod.</th><th>Ganancia</th>
-    </tr></thead>
-    <tbody>${rows.map(r=>`<tr>
-      <td style="font-weight:600;color:${r.c.tag?'var(--acc)':'var(--t2)'}">${r.c.label}</td>
+  if(!el||!rows.length){if(el)el.innerHTML='<p style="color:var(--t3);font-size:12px">Calculá un precio primero.</p>';return;}
+  const costo=Math.round(window._calcLastResult?.costo||0);
+  let tbody='';
+  rows.forEach(r=>{
+    const color=r.c.tag?'var(--acc)':'var(--t2)';
+    const ganColor=r.ganN>=0?'var(--grn)':'var(--red)';
+    tbody+=`<tr>
+      <td style="font-weight:600;color:${color}">${r.c.label}</td>
       <td class="mono">${fF(Math.ceil(r.precioNuevo/10)*10)}</td>
       <td class="mono" style="color:var(--red)">−${fF(Math.round(r.cuotaN))} (${r.c.costo_pct}%)</td>
       <td class="mono" style="color:var(--red)">−${fF(Math.round(r.comN))}</td>
       <td class="mono" style="color:var(--red)">−${fF(Math.round(r.ivaN))}</td>
       <td class="mono" style="color:var(--red)">−${fF(Math.round(r.pubN+r.iibbN+r.retN))}</td>
-      <td class="mono" style="color:var(--red)">−${fF(Math.round(window._calcLastResult?.costo||0))}</td>
-      <td class="mono ${r.ganN>=0?'g':'r'}">${fF(Math.round(r.ganN))}</td>
-    </tr>`).join('')}</tbody>
-  </table>`;
+      <td class="mono" style="color:var(--red)">−${fF(costo)}</td>
+      <td class="mono" style="color:${ganColor}">${fF(Math.round(r.ganN))}</td>
+    </tr>`;
+  });
+  el.innerHTML='<table class="tbl" style="font-size:11px"><thead><tr>'
+    +'<th>Opción</th><th>Precio publicar</th><th>Costo ML cuotas</th>'
+    +'<th>Comisión</th><th>IVA</th><th>Pub+IIBB+Ret</th><th>Costo prod.</th><th>Ganancia</th>'
+    +'</tr></thead><tbody>'+tbody+'</tbody></table>';
 }
 
 window.calcToggleCuotasDesglose = function(){
