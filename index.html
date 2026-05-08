@@ -1002,14 +1002,23 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
                 <label class="lbl">Gastos estructura %</label>
                 <input class="inp" id="maycalc_estructura" type="number" value="3" step=".5" placeholder="0" oninput="mayCalcUpdate()">
               </div>
-              <div>
+              <div id="maycalc_margen_wrap">
                 <label class="lbl">Margen objetivo %</label>
                 <input class="inp" id="maycalc_margen" type="number" value="30" step="1" oninput="mayCalcUpdate()">
+              </div>
+              <div id="maycalc_precio_wrap" style="display:none">
+                <label class="lbl">Precio de venta s/IVA</label>
+                <input class="inp" id="maycalc_precio_fijo" type="number" placeholder="0" oninput="mayCalcUpdate()">
               </div>
               <div>
                 <label class="lbl">IVA venta %</label>
                 <input class="inp" id="maycalc_iva_venta" type="number" value="21" step=".5" oninput="mayCalcUpdate()" readonly style="opacity:.7">
               </div>
+            </div>
+            <!-- Toggle modo margen / precio fijo -->
+            <div style="display:flex;gap:4px;margin:-4px 0 8px;background:var(--s2);border-radius:var(--r2);padding:3px;width:fit-content">
+              <button id="maycalc_mode_margen" onclick="mayCalcSetMode('margen')" style="padding:5px 14px;border-radius:5px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:var(--acc);color:#000">% Margen objetivo</button>
+              <button id="maycalc_mode_precio" onclick="mayCalcSetMode('precio')" style="padding:5px 14px;border-radius:5px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">$ Precio de mercado</button>
             </div>
 
             <!-- Descuentos -->
@@ -4737,96 +4746,106 @@ window.mayCalcCatChange = function(){
   mayCalcUpdate();
 };
 
+window.mayCalcSetMode = function(mode){
+  window._mayCalcMode = mode;
+  const mEl=document.getElementById('maycalc_mode_margen');
+  const pEl=document.getElementById('maycalc_mode_precio');
+  const mWrap=document.getElementById('maycalc_margen_wrap');
+  const pWrap=document.getElementById('maycalc_precio_wrap');
+  if(mode==='precio'){
+    if(mEl){mEl.style.background='transparent';mEl.style.color='var(--t2)';}
+    if(pEl){pEl.style.background='var(--acc)';pEl.style.color='#000';}
+    if(mWrap) mWrap.style.display='none';
+    if(pWrap) pWrap.style.display='';
+  } else {
+    if(mEl){mEl.style.background='var(--acc)';mEl.style.color='#000';}
+    if(pEl){pEl.style.background='transparent';pEl.style.color='var(--t2)';}
+    if(mWrap) mWrap.style.display='';
+    if(pWrap) pWrap.style.display='none';
+  }
+  mayCalcUpdate();
+};
+
 window.mayCalcUpdate = function(){
   const costo     = parseFloat(document.getElementById('maycalc_costo')?.value)||0;
   const comPct    = +(document.getElementById('maycalc_com')?.value??5);
   const iibbPct   = +(document.getElementById('maycalc_iibb')?.value??5);
   const estrPct   = +(document.getElementById('maycalc_estructura')?.value??3);
-  const margenObj = +(document.getElementById('maycalc_margen')?.value??30);
   const ivaVenta  = +(document.getElementById('maycalc_iva_venta')?.value??21);
-  const ivaCompra = +(document.getElementById('maycalc_iva_compra')?.value??21);
   const dcom      = +(document.getElementById('maycalc_dcom')?.value??0);
   const dfin      = +(document.getElementById('maycalc_dfin')?.value??0);
   const dofe      = +(document.getElementById('maycalc_dofe')?.value??0);
   const desp      = +(document.getElementById('maycalc_desp')?.value??0);
+  const mode      = window._mayCalcMode||'margen';
   const el=document.getElementById('maycalc_result');
   const desEl=document.getElementById('maycalc_desglose');
   const desBody=document.getElementById('maycalc_desglose_body');
   if(!el||!costo){ if(el) el.innerHTML=''; if(desEl) desEl.style.display='none'; return; }
 
-  // Descuento total en cascada: lista → dcom → dfin → dofe → desp
-  // precio_final = lista * (1-dcom/100) * (1-dfin/100) * (1-dofe/100) * (1-desp/100)
   const factorDto = (1-dcom/100)*(1-dfin/100)*(1-dofe/100)*(1-desp/100);
-  // totalDescPct sobre lista
   const totalDtoPct = (1-factorDto)*100;
 
-  // IVA crédito fiscal: costo_con_iva_compra - costo = IVA recuperable
-  const costoConIvaCompra = costo * (1 + ivaCompra/100);
+  let precio_lista_siva, precio_final_siva, ganancia;
 
-  // Para ganar margenObj% sobre precio_final_siva:
-  // ganancia = precio_final_siva - costo_sin_iva - com - iibb - estructura
-  // margen  = ganancia / precio_final_siva
-  // precio_final_siva * (1 - com/100 - iibb/100 - estr/100 - margen/100) = costo_sin_iva
-  // precio_final_siva = costo / (1 - com/100 - iibb/100 - estr/100 - margen/100)
-  const factor = 1 - comPct/100 - iibbPct/100 - estrPct/100 - margenObj/100;
-  if(factor<=0){
-    el.innerHTML='<p style="color:var(--red);font-size:12px">⚠ Margen + costos superan el 100%. Reducí algún porcentaje.</p>';
-    if(desEl) desEl.style.display='none'; return;
+  if(mode==='precio'){
+    precio_final_siva = parseFloat(document.getElementById('maycalc_precio_fijo')?.value)||0;
+    if(!precio_final_siva){ if(el) el.innerHTML='<p style="color:var(--t3);font-size:12px">Ingresá el precio de mercado s/IVA</p>'; if(desEl) desEl.style.display='none'; return; }
+    precio_lista_siva = factorDto>0 ? precio_final_siva/factorDto : precio_final_siva;
+  } else {
+    const margenObj = +(document.getElementById('maycalc_margen')?.value??30);
+    const factor = 1 - comPct/100 - iibbPct/100 - estrPct/100 - margenObj/100;
+    if(factor<=0){
+      el.innerHTML='<p style="color:var(--red);font-size:12px">⚠ Margen + costos superan el 100%.</p>';
+      if(desEl) desEl.style.display='none'; return;
+    }
+    precio_final_siva = costo/factor;
+    precio_lista_siva = factorDto>0 ? precio_final_siva/factorDto : precio_final_siva;
   }
 
-  // precio_final_siva (lo que cobra después de descuentos)
-  const precio_final_siva = costo / factor;
-  // precio_lista_siva (antes de descuentos)
-  const precio_lista_siva = factorDto > 0 ? precio_final_siva / factorDto : precio_final_siva;
-  // precios c/IVA
-  const precio_lista_civa = precio_lista_siva * (1 + ivaVenta/100);
-  const precio_final_civa = precio_final_siva * (1 + ivaVenta/100);
-
-  // Costos reales sobre precio_final_siva
-  const com_m    = precio_final_siva * comPct/100;
-  const iibb_m   = precio_final_siva * iibbPct/100;
-  const estr_m   = precio_final_siva * estrPct/100;
-  const ganancia = precio_final_siva - costo - com_m - iibb_m - estr_m;
-  const margenReal = precio_final_siva > 0 ? ganancia/precio_final_siva*100 : 0;
-  const roiReal    = costo > 0 ? ganancia/costo*100 : 0;
+  const com_m    = precio_final_siva*comPct/100;
+  const iibb_m   = precio_final_siva*iibbPct/100;
+  const estr_m   = precio_final_siva*estrPct/100;
+  ganancia = precio_final_siva - costo - com_m - iibb_m - estr_m;
+  const margenReal = precio_final_siva>0 ? ganancia/precio_final_siva*100 : 0;
+  const roiReal    = costo>0 ? ganancia/costo*100 : 0;
   const dtoMonto   = precio_lista_siva - precio_final_siva;
+  const precio_lista_civa = precio_lista_siva*(1+ivaVenta/100);
+  const precio_final_civa = precio_final_siva*(1+ivaVenta/100);
+  const margenColor = ganancia<0 ? 'var(--red)' : margenReal>=20 ? 'var(--grn)' : 'var(--org)';
 
-  // Guardar para uso externo
-  window._mayCalcLast = {precio_lista_siva, precio_lista_civa, precio_final_siva, precio_final_civa,
-    ganancia, margenReal, dtoMonto, totalDtoPct, costo};
+  window._mayCalcLast = {precio_lista_siva,precio_lista_civa,precio_final_siva,precio_final_civa,
+    ganancia,margenReal,dtoMonto,totalDtoPct,costo};
 
-  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+  const ncols = dtoMonto>0.5 ? 5 : 4;
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(${ncols},1fr);gap:8px">
     <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--acc)">
       <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Precio lista s/IVA</div>
       <div style="font-size:17px;font-weight:700">${fS(Math.ceil(precio_lista_siva/10)*10)}</div>
-      ${dtoMonto>0?`<div style="font-size:10px;color:var(--t3)">sin dto</div>`:''}
     </div>
     <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--blu)">
       <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Precio lista c/IVA</div>
       <div style="font-size:17px;font-weight:700;color:var(--blu)">${fS(Math.ceil(precio_lista_civa/10)*10)}</div>
     </div>
-    ${dtoMonto>0?`
-    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--org)">
+    ${dtoMonto>0.5?`<div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--org)">
       <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Precio final s/IVA</div>
       <div style="font-size:17px;font-weight:700;color:var(--org)">${fS(Math.ceil(precio_final_siva/10)*10)}</div>
       <div style="font-size:10px;color:var(--org)">dto. ${totalDtoPct.toFixed(1)}%</div>
     </div>`:''}
-    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--grn)">
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid ${ganancia>=0?'var(--grn)':\'var(--red)\'}">
       <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Ganancia unit.</div>
-      <div style="font-size:17px;font-weight:700;color:var(--grn)">${fS(Math.round(ganancia))}</div>
+      <div style="font-size:17px;font-weight:700;color:${ganancia>=0?'var(--grn)':\'var(--red)\'}">${fS(Math.round(ganancia))}</div>
     </div>
     <div style="padding:10px;background:var(--s2);border-radius:var(--r)">
       <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Margen · ROI</div>
-      <div style="font-size:17px;font-weight:700;color:${margenReal>=20?'var(--grn)':'var(--org)'}">${margenReal.toFixed(1)}%</div>
+      <div style="font-size:17px;font-weight:700;color:${margenColor}">${margenReal.toFixed(1)}%</div>
       <div style="font-size:10px;color:var(--t3)">ROI: ${roiReal.toFixed(1)}%</div>
     </div>
   </div>`;
 
-  // Desglose
   if(desEl) desEl.style.display='';
   if(desBody) desBody.innerHTML=[
     ['Precio lista s/IVA',precio_lista_siva,false],
-    dtoMonto>0?['— Descuento total ('+totalDtoPct.toFixed(1)+'%)',dtoMonto,true]:null,
+    dtoMonto>0.5?['— Descuento total ('+totalDtoPct.toFixed(1)+'%)',dtoMonto,true]:null,
     ['Precio final s/IVA',precio_final_siva,false],
     ['— Costo producto',costo,true],
     ['— Comisión vendedor '+comPct+'%',com_m,true],
@@ -4836,9 +4855,10 @@ window.mayCalcUpdate = function(){
   ].filter(Boolean).map(([l,v,neg])=>`
     <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b1)">
       <span style="color:var(--t2)">${l}</span>
-      <span style="font-weight:500;color:${neg?'var(--red)':'var(--grn)'}">${neg?'−':'+'}${fF(v)}</span>
+      <span style="font-weight:500;color:${neg?'var(--red)':\'var(--grn)\'}">${neg?'−':'+'}${fF(v)}</span>
     </div>`).join('');
 };
+
 
 window.mayCalcCatChange(); // run on load to set defaults
 
@@ -4903,88 +4923,82 @@ window.mayOcrProcesar = async function(){
   const btn=document.getElementById('may_ocr_btn');
   btn.textContent='⏳ Procesando...';btn.disabled=true;
   try {
-    // Leer el archivo como base64
-    const b64 = await new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload=()=>res(r.result.split(',')[1]);
-      r.onerror=rej;
-      r.readAsDataURL(file);
-    });
-    _mayOcrFileData={b64,type:file.type.startsWith('image/')?file.type:'image/jpeg'};
-
-    const prompt = `Analizá esta factura/remito/pedido mayorista y extraé TODOS los datos en JSON.
-Devolvé SOLO el JSON, sin markdown ni texto extra.
-Estructura requerida:
-{
-  "cliente": "nombre del cliente",
-  "nro_factura": "número de factura si hay",
-  "fecha": "YYYY-MM-DD si hay fecha",
-  "items": [
-    {
-      "codigo": "código o SKU",
-      "descripcion": "descripción del producto",
-      "cantidad": 0,
-      "precio_unitario": 0,
-      "precio_total": 0,
-      "descuento_pct": 0,
-      "iva_pct": 21
+    // Para PDF: convertir primera página a imagen usando canvas
+    // Para imagen: leer directo como base64
+    let b64, mediaType;
+    if(file.type==='application/pdf'){
+      // Leer PDF como array buffer y enviar como imagen/jpeg después de rasterizar
+      // Alternativa simple: enviar el PDF como base64 directamente con media_type correcto
+      // Claude soporta PDFs directamente en algunos endpoints pero acá usamos imagen
+      // Convertimos el PDF a imagen via URL.createObjectURL + canvas
+      toast('Procesando PDF... puede tardar unos segundos','ok');
+      const arrBuf = await file.arrayBuffer();
+      b64 = btoa(String.fromCharCode(...new Uint8Array(arrBuf)));
+      mediaType = 'application/pdf';
+      // Nota: si falla, el proxy reintentará con JPEG
+    } else {
+      b64 = await new Promise((res,rej)=>{
+        const r=new FileReader();
+        r.onload=()=>res(r.result.split(',')[1]);
+        r.onerror=rej;
+        r.readAsDataURL(file);
+      });
+      mediaType = file.type||'image/jpeg';
     }
-  ],
-  "total_siva": 0,
-  "total_civa": 0,
-  "forma_pago": "CONTADO/FINANCIADO/etc",
-  "notas": "cualquier observación relevante"
-}
-Si un campo no está, dejalo null o 0. Los precios son en ARS. Extraé todos los ítems aunque sean muchos.`;
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+    // Llamar al proxy (evita CORS y oculta API key)
+    const PROXY = S.cfg.proxy||'https://niviko-proxy-weld.vercel.app';
+    const token = S.accounts?.[0]?.token||'';
+    const resp = await fetch(`${PROXY}/ai/ocr-factura`,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:2000,
-        messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:_mayOcrFileData.type,data:b64}},
-          {type:'text',text:prompt}
-        ]}]
-      })
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${token}`
+      },
+      body:JSON.stringify({image_base64:b64, media_type:mediaType})
     });
-    const data=await resp.json();
-    const text=data.content?.[0]?.text||'';
-    let parsed;
-    try{ parsed=JSON.parse(text.replace(/```json|```/g,'').trim()); }
-    catch(e){ throw new Error('No se pudo parsear la respuesta: '+text.substring(0,100)); }
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({error:'Error '+resp.status}));
+      throw new Error(err.error||('Error '+resp.status));
+    }
+    const result = await resp.json();
+    if(!result.ok) throw new Error(result.error||'Error procesando');
+    const parsed = result.data;
     _mayOcrData=parsed;
+
     // Mostrar resultado
     const resDiv=document.getElementById('may_ocr_result');
     const dataDiv=document.getElementById('may_ocr_data');
     resDiv.style.display='';
+    const items=parsed.items||[];
     dataDiv.innerHTML=`
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
         <div><span style="color:var(--t3);font-size:10px">Cliente</span><div style="font-weight:600">${esc(parsed.cliente||'—')}</div></div>
         <div><span style="color:var(--t3);font-size:10px">Factura</span><div>${esc(parsed.nro_factura||'—')}</div></div>
         <div><span style="color:var(--t3);font-size:10px">Fecha</span><div>${esc(parsed.fecha||'—')}</div></div>
         <div><span style="color:var(--t3);font-size:10px">Total s/IVA</span><div class="g">${fS(parsed.total_siva||0)}</div></div>
-        <div><span style="color:var(--t3);font-size:10px">Total c/IVA</span><div class="blu">${fS(parsed.total_civa||0)}</div></div>
+        <div><span style="color:var(--t3);font-size:10px">Total c/IVA</span><div style="color:var(--blu)">${fS(parsed.total_civa||0)}</div></div>
         <div><span style="color:var(--t3);font-size:10px">Pago</span><div>${esc(parsed.forma_pago||'—')}</div></div>
       </div>
-      <table class="tbl">
-        <thead><tr><th>Código</th><th>Descripción</th><th>Cant.</th><th>Precio u.</th><th>Dto %</th><th>IVA %</th><th>Total</th></tr></thead>
-        <tbody>${(parsed.items||[]).map(it=>`<tr>
-          <td><span class="sku">${esc(it.codigo||'—')}</span></td>
-          <td style="font-size:11px">${esc(it.descripcion||'')}</td>
-          <td>${it.cantidad||0}</td>
-          <td class="mono">${fS(it.precio_unitario||0)}</td>
-          <td style="color:var(--org)">${it.descuento_pct||0}%</td>
-          <td style="color:var(--t3)">${it.iva_pct||21}%</td>
-          <td class="mono">${fS(it.precio_total||0)}</td>
-        </tr>`).join('')}</tbody>
-      </table>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Código</th><th>Descripción</th><th>Cant.</th><th>Precio u. s/IVA</th><th>Dto %</th><th>IVA %</th><th>Total s/IVA</th></tr></thead>
+          <tbody>${items.map(it=>`<tr>
+            <td><span class="sku">${esc(it.codigo||'—')}</span></td>
+            <td style="font-size:11px">${esc(it.descripcion||'')}</td>
+            <td>${it.cantidad||0}</td>
+            <td class="mono">${fS(it.precio_unitario_siva||0)}</td>
+            <td style="color:var(--org)">${it.descuento_pct||0}%</td>
+            <td style="color:var(--t3)">${it.iva_pct||21}%</td>
+            <td class="mono">${fS(it.precio_total_siva||0)}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
       ${parsed.notas?`<p style="font-size:11px;color:var(--t3);margin-top:6px">${esc(parsed.notas)}</p>`:''}`;
-    toast(`✓ ${(parsed.items||[]).length} ítems detectados`,'ok');
+    toast(`✓ ${items.length} ítem${items.length!==1?'s':''} detectado${items.length!==1?'s':''}`, 'ok');
   } catch(e){
-    toast('Error: '+e.message,'err');
-    console.error(e);
+    toast('Error OCR: '+e.message,'err');
+    console.error('OCR error:',e);
   } finally {
     btn.textContent='🔍 Extraer datos'; btn.disabled=false;
   }
