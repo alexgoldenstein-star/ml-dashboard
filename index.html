@@ -4923,50 +4923,41 @@ window.mayOcrProcesar = async function(){
   const file=document.getElementById('may_ocr_file')?.files[0];
   if(!file){toast('Seleccioná una imagen o PDF','err');return;}
   const btn=document.getElementById('may_ocr_btn');
-  btn.textContent='⏳ Procesando...';btn.disabled=true;
+  btn.textContent='⏳ Leyendo...';btn.disabled=true;
   try {
-    // Para PDF: convertir primera página a imagen usando canvas
-    // Para imagen: leer directo como base64
-    let b64, mediaType;
+    let text = '';
     if(file.type==='application/pdf'){
-      // Leer PDF como array buffer y enviar como imagen/jpeg después de rasterizar
-      // Alternativa simple: enviar el PDF como base64 directamente con media_type correcto
-      // Claude soporta PDFs directamente en algunos endpoints pero acá usamos imagen
-      // Convertimos el PDF a imagen via URL.createObjectURL + canvas
-      toast('Procesando PDF... puede tardar unos segundos','ok');
-      const arrBuf = await file.arrayBuffer();
-      b64 = btoa(String.fromCharCode(...new Uint8Array(arrBuf)));
-      mediaType = 'application/pdf';
-      // Nota: si falla, el proxy reintentará con JPEG
+      // Cargar PDF.js si no está disponible
+      if(!window.pdfjsLib){
+        await new Promise((res,rej)=>{
+          const s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload=()=>{
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc=
+              'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            res();
+          };
+          s.onerror=rej;
+          document.head.appendChild(s);
+        });
+      }
+      // Extraer texto del PDF
+      const ab = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({data:ab}).promise;
+      for(let p=1;p<=pdf.numPages;p++){
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        text += content.items.map(i=>i.str).join(' ') + '\n';
+      }
     } else {
-      b64 = await new Promise((res,rej)=>{
-        const r=new FileReader();
-        r.onload=()=>res(r.result.split(',')[1]);
-        r.onerror=rej;
-        r.readAsDataURL(file);
-      });
-      mediaType = file.type||'image/jpeg';
+      toast('Por ahora solo PDFs. Para imágenes subí como PDF.','err');
+      btn.textContent='🔍 Extraer datos';btn.disabled=false;
+      return;
     }
 
-    // Llamar al proxy (evita CORS y oculta API key)
-    const PROXY = S.cfg.proxy||'https://niviko-proxy-weld.vercel.app';
-    const token = S.accounts?.[0]?.token||'';
-    const resp = await fetch(`${PROXY}/ai/ocr-factura`,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Authorization':`Bearer ${token}`
-      },
-      body:JSON.stringify({image_base64:b64, media_type:mediaType})
-    });
-    if(!resp.ok){
-      const err=await resp.json().catch(()=>({error:'Error '+resp.status}));
-      throw new Error(err.error||err.message||('Error HTTP '+resp.status));
-    }
-    const result = await resp.json();
-    if(!result.ok) throw new Error(result.error||'Error procesando');
-    const parsed = result.data;
-    _mayOcrData=parsed;
+    // ── PARSER LOCAL — Formato Factura A NIVIKO/GBS ──────────────────────
+    const parsed = parsearFacturaNiviko(text);
+    _mayOcrData = parsed;
 
     // Mostrar resultado
     const resDiv=document.getElementById('may_ocr_result');
@@ -4979,32 +4970,116 @@ window.mayOcrProcesar = async function(){
         <div><span style="color:var(--t3);font-size:10px">Factura</span><div>${esc(parsed.nro_factura||'—')}</div></div>
         <div><span style="color:var(--t3);font-size:10px">Fecha</span><div>${esc(parsed.fecha||'—')}</div></div>
         <div><span style="color:var(--t3);font-size:10px">Total s/IVA</span><div class="g">${fS(parsed.total_siva||0)}</div></div>
-        <div><span style="color:var(--t3);font-size:10px">Total c/IVA</span><div style="color:var(--blu)">${fS(parsed.total_civa||0)}</div></div>
+        <div><span style="color:var(--t3);font-size:10px">IVA</span><div style="color:var(--blu)">${fS(parsed.total_iva||0)}</div></div>
+        <div><span style="color:var(--t3);font-size:10px">Total c/IVA</span><div style="font-weight:600">${fS(parsed.total_civa||0)}</div></div>
         <div><span style="color:var(--t3);font-size:10px">Pago</span><div>${esc(parsed.forma_pago||'—')}</div></div>
+        <div><span style="color:var(--t3);font-size:10px">Vendedor</span><div>${esc(parsed.vendedor||'—')}</div></div>
       </div>
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Código</th><th>Descripción</th><th>Cant.</th><th>Precio u. s/IVA</th><th>Dto %</th><th>IVA %</th><th>Total s/IVA</th></tr></thead>
+          <thead><tr><th>Código</th><th>Descripción</th><th>Cant.</th><th>Precio u. s/IVA</th><th>IVA %</th><th>Total s/IVA</th></tr></thead>
           <tbody>${items.map(it=>`<tr>
             <td><span class="sku">${esc(it.codigo||'—')}</span></td>
             <td style="font-size:11px">${esc(it.descripcion||'')}</td>
             <td>${it.cantidad||0}</td>
             <td class="mono">${fS(it.precio_unitario_siva||0)}</td>
-            <td style="color:var(--org)">${it.descuento_pct||0}%</td>
             <td style="color:var(--t3)">${it.iva_pct||21}%</td>
             <td class="mono">${fS(it.precio_total_siva||0)}</td>
           </tr>`).join('')}</tbody>
         </table>
-      </div>
-      ${parsed.notas?`<p style="font-size:11px;color:var(--t3);margin-top:6px">${esc(parsed.notas)}</p>`:''}`;
+      </div>`;
     toast(`✓ ${items.length} ítem${items.length!==1?'s':''} detectado${items.length!==1?'s':''}`, 'ok');
   } catch(e){
-    toast('Error OCR: '+e.message,'err');
+    toast('Error: '+e.message,'err');
     console.error('OCR error:',e);
   } finally {
     btn.textContent='🔍 Extraer datos'; btn.disabled=false;
   }
 };
+
+function parsearFacturaNiviko(text){
+  // Normalizar: colapsar espacios múltiples
+  const t = text.replace(/\s+/g,' ').trim();
+
+  // ── ENCABEZADO ──
+  // Nro factura: "0003-00008573" o similar
+  const nroM = t.match(/(\d{4}-\d{8})/);
+  const nro_factura = nroM ? nroM[1] : null;
+
+  // Fecha: DD/MM/YYYY
+  const fechaM = t.match(/Fecha\s*[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
+  let fecha = null;
+  if(fechaM){
+    const [d,m,y] = fechaM[1].split('/');
+    fecha = `${y}-${m}-${d}`;
+  }
+
+  // Cliente: entre "Sres." y "Cód.de cliente" o "25 DE MAYO"
+  const clienteM = t.match(/Sres\.\s+([A-ZÁÉÍÓÚÑÜ][^\d]+?)(?:\s+\d{2}\s+DE|\s+Cód)/i);
+  const cliente = clienteM ? clienteM[1].trim() : null;
+
+  // Condición de pago
+  const pagoM = t.match(/Condici[oó]n de pago\s+(.+?)(?=\s+CANT|\s+\d{4}-|\s*$)/i);
+  let forma_pago = pagoM ? pagoM[1].trim() : 'OTRO';
+  if(/contado/i.test(forma_pago)) forma_pago='CONTADO';
+  else if(/30|60|90/i.test(forma_pago)) forma_pago='30-60-90';
+  else if(/finan/i.test(forma_pago)) forma_pago='FINANCIADO';
+
+  // Vendedor
+  const vendM = t.match(/Vendedor\s+(\d+)/i);
+  const vendedor = vendM ? 'Vendedor '+vendM[1] : null;
+
+  // ── ITEMS — estrategia por pares de precios ──────────────────────────
+  // Detecta todos los precios en el texto, luego empareja unitario+total
+  const items = [];
+  const priceRx = /([\d]{1,3}(?:\.[\d]{3})*,[\d]{2})/g;
+  const prices = [...t.matchAll(priceRx)].map(m=>({
+    val: parseFloat(m[1].replace(/\./g,'').replace(',','.')),
+    pos: m.index
+  }));
+  const usedIdx = new Set();
+  for(let i=0;i<prices.length-1;i++){
+    if(usedIdx.has(i)) continue;
+    const unit=prices[i].val, total=prices[i+1].val;
+    // Par válido: total = N * unit (con margen), ambos > 500
+    if(unit<500 || total<unit) continue;
+    const ratio = total/unit;
+    if(ratio<0.9 || ratio>200) continue;
+    // Extraer texto antes del precio unitario
+    const before = t.substring(0, prices[i].pos).trim();
+    const parts = before.split(/\s+/);
+    const cant = parseInt(parts[0]);
+    if(isNaN(cant)||cant<=0||cant>9999) continue;
+    const codigo = parts[1]||'';
+    if(!codigo||!/^[A-Z0-9]/i.test(codigo)) continue;
+    // Descripción = todo entre código y precio
+    const desc = parts.slice(2).join(' ').replace(/[\d]{2,}[A-Z]{2,}\d+/g,'').trim(); // quitar códigos internos
+    if(desc.length<3) continue;
+    if(/CBU|Alias|Banco|Supervielle|Credicoop|Subtotal|IMPORTE|Descuento|Percep/i.test(desc)) continue;
+    items.push({
+      codigo: codigo.toUpperCase(),
+      descripcion: desc.substring(0,80),
+      cantidad: cant,
+      precio_unitario_siva: unit,
+      descuento_pct: 0,
+      iva_pct: 21,
+      precio_total_siva: total
+    });
+    usedIdx.add(i);usedIdx.add(i+1);
+  }
+
+  // ── TOTALES ──
+  const subtotalM = t.match(/Subtotal\s+([\d\.]+,\d{2})/);
+  const total_siva = subtotalM ? parseFloat(subtotalM[1].replace(/\./g,'').replace(',','.')) : 0;
+
+  const ivaM = t.match(/IVA 21,00%\s+([\d\.]+,\d{2})/);
+  const total_iva = ivaM ? parseFloat(ivaM[1].replace(/\./g,'').replace(',','.')) : 0;
+
+  const totalM = t.match(/IMPORTE TOTAL\s+([\d\.]+,\d{2})/);
+  const total_civa = totalM ? parseFloat(totalM[1].replace(/\./g,'').replace(',','.')) : 0;
+
+  return {cliente, nro_factura, fecha, forma_pago, vendedor, items, total_siva, total_iva, total_civa};
+}
 
 window.mayOcrCargar = function(){
   const d=_mayOcrData;
