@@ -5222,8 +5222,15 @@ window.calcLoadSku = function(){
     if(costoEl) costoEl.value = prod.ars||'';
     if(ivaEl) ivaEl.value = prod.iva||21;
   }
-  // Buscar en TODAS las órdenes sin filtro de período para el SKU
-  const ords = S.orders.filter(o=>o.sku===sku);
+  // Buscar en TODAS las órdenes del SKU y también variantes (mismo prefijo sin último código)
+  // Ej: NVK-1428-G-X4 y NVK-1428-N-X4 son la misma familia de producto
+  const skuFamily = sku.replace(/[-_][A-Z]$/, '').replace(/[-_][A-Z0-9]+$/, '');
+  const ords = S.orders.filter(o=>{
+    if(o.sku===sku) return true; // exact match
+    // Family match: mismo prefijo
+    if(skuFamily.length>4 && o.sku && o.sku.startsWith(skuFamily)) return true;
+    return false;
+  });
   const histCard = document.getElementById('calcHistCard');
   if(ords.length && histCard){
     histCard.style.display = '';
@@ -5256,10 +5263,13 @@ window.calcLoadSku = function(){
     const statsEl = document.getElementById('calcEnvioStats');
     if(statsEl){
       statsEl.style.display='';
-      statsEl.innerHTML = '📦 Envío promedio histórico: ' +
-        Object.entries({Flex:'Fx',Full:'Fu',Correo:'Co'}).map(([m,lbl])=>
-          envioStats[m] ? `${lbl}: ${fF(envioStats[m].avg)} (${envioStats[m].n}ó)` : `${lbl}: sin datos`
-        ).join(' · ');
+      const skuNote = ords.some(o=>o.sku!==sku) ? ` <span style="color:var(--org)">(incl. variantes)</span>` : '';
+      statsEl.innerHTML = `<span style="font-weight:600">📦 Costo de envío real del historial${skuNote}:</span> ` +
+        Object.entries({Flex:'Flex',Full:'Full',Correo:'Correo'}).map(([m,lbl])=>{
+          const s=envioStats[m];
+          if(!s) return `<span style="color:var(--t3)">${lbl}: sin datos</span>`;
+          return `<span style="color:${m==='Flex'?'var(--acc)':m==='Full'?'var(--grn)':'var(--org)'}">${lbl}: <strong>${fF(s.avg)}</strong> <span style="color:var(--t3)">(${s.n}ó)</span></span>`;
+        }).join(' · ');
     }
 
     document.getElementById('calcHistGrid').innerHTML = [
