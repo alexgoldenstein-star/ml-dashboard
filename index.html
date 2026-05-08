@@ -4961,7 +4961,7 @@ window.mayOcrProcesar = async function(){
     });
     if(!resp.ok){
       const err=await resp.json().catch(()=>({error:'Error '+resp.status}));
-      throw new Error(err.error||('Error '+resp.status));
+      throw new Error(err.error||err.message||('Error HTTP '+resp.status));
     }
     const result = await resp.json();
     if(!result.ok) throw new Error(result.error||'Error procesando');
