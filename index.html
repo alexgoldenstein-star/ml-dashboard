@@ -4816,6 +4816,12 @@ window.mayCalcUpdate = function(){
   window._mayCalcLast = {precio_lista_siva,precio_lista_civa,precio_final_siva,precio_final_civa,
     ganancia,margenReal,dtoMonto,totalDtoPct,costo};
 
+  const ganC = ganancia>=0?'var(--grn)':'var(--red)';
+  const dtoHtml = dtoMonto>0.5 ? `<div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--org)">
+      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Precio final s/IVA</div>
+      <div style="font-size:17px;font-weight:700;color:var(--org)">${fS(Math.ceil(precio_final_siva/10)*10)}</div>
+      <div style="font-size:10px;color:var(--org)">dto. ${totalDtoPct.toFixed(1)}%</div>
+    </div>` : '';
   const ncols = dtoMonto>0.5 ? 5 : 4;
   el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(${ncols},1fr);gap:8px">
     <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--acc)">
@@ -4826,14 +4832,10 @@ window.mayCalcUpdate = function(){
       <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Precio lista c/IVA</div>
       <div style="font-size:17px;font-weight:700;color:var(--blu)">${fS(Math.ceil(precio_lista_civa/10)*10)}</div>
     </div>
-    ${dtoMonto>0.5?`<div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--org)">
-      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Precio final s/IVA</div>
-      <div style="font-size:17px;font-weight:700;color:var(--org)">${fS(Math.ceil(precio_final_siva/10)*10)}</div>
-      <div style="font-size:10px;color:var(--org)">dto. ${totalDtoPct.toFixed(1)}%</div>
-    </div>`:''}
-    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid ${ganancia>=0?'var(--grn)':\'var(--red)\'}">
+    ${dtoHtml}
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid ${ganC}">
       <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Ganancia unit.</div>
-      <div style="font-size:17px;font-weight:700;color:${ganancia>=0?'var(--grn)':\'var(--red)\'}">${fS(Math.round(ganancia))}</div>
+      <div style="font-size:17px;font-weight:700;color:${ganC}">${fS(Math.round(ganancia))}</div>
     </div>
     <div style="padding:10px;background:var(--s2);border-radius:var(--r)">
       <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Margen · ROI</div>
@@ -4855,7 +4857,7 @@ window.mayCalcUpdate = function(){
   ].filter(Boolean).map(([l,v,neg])=>`
     <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--b1)">
       <span style="color:var(--t2)">${l}</span>
-      <span style="font-weight:500;color:${neg?'var(--red)':\'var(--grn)\'}">${neg?'−':'+'}${fF(v)}</span>
+      <span style="font-weight:500;color:${neg?'var(--red)':'var(--grn)'}">${neg?'−':'+'}${fF(v)}</span>
     </div>`).join('');
 };
 
