@@ -1358,29 +1358,105 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <!-- ADS AGENTE -->
     <div class="page" id="page-adsagente">
       <div style="max-width:720px;margin:0 auto">
-        <!-- KPIs en tiempo real -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px" id="ads_kpi_row">
-          <div class="card" style="padding:12px;border-left:3px solid var(--acc)">
+
+        <!-- Header con status y recargar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div>
+            <span id="ads_status" style="font-size:11px;color:var(--t3)">Cargando datos de MercadoAds...</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select class="inp" id="ads_periodo_sel" style="font-size:11px;padding:4px 8px;height:auto" onchange="adsRecargar()">
+              <option value="7">7 días</option>
+              <option value="30" selected>30 días</option>
+              <option value="60">60 días</option>
+            </select>
+            <button class="btn-g btn-sm" onclick="adsRecargar()" style="font-size:11px">↻ Recargar</button>
+          </div>
+        </div>
+
+        <!-- KPIs automáticos -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+          <div class="card" style="padding:12px;border-left:3px solid var(--red)">
             <div style="font-size:9px;color:var(--t3);text-transform:uppercase">ACOS</div>
-            <div id="ads_k_acos" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif">—</div>
+            <div id="ads_k_acos" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;color:var(--t3)">—</div>
             <div style="font-size:9px;color:var(--t3)">obj &lt;15%</div>
           </div>
           <div class="card" style="padding:12px;border-left:3px solid var(--grn)">
             <div style="font-size:9px;color:var(--t3);text-transform:uppercase">ROAS</div>
-            <div id="ads_k_roas" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif">—</div>
+            <div id="ads_k_roas" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;color:var(--t3)">—</div>
             <div style="font-size:9px;color:var(--t3)">obj &gt;6x</div>
           </div>
           <div class="card" style="padding:12px;border-left:3px solid var(--org)">
             <div style="font-size:9px;color:var(--t3);text-transform:uppercase">% ventas ads</div>
-            <div id="ads_k_pct" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif">—</div>
+            <div id="ads_k_pct" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;color:var(--t3)">—</div>
             <div style="font-size:9px;color:var(--t3)">del total</div>
           </div>
-          <div class="card" style="padding:12px;border-left:3px solid var(--red)">
+          <div class="card" style="padding:12px;border-left:3px solid var(--acc)">
             <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Inversión</div>
-            <div id="ads_k_inv" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif">—</div>
+            <div id="ads_k_inv" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif;color:var(--t3)">—</div>
             <div style="font-size:9px;color:var(--t3)">período</div>
           </div>
         </div>
+
+        <!-- Tabla por cuenta (se llena automáticamente) -->
+        <div class="card" style="margin-bottom:10px;padding:12px">
+          <div class="ch" style="margin-bottom:8px"><span class="ct">Por cuenta</span></div>
+          <div id="ads_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
+        </div>
+
+        <!-- Datos manuales (colapsable) -->
+        <div class="card" style="margin-bottom:10px">
+          <div class="ch">
+            <span class="ct">📝 Datos manuales</span>
+            <button class="btn-g btn-sm" onclick="adsToggleDatos()" id="ads_datos_toggle" style="font-size:10px">▼ Cargar datos</button>
+          </div>
+          <p style="font-size:11px;color:var(--t3)">Si la API no trae datos, cargalos manualmente desde el panel de MercadoAds.</p>
+          <div id="ads_datos_panel" style="display:none;margin-top:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+              <div><label class="lbl">Inversión total (ARS)</label><input class="inp" id="ads_inversion" type="number" placeholder="850000" oninput="adsUpdateKpis()"></div>
+              <div><label class="lbl">Ventas atribuidas a ads (ARS)</label><input class="inp" id="ads_ventas_ads" type="number" placeholder="4200000" oninput="adsUpdateKpis()"></div>
+              <div><label class="lbl">Ventas totales ML (ARS)</label><input class="inp" id="ads_ventas_total" type="number" placeholder="8500000" oninput="adsUpdateKpis()"></div>
+              <div><label class="lbl">Margen promedio real %</label><input class="inp" id="ads_margen" type="number" placeholder="18"></div>
+              <div><label class="lbl">CPC promedio (ARS)</label><input class="inp" id="ads_cpc" type="number" placeholder="320"></div>
+              <div><label class="lbl">Problema principal</label>
+                <select class="inp" id="ads_problema">
+                  <option value="">— Seleccioná —</option>
+                  <option value="acos_alto">ACOS muy alto</option>
+                  <option value="pocas_ventas">Gasto pero vendo poco</option>
+                  <option value="cpc_alto">CPC subió mucho</option>
+                  <option value="conversion">Clicks que no convierten</option>
+                  <option value="presupuesto">No sé cuánto invertir</option>
+                </select>
+              </div>
+            </div>
+            <div><label class="lbl">Productos en ads</label><input class="inp" id="ads_productos" placeholder="sillas, mesas, auriculares..."></div>
+            <button class="btn btn-sm" onclick="adsAnalizar()" style="width:100%;margin-top:10px">🔍 Analizar con IA →</button>
+          </div>
+        </div>
+
+        <!-- Chat -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div id="ads_messages" style="height:360px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1)">
+            <button class="btn-g btn-sm" onclick="adsQuick('¿Cómo bajo el ACOS sin perder visibilidad en muebles?')" style="font-size:10px">Bajar ACOS</button>
+            <button class="btn-g btn-sm" onclick="adsQuick('¿En qué productos conviene pausar los ads ahora?')" style="font-size:10px">Qué pausar</button>
+            <button class="btn-g btn-sm" onclick="adsQuick('¿Cómo segmento campañas de muebles vs electrónica?')" style="font-size:10px">Segmentación</button>
+            <button class="btn-g btn-sm" onclick="adsQuick('¿Cuánto debería invertir en ads según mi margen real?')" style="font-size:10px">Presupuesto</button>
+            <button class="btn-g btn-sm" onclick="adsQuick('Dame una estrategia de ads para el próximo mes')" style="font-size:10px">Estrategia</button>
+          </div>
+          <div style="display:flex;gap:8px;padding:10px">
+            <textarea id="ads_input" placeholder="Preguntá sobre tu estrategia de ads..." rows="1"
+              style="flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);color:var(--t1);font-size:12px;padding:9px 12px;outline:none;resize:none;font-family:inherit"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adsSend()}"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+            <button onclick="adsSend()" id="ads_send_btn"
+              style="width:38px;height:38px;background:var(--acc);border:none;border-radius:var(--r);cursor:pointer;font-size:16px;flex-shrink:0">↑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTAS -->
 
         <!-- Formulario de datos -->
         <div class="card" style="margin-bottom:10px" id="ads_datos_card">
@@ -4280,14 +4356,301 @@ init();
 let _adsHistory = [];
 let _adsContexto = '';
 let _adsInited = false;
+let _adsData = null; // datos cargados de ML
 
-function renderAdsAgente(){
+async function renderAdsAgente(){
   if(!_adsInited){
     _adsInited = true;
-    adsAppendMsg('agent', `Hola! Soy tu agente especializado en MercadoAds Argentina.\n\nPara un análisis preciso, cargá tus datos en "📊 Datos de MercadoAds" arriba. O si preferís, contame directamente cuánto estás gastando y qué resultado estás viendo.`);
+    adsAppendMsg('agent', `Hola! Soy tu agente de MercadoAds.\n\nVoy a leer automáticamente los datos de tus cuentas de ML para analizarlos...`);
   }
   adsUpdateKpis();
+  // Auto-cargar datos de ML si hay cuentas conectadas
+  const accounts = (S.accounts||[]).filter(a=>a.token);
+  if(accounts.length>0 && !_adsData){
+    await adsCargarDatosML(accounts);
+  }
 }
+
+async function adsCargarDatosML(accounts){
+  const statusEl = document.getElementById('ads_status');
+  if(statusEl) statusEl.textContent = '⏳ Leyendo datos de MercadoAds...';
+
+  const dias = parseInt(document.getElementById('ads_periodo_sel')?.value)||30;
+  const dateFrom = new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
+  const dateTo   = new Date().toISOString().split('T')[0];
+
+  const resultados = [];
+
+  for(const acct of accounts){
+    const sellerId = UID[acct.id]||acct.id;
+    const headers  = {'x-ml-token': acct.token};
+    try{
+      const [metR, itemsR] = await Promise.all([
+        fetch(`${PROXY}/ads/metricas?seller_id=${sellerId}&date_from=${dateFrom}&date_to=${dateTo}`, {headers}).then(r=>r.json()).catch(()=>({})),
+        fetch(`${PROXY}/ads/items?seller_id=${sellerId}&date_from=${dateFrom}&date_to=${dateTo}&limit=15`, {headers}).then(r=>r.json()).catch(()=>({})),
+      ]);
+
+      // Normalizar métricas — ML puede devolver diferentes formatos
+      const met = metR.metricas || metR.performance || metR;
+      const spent    = met.spent      || met.total_spent    || met.cost        || 0;
+      const clicks   = met.clicks     || met.total_clicks   || 0;
+      const impress  = met.prints     || met.impressions    || met.total_prints || 0;
+      const ventas   = met.total_sales|| met.attributed_sales|| met.conversions  || 0;
+      const ordenes  = met.orders     || met.total_orders   || 0;
+      const cpc      = clicks>0 ? spent/clicks : 0;
+      const ctr      = impress>0 ? clicks/impress : 0;
+      const acos     = ventas>0 ? spent/ventas : null;
+      const roas     = spent>0  ? ventas/spent : null;
+
+      // Ventas totales del período desde S.orders
+      const ventasTot = S.orders
+        .filter(o=>o.fecha>=dateFrom && o.fecha<=dateTo)
+        .reduce((s,o)=>s+o.venta,0);
+      // Margen promedio del historial
+      const ordsPer = S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo);
+      const ganTot  = ordsPer.reduce((s,o)=>s+o.ganancia,0);
+      const margenProm = ventasTot>0 ? ganTot/ventasTot : 0;
+
+      resultados.push({
+        acct: acct.id, sellerId, dias,
+        spent, clicks, impress, ventas, ordenes, cpc, ctr, acos, roas,
+        ventasTot, margenProm,
+        items: itemsR.items||[],
+        status_met: metR.status_metricas,
+        raw_met: met,
+      });
+    } catch(e){ console.warn('Ads error', acct.id, e); }
+  }
+
+  if(!resultados.length){
+    if(statusEl) statusEl.textContent = '⚠ No se pudieron leer datos de ads. Cargalos manualmente.';
+    return;
+  }
+
+  _adsData = resultados;
+
+  // Agregar totales
+  const totSpent  = resultados.reduce((s,r)=>s+r.spent,0);
+  const totVentas = resultados.reduce((s,r)=>s+r.ventas,0);
+  const totClicks = resultados.reduce((s,r)=>s+r.clicks,0);
+  const totOrd    = resultados.reduce((s,r)=>s+r.ordenes,0);
+  const totVentasTot = resultados.reduce((s,r)=>s+r.ventasTot,0);
+  const acosTotal = totVentas>0 ? totSpent/totVentas : null;
+  const roasTotal = totSpent>0  ? totVentas/totSpent : null;
+  const margenProm= totVentasTot>0 ? resultados.reduce((s,r)=>s+r.ganTot,0)/totVentasTot : 0;
+
+  // Actualizar KPIs
+  const setKpi=(id,val,unit,thresholds)=>{
+    const el=document.getElementById(id);
+    if(!el||val===null) return;
+    el.textContent = val.toFixed(unit==='x'?1:0)+(unit==='%'?'%':unit==='x'?'x':'');
+    el.style.color = val<=thresholds[0]?'var(--grn)':val<=thresholds[1]?'var(--org)':'var(--red)';
+  };
+  if(acosTotal!==null) setKpi('ads_k_acos', acosTotal*100, '%', [12,20]);
+  if(roasTotal!==null){
+    const el=document.getElementById('ads_k_roas');
+    if(el){ el.textContent=roasTotal.toFixed(1)+'x'; el.style.color=roasTotal>=6?'var(--grn)':roasTotal>=3?'var(--org)':'var(--red)'; }
+  }
+  const pctEl=document.getElementById('ads_k_pct');
+  if(pctEl&&totVentasTot>0){ pctEl.textContent=(totVentas/totVentasTot*100).toFixed(0)+'%'; pctEl.style.color='var(--t1)'; }
+  const invEl=document.getElementById('ads_k_inv');
+  if(invEl&&totSpent>0){ invEl.textContent=fS(totSpent); invEl.style.color='var(--red)'; }
+
+  // Construir contexto para el agente
+  const topItems = resultados.flatMap(r=>r.items).slice(0,5).map(i=>`  - ${i.item_id||i.id}: gastó $${(i.spent||0).toLocaleString('es-AR')}, ventas $${(i.sales||0).toLocaleString('es-AR')}, ACOS ${i.sales>0?((i.spent/i.sales)*100).toFixed(0):'?'}%`).join('\n');
+  _adsContexto = `DATOS MERCADOADS - NIVIKO (últimos ${dias} días) — LEÍDOS AUTOMÁTICAMENTE DE ML:
+
+RESUMEN TOTAL (${resultados.length} cuentas):
+- Inversión en ads: $${totSpent.toLocaleString('es-AR')} ARS
+- Ventas atribuidas a ads: $${totVentas.toLocaleString('es-AR')} ARS  
+- ACOS global: ${acosTotal!==null?(acosTotal*100).toFixed(1)+'%':'sin datos'}
+- ROAS global: ${roasTotal!==null?roasTotal.toFixed(2)+'x':'sin datos'}
+- Clicks totales: ${totClicks.toLocaleString('es-AR')}
+- CPC promedio: $${totClicks>0?(totSpent/totClicks).toFixed(0):'?'} ARS
+- Órdenes atribuidas: ${totOrd}
+- Ventas totales ML (todas): $${totVentasTot.toLocaleString('es-AR')} ARS
+- % ventas por ads: ${totVentasTot>0?((totVentas/totVentasTot)*100).toFixed(1):'?'}%
+
+POR CUENTA:
+${resultados.map(r=>`  ${r.acct}: gasto $${r.spent.toLocaleString('es-AR')}, ventas ads $${r.ventas.toLocaleString('es-AR')}, ACOS ${r.acos!==null?(r.acos*100).toFixed(1)+'%':'?'}, ROAS ${r.roas!==null?r.roas.toFixed(1)+'x':'?'}`).join('\n')}
+
+TOP ITEMS POR GASTO:
+${topItems||'  Sin datos de items'}
+
+CONTEXTO:
+- MercadoLíder con 4 cuentas (GBA/BHO/IURA/GBS)
+- Margen promedio real del historial: ${(resultados[0]?.margenProm*100||0).toFixed(1)}%
+- Venden muebles (sillas, mesas) y electrónica
+- ${totSpent===0&&totVentas===0?'NOTA: La API de ads devolvió datos en 0 — puede que el endpoint de ML no esté habilitado para esta cuenta o el formato cambió.':''}`;
+
+  // Render tabla de cuentas
+  adsRenderTabla(resultados);
+
+  // Mensaje automático del agente
+  if(statusEl) statusEl.textContent = `✓ Datos de ${resultados.length} cuenta${resultados.length!==1?'s':''} leídos (${dias}d)`;
+
+  // Si hay datos reales, hacer análisis automático
+  if(totSpent>0||totVentas>0){
+    setTimeout(()=>adsAnalisisAuto(), 500);
+  } else {
+    adsAppendMsg('agent', `Leí los datos de tus ${resultados.length} cuentas pero la API de MercadoAds no devolvió métricas de gasto.\n\nEsto puede pasar si:\n• Tus campañas están pausadas\n• El acceso al endpoint de Product Ads requiere permiso especial del token\n• ML cambió el formato del endpoint\n\nPodés cargar los datos manualmente en el formulario de arriba, o preguntarme cualquier duda estratégica igual.`);
+  }
+}
+
+function adsRenderTabla(resultados){
+  const el=document.getElementById('ads_tabla');
+  if(!el) return;
+  el.innerHTML=`<table class="tbl" style="font-size:11px">
+    <thead><tr><th>Cuenta</th><th>Gasto</th><th>Ventas ads</th><th>ACOS</th><th>ROAS</th><th>Clicks</th><th>CPC</th></tr></thead>
+    <tbody>${resultados.map(r=>{
+      const acosCol=r.acos===null?'var(--t3)':r.acos<=0.12?'var(--grn)':r.acos<=0.20?'var(--org)':'var(--red)';
+      const roasCol=r.roas===null?'var(--t3)':r.roas>=6?'var(--grn)':r.roas>=3?'var(--org)':'var(--red)';
+      return `<tr>
+        <td><span class="sku" style="background:var(--s3)">${esc(r.acct)}</span></td>
+        <td class="mono">${r.spent>0?fS(r.spent):'—'}</td>
+        <td class="mono">${r.ventas>0?fS(r.ventas):'—'}</td>
+        <td style="font-weight:600;color:${acosCol}">${r.acos!==null?(r.acos*100).toFixed(1)+'%':'—'}</td>
+        <td style="font-weight:600;color:${roasCol}">${r.roas!==null?r.roas.toFixed(1)+'x':'—'}</td>
+        <td class="mono">${r.clicks>0?r.clicks.toLocaleString('es-AR'):'—'}</td>
+        <td class="mono">${r.cpc>0?fS(r.cpc):'—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+async function adsAnalisisAuto(){
+  const thinkId=adsAppendThinking();
+  try{
+    const prompt=`Sos experto en MercadoAds Argentina para sellers de alto volumen.
+Acabo de leer los datos reales de sus cuentas:
+${_adsContexto}
+
+Hacé un análisis directo y práctico:
+1. DIAGNÓSTICO (2-3 frases sobre el estado real)
+2. PROBLEMA PRINCIPAL con impacto en pesos
+3. TOP 3 ACCIONES CONCRETAS para esta semana
+4. OBJETIVO REALISTA en 30 días (ACOS y ahorro en ARS)
+
+Máximo 250 palabras. Usá números reales de los datos.`;
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await resp.json();
+    const text=data.content?.[0]?.text||'';
+    adsRemoveThinking(thinkId);
+    if(text) {
+      adsAppendMsg('agent',text);
+      _adsHistory=[{role:'user',content:`Mis datos reales de ads:\n${_adsContexto}`},{role:'assistant',content:text}];
+    }
+  }catch(e){
+    adsRemoveThinking(thinkId);
+    adsAppendMsg('agent','Error al analizar. Podés preguntarme directamente.');
+  }
+}
+
+window.adsToggleDatos = function(){
+  const el=document.getElementById('ads_datos_panel');
+  const btn=document.getElementById('ads_datos_toggle');
+  if(!el) return;
+  const open=el.style.display==='none';
+  el.style.display=open?'':'none';
+  if(btn) btn.textContent=open?'▲ Cerrar':'▼ Datos manuales';
+};
+
+window.adsUpdateKpis = function(){
+  const inv  =parseFloat(document.getElementById('ads_inversion')?.value)||0;
+  const vAds =parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;
+  const vTot =parseFloat(document.getElementById('ads_ventas_total')?.value)||0;
+  if(!inv||!vAds) return;
+  const acos=inv/vAds*100, roas=vAds/inv, pct=vTot>0?vAds/vTot*100:0;
+  const acosEl=document.getElementById('ads_k_acos');
+  const roasEl=document.getElementById('ads_k_roas');
+  const pctEl =document.getElementById('ads_k_pct');
+  const invEl =document.getElementById('ads_k_inv');
+  if(acosEl){acosEl.textContent=acos.toFixed(1)+'%';acosEl.style.color=acos<=12?'var(--grn)':acos<=20?'var(--org)':'var(--red)';}
+  if(roasEl){roasEl.textContent=roas.toFixed(1)+'x';roasEl.style.color=roas>=6?'var(--grn)':roas>=3?'var(--org)':'var(--red)';}
+  if(pctEl&&pct){pctEl.textContent=pct.toFixed(0)+'%';}
+  if(invEl){invEl.textContent=fS(inv);invEl.style.color='var(--red)';}
+};
+
+window.adsAnalizar = async function(){
+  const inv   =parseFloat(document.getElementById('ads_inversion')?.value)||0;
+  const vAds  =parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;
+  const vTot  =parseFloat(document.getElementById('ads_ventas_total')?.value)||0;
+  const margen=parseFloat(document.getElementById('ads_margen')?.value)||0;
+  const cpc   =parseFloat(document.getElementById('ads_cpc')?.value)||0;
+  const periodo=document.getElementById('ads_periodo_sel')?.value||'30';
+  const prods =document.getElementById('ads_productos')?.value||'';
+  const prob  =document.getElementById('ads_problema')?.value||'';
+  if(!inv||!vAds){toast('Completá inversión y ventas ads','err');return;}
+  _adsContexto=`DATOS MANUALES MERCADOADS (${periodo} días):
+- Inversión: $${inv.toLocaleString('es-AR')} ARS | Ventas ads: $${vAds.toLocaleString('es-AR')} ARS
+- ACOS: ${(inv/vAds*100).toFixed(1)}% | ROAS: ${(vAds/inv).toFixed(1)}x
+- Ventas totales: ${vTot>0?'$'+vTot.toLocaleString('es-AR'):'no informado'}
+- CPC: ${cpc>0?'$'+cpc:'-'} | Margen real: ${margen>0?margen+'%':'-'}
+- Productos: ${prods||'mixto'} | Problema: ${prob||'-'}
+CONTEXTO: MercadoLíder, 4 cuentas (GBA/BHO/IURA/GBS)`;
+  adsUpdateKpis();
+  document.getElementById('ads_datos_panel').style.display='none';
+  document.getElementById('ads_datos_toggle').textContent='▼ Datos manuales';
+  await adsAnalisisAuto();
+};
+
+window.adsRecargar = async function(){
+  _adsData=null;_adsHistory=[];_adsContexto='';
+  const accounts=(S.accounts||[]).filter(a=>a.token);
+  await adsCargarDatosML(accounts);
+};
+
+window.adsQuick = function(text){ const inp=document.getElementById('ads_input'); if(inp){inp.value=text;adsSend();} };
+
+window.adsSend = async function(){
+  const inp=document.getElementById('ads_input');
+  const text=(inp?.value||'').trim();
+  if(!text) return;
+  inp.value='';inp.style.height='auto';
+  adsAppendMsg('user',text);
+  const btn=document.getElementById('ads_send_btn');
+  if(btn) btn.disabled=true;
+  const thinkId=adsAppendThinking();
+  const sys=`Sos experto en MercadoAds Argentina para sellers profesionales de MercadoLibre.
+${_adsContexto?`Datos del cliente:\n${_adsContexto}`:'Cliente: NIVIKO, MercadoLíder, muebles y electrónica.'}
+Respondé en español, directo, máximo 200 palabras, con números concretos en ARS.`;
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[..._adsHistory,{role:'user',content:text}]})});
+    const data=await resp.json();
+    const reply=data.content?.[0]?.text||'Sin respuesta.';
+    adsRemoveThinking(thinkId);
+    adsAppendMsg('agent',reply);
+    _adsHistory.push({role:'user',content:text},{role:'assistant',content:reply});
+    if(_adsHistory.length>20) _adsHistory=_adsHistory.slice(-20);
+  }catch(e){adsRemoveThinking(thinkId);adsAppendMsg('agent','❌ Error de conexión.');}
+  if(btn) btn.disabled=false;
+};
+
+function adsAppendMsg(type,text){
+  const el=document.getElementById('ads_messages');
+  if(!el) return;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:8px;margin-bottom:2px;animation:fadeUp .3s ease'+(type==='user'?';flex-direction:row-reverse':'');
+  const formatted=text.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--acc)">$1</strong>').replace(/ESTA SEMANA/g,'<span style="background:rgba(255,71,87,.2);color:var(--red);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">ESTA SEMANA</span>').replace(/PRÓXIMO MES/g,'<span style="background:rgba(255,165,2,.2);color:var(--org);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">PRÓXIMO MES</span>');
+  const bub=type==='user'?'background:var(--acc);color:#000;font-weight:500;border-radius:14px 14px 4px 14px':'background:var(--s2);border:1px solid var(--b1);color:var(--t1);border-radius:14px 14px 14px 4px';
+  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:${type==='user'?'var(--acc)':'var(--s3)'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:1px solid var(--b1)">${type==='user'?'👤':'🤖'}</div><div style="max-width:85%;padding:10px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;${bub}">${formatted}</div>`;
+  el.appendChild(div);el.scrollTop=el.scrollHeight;
+}
+
+function adsAppendThinking(){
+  const el=document.getElementById('ads_messages');
+  if(!el) return null;
+  const id='adsthink'+Date.now();
+  const div=document.createElement('div');
+  div.id=id;div.style.cssText='display:flex;gap:8px';
+  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:12px;border:1px solid var(--b1)">🤖</div><div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:10px 14px;display:flex;gap:4px;align-items:center"><div class="dot-ani"></div><div class="dot-ani" style="animation-delay:.2s"></div><div class="dot-ani" style="animation-delay:.4s"></div></div>`;
+  el.appendChild(div);el.scrollTop=el.scrollHeight;
+  return id;
+}
+
+function adsRemoveThinking(id){ if(id) document.getElementById(id)?.remove(); }
+
+// ── MAYORISTA ─────────────────────────────────────────────────────────────────
 
 window.adsToggleDatos = function(){
   const el=document.getElementById('ads_datos_panel');
