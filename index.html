@@ -4626,30 +4626,6 @@ Respondé en español, directo, máximo 200 palabras, con números concretos en 
   if(btn) btn.disabled=false;
 };
 
-function adsAppendMsg(type,text){
-  const el=document.getElementById('ads_messages');
-  if(!el) return;
-  const div=document.createElement('div');
-  div.style.cssText='display:flex;gap:8px;margin-bottom:2px;animation:fadeUp .3s ease'+(type==='user'?';flex-direction:row-reverse':'');
-  const formatted=text.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--acc)">$1</strong>').replace(/ESTA SEMANA/g,'<span style="background:rgba(255,71,87,.2);color:var(--red);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">ESTA SEMANA</span>').replace(/PRÓXIMO MES/g,'<span style="background:rgba(255,165,2,.2);color:var(--org);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">PRÓXIMO MES</span>');
-  const bub=type==='user'?'background:var(--acc);color:#000;font-weight:500;border-radius:14px 14px 4px 14px':'background:var(--s2);border:1px solid var(--b1);color:var(--t1);border-radius:14px 14px 14px 4px';
-  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:${type==='user'?'var(--acc)':'var(--s3)'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:1px solid var(--b1)">${type==='user'?'👤':'🤖'}</div><div style="max-width:85%;padding:10px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;${bub}">${formatted}</div>`;
-  el.appendChild(div);el.scrollTop=el.scrollHeight;
-}
-
-function adsAppendThinking(){
-  const el=document.getElementById('ads_messages');
-  if(!el) return null;
-  const id='adsthink'+Date.now();
-  const div=document.createElement('div');
-  div.id=id;div.style.cssText='display:flex;gap:8px';
-  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:12px;border:1px solid var(--b1)">🤖</div><div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:10px 14px;display:flex;gap:4px;align-items:center"><div class="dot-ani"></div><div class="dot-ani" style="animation-delay:.2s"></div><div class="dot-ani" style="animation-delay:.4s"></div></div>`;
-  el.appendChild(div);el.scrollTop=el.scrollHeight;
-  return id;
-}
-
-function adsRemoveThinking(id){ if(id) document.getElementById(id)?.remove(); }
-
 // ── MAYORISTA ─────────────────────────────────────────────────────────────────
 
 window.adsToggleDatos = function(){
