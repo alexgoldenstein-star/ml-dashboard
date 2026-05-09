@@ -158,6 +158,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ns">Gestión</div>
     <div class="ni" data-p="productos"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h8"/></svg>Productos</div>
     <div class="ni" data-p="plataforma"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 11h4M5 5h6"/></svg>Gestión ML</div>
+    <div class="ni" data-p="adsagente"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M3 14c0-3 2.2-5 5-5s5 2 5 5"/><path d="M11 3l2-1M5 3L3 2"/></svg>Ads Agent</div>
     <div class="ni" data-p="ctrl_prod"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>Control Productos</div>
     <div class="ni" data-p="zonas"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1C5.2 1 3 3.2 3 6c0 4 5 9 5 9s5-5 5-9c0-2.8-2.2-5-5-5z"/><circle cx="8" cy="6" r="1.5"/></svg>Zonas Flex</div>
     <div class="ni" data-p="mercado"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v6l3 3"/></svg>Inteligencia ML</div>
@@ -1354,6 +1355,89 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       </div>
     </div>
 
+    <!-- ADS AGENTE -->
+    <div class="page" id="page-adsagente">
+      <div style="max-width:720px;margin:0 auto">
+        <!-- KPIs en tiempo real -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px" id="ads_kpi_row">
+          <div class="card" style="padding:12px;border-left:3px solid var(--acc)">
+            <div style="font-size:9px;color:var(--t3);text-transform:uppercase">ACOS</div>
+            <div id="ads_k_acos" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif">—</div>
+            <div style="font-size:9px;color:var(--t3)">obj &lt;15%</div>
+          </div>
+          <div class="card" style="padding:12px;border-left:3px solid var(--grn)">
+            <div style="font-size:9px;color:var(--t3);text-transform:uppercase">ROAS</div>
+            <div id="ads_k_roas" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif">—</div>
+            <div style="font-size:9px;color:var(--t3)">obj &gt;6x</div>
+          </div>
+          <div class="card" style="padding:12px;border-left:3px solid var(--org)">
+            <div style="font-size:9px;color:var(--t3);text-transform:uppercase">% ventas ads</div>
+            <div id="ads_k_pct" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif">—</div>
+            <div style="font-size:9px;color:var(--t3)">del total</div>
+          </div>
+          <div class="card" style="padding:12px;border-left:3px solid var(--red)">
+            <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Inversión</div>
+            <div id="ads_k_inv" style="font-size:20px;font-weight:700;font-family:'Syne',sans-serif">—</div>
+            <div style="font-size:9px;color:var(--t3)">período</div>
+          </div>
+        </div>
+
+        <!-- Formulario de datos -->
+        <div class="card" style="margin-bottom:10px" id="ads_datos_card">
+          <div class="ch">
+            <span class="ct">📊 Datos de MercadoAds</span>
+            <button class="btn-g btn-sm" onclick="adsToggleDatos()" id="ads_datos_toggle">▼ Cargar datos</button>
+          </div>
+          <div id="ads_datos_panel" style="display:none;margin-top:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+              <div><label class="lbl">Inversión en ads (ARS)</label><input class="inp" id="ads_inversion" type="number" placeholder="850000" oninput="adsUpdateKpis()"></div>
+              <div><label class="lbl">Ventas atribuidas a ads (ARS)</label><input class="inp" id="ads_ventas_ads" type="number" placeholder="4200000" oninput="adsUpdateKpis()"></div>
+              <div><label class="lbl">Ventas totales del período (ARS)</label><input class="inp" id="ads_ventas_total" type="number" placeholder="8500000" oninput="adsUpdateKpis()"></div>
+              <div><label class="lbl">Margen promedio real %</label><input class="inp" id="ads_margen" type="number" placeholder="18" oninput="adsUpdateKpis()"></div>
+              <div><label class="lbl">CPC promedio (ARS)</label><input class="inp" id="ads_cpc" type="number" placeholder="320" oninput="adsUpdateKpis()"></div>
+              <div><label class="lbl">Período (días)</label><select class="inp" id="ads_periodo"><option value="7">7 días</option><option value="30" selected>30 días</option><option value="90">90 días</option></select></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+              <div><label class="lbl">Productos en ads</label><input class="inp" id="ads_productos" placeholder="sillas, mesas, auriculares..."></div>
+              <div><label class="lbl">Principal problema</label>
+                <select class="inp" id="ads_problema">
+                  <option value="">— Seleccioná —</option>
+                  <option value="acos_alto">ACOS muy alto</option>
+                  <option value="pocas_ventas">Gasto pero no vendo suficiente</option>
+                  <option value="competencia">Competencia me lleva el tráfico</option>
+                  <option value="cpc_alto">CPC subió mucho</option>
+                  <option value="conversion">Clicks pero no convierten</option>
+                  <option value="presupuesto">No sé cuánto invertir</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-sm" onclick="adsAnalizar()" style="width:100%">🔍 Analizar y cargar al agente</button>
+          </div>
+        </div>
+
+        <!-- Chat con el agente -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div id="ads_messages" style="height:380px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px"></div>
+          <!-- Quick actions -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1)">
+            <button class="btn-g btn-sm" onclick="adsQuick('¿Cómo reduzco el ACOS sin perder visibilidad?')" style="font-size:10px">Reducir ACOS</button>
+            <button class="btn-g btn-sm" onclick="adsQuick('¿En qué productos conviene pausar los ads?')" style="font-size:10px">Qué pausar</button>
+            <button class="btn-g btn-sm" onclick="adsQuick('¿Cómo segmento campañas de muebles vs electrónica?')" style="font-size:10px">Segmentación</button>
+            <button class="btn-g btn-sm" onclick="adsQuick('¿Cuánto debería invertir según mis márgenes reales?')" style="font-size:10px">Presupuesto óptimo</button>
+            <button class="btn-g btn-sm" onclick="adsQuick('¿Cómo bajo el CPC en categoría muebles?')" style="font-size:10px">Bajar CPC</button>
+          </div>
+          <div style="display:flex;gap:8px;padding:10px">
+            <textarea id="ads_input" placeholder="Preguntá sobre tu estrategia de ads..." rows="1"
+              style="flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);color:var(--t1);font-size:12px;padding:9px 12px;outline:none;resize:none;font-family:inherit"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adsSend()}"
+              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+            <button onclick="adsSend()" id="ads_send_btn"
+              style="width:38px;height:38px;background:var(--acc);border:none;border-radius:var(--r);cursor:pointer;font-size:16px;flex-shrink:0">↑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ALERTAS -->
     <div class="page" id="page-alertas">
       <div class="card"><div class="ch"><span class="ct" style="color:var(--red)">A completar</span></div><div id="alertasDet"></div></div>
@@ -1625,7 +1709,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -3458,84 +3542,73 @@ window.sPlatTab = function(t,el){
 let _convSort = {col:'conv_pct', dir:1}; // menor conversión primero
 
 async function renderConversion(el, accounts){
+  window._convAccounts = accounts; // guardar para reuso
   el.innerHTML=`<div class="card" style="margin-bottom:12px">
     <div class="ch"><span class="ct">📊 Conversión por publicación</span>
       <div style="display:flex;gap:8px;align-items:center">
-        <select class="inp" id="conv_periodo" style="font-size:11px;padding:4px 8px;height:auto" onchange="renderConversion(document.getElementById('platCont'), ${JSON.stringify(accounts)})">
+        <select class="inp" id="conv_periodo" style="font-size:11px;padding:4px 8px;height:auto" onchange="convRecargar()">
           <option value="7">Últimos 7 días</option>
           <option value="30" selected>Últimos 30 días</option>
           <option value="60">Últimos 60 días</option>
         </select>
+        <button class="btn btn-sm" onclick="convRecargar()" style="font-size:11px">↻ Recargar</button>
         <input class="inp" id="conv_search" placeholder="Buscar..." style="width:140px;font-size:11px" oninput="convRenderTable()">
       </div>
     </div>
-    <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Visitas vs ventas por publicación. Conversión = ventas / visitas. Bajo conversión con muchas visitas = oportunidad de mejora.</p>
+    <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Visitas vs ventas por publicación. Bajo conversión con muchas visitas = oportunidad de mejora.</p>
     <div id="conv_kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px"></div>
     <div class="tbl-wrap"><table class="tbl" id="conv_table">
       <thead><tr>
-        <th>Cuenta</th>
-        <th>Publicación</th>
+        <th>Cuenta</th><th>Publicación</th>
         <th onclick="convSort('visits')" style="cursor:pointer">Visitas <span id="csort_visits"></span></th>
-        <th onclick="convSort('sales_qty')" style="cursor:pointer">Ventas <span id="csort_sales_qty"></span></th>
-        <th onclick="convSort('conv_pct')" style="cursor:pointer">Conv. % <span id="csort_conv_pct"></span></th>
+        <th onclick="convSort('salesQty')" style="cursor:pointer">Ventas <span id="csort_salesQty"></span></th>
+        <th onclick="convSort('convPct')" style="cursor:pointer">Conv. % <span id="csort_convPct"></span></th>
         <th onclick="convSort('revenue')" style="cursor:pointer">Facturación <span id="csort_revenue"></span></th>
-        <th>Estado</th>
-        <th>Acción</th>
+        <th>Estado</th><th>Link</th>
       </tr></thead>
-      <tbody id="conv_tbody"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">Cargando datos de visitas...</td></tr></tbody>
+      <tbody id="conv_tbody"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">
+        Hacé clic en "↻ Recargar" para cargar los datos de visitas.
+      </td></tr></tbody>
     </table></div>
     <div style="margin-top:10px;padding:10px;background:var(--s2);border-radius:var(--r);font-size:11px;color:var(--t3)">
-      💡 <strong style="color:var(--t2)">Cómo mejorar conversión:</strong> Fotos principales, precio competitivo, título con palabras clave, descripción completa, preguntas respondidas, envío rápido.
+      💡 <strong style="color:var(--t2)">Publicaciones marcadas con 💡</strong> tienen >200 visitas y <1% conversión — son las que más vale la pena mejorar (fotos, precio, título, descripción).
     </div>
   </div>`;
+  await convRecargar();
+}
 
+window.convRecargar = async function(){
+  const accounts = window._convAccounts || (S.accounts||[]).filter(a=>a.token);
   const dias = parseInt(document.getElementById('conv_periodo')?.value)||30;
   const dateFrom = new Date(Date.now()-dias*24*60*60*1000).toISOString().split('T')[0];
   const dateTo = new Date().toISOString().split('T')[0];
+  const tbody = document.getElementById('conv_tbody');
+  if(tbody) tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">⏳ Cargando visitas...</td></tr>';
 
-  // Cargar items activos de cada cuenta y sus visitas
   window._convItems = [];
   for(const acct of accounts){
     const sellerId = UID[acct.id]||acct.userId||acct.id;
     try{
-      // Obtener items activos
-      const itemsR = await fetch(`${PROXY}/plataforma/items?seller_id=${sellerId}`,
-        {headers:{'x-ml-token':acct.token}});
+      const itemsR = await fetch(`${PROXY}/plataforma/publicaciones?seller_id=${sellerId}&limit=50`,{headers:{'x-ml-token':acct.token}});
       if(!itemsR.ok) continue;
       const itemsD = await itemsR.json();
       const items = itemsD.items||[];
-
-      // Para cada item, obtener visitas del período
-      for(const item of items.slice(0,50)){ // max 50 por cuenta
+      for(const item of items.slice(0,30)){
         try{
-          const visR = await fetch(`${PROXY}/plataforma/visitas?item_id=${item.id}&date_from=${dateFrom}&date_to=${dateTo}`,
-            {headers:{'x-ml-token':acct.token}});
+          const visR = await fetch(`${PROXY}/plataforma/visitas?item_id=${item.id}&date_from=${dateFrom}&date_to=${dateTo}`,{headers:{'x-ml-token':acct.token}});
           const visD = visR.ok ? await visR.json() : {};
-          const visits = visD.total_visits||visD.visits||0;
-          // Ventas reales del SKU en el período desde S.orders
-          const itemOrds = S.orders.filter(o=>{
-            if(!o.fecha) return false;
-            return o.fecha>=dateFrom && o.fecha<=dateTo &&
-              (o.mlItemId===item.id||o.sku===item.seller_sku);
-          });
+          const visits = visD.total_visits||0;
+          const itemOrds = S.orders.filter(o=>o.fecha>=dateFrom && o.fecha<=dateTo && (o.mlItemId===item.id||o.sku===item.seller_sku));
           const salesQty = itemOrds.reduce((s,o)=>s+o.unidades,0);
           const revenue  = itemOrds.reduce((s,o)=>s+o.venta,0);
           const convPct  = visits>0 ? salesQty/visits : 0;
-          window._convItems.push({
-            acct: acct.id,
-            id: item.id,
-            sku: item.seller_sku||'—',
-            title: item.title||'—',
-            price: item.price||0,
-            status: item.status||'—',
-            visits, salesQty, revenue, convPct,
-          });
-        } catch(e){ /* skip item */ }
+          window._convItems.push({acct:acct.id,id:item.id,sku:item.seller_sku||item.titulo||'—',title:item.titulo||'—',price:item.precio||0,visits,salesQty,revenue,convPct,permalink:item.permalink});
+        }catch(e){/*skip*/}
       }
-    } catch(e){ console.warn('Conv error acct',acct.id,e); }
+    }catch(e){console.warn('Conv error',acct.id,e);}
   }
   convRenderTable();
-}
+};
 
 window.convSort = function(col){
   if(_convSort.col===col) _convSort.dir*=-1; else{_convSort.col=col;_convSort.dir=-1;}
@@ -3546,16 +3619,12 @@ window.convRenderTable = function(){
   const items = window._convItems||[];
   const q = (document.getElementById('conv_search')?.value||'').toLowerCase();
   let filtered = items.filter(it=>!q||it.sku.toLowerCase().includes(q)||it.title.toLowerCase().includes(q));
-
-  // Sort
   const {col,dir}=_convSort;
   filtered.sort((a,b)=>((b[col]??0)-(a[col]??0))*dir);
-  ['visits','sales_qty','conv_pct','revenue'].forEach(c=>{
+  ['visits','salesQty','convPct','revenue'].forEach(c=>{
     const el=document.getElementById('csort_'+c);
     if(el) el.textContent=_convSort.col===c?(_convSort.dir===-1?' ↓':' ↑'):'';
   });
-
-  // KPIs
   const totVisits=filtered.reduce((s,i)=>s+i.visits,0);
   const totSales=filtered.reduce((s,i)=>s+i.salesQty,0);
   const totRev=filtered.reduce((s,i)=>s+i.revenue,0);
@@ -3566,36 +3635,29 @@ window.convRenderTable = function(){
     ['Ventas totales',totSales.toLocaleString('es-AR'),'var(--grn)'],
     ['Conversión prom.',(avgConv*100).toFixed(2)+'%',avgConv>=0.02?'var(--grn)':avgConv>=0.01?'var(--org)':'var(--red)'],
     ['Facturación',fS(totRev),'var(--grn)'],
-  ].map(([l,v,c])=>`<div class="kpi" style="border-left:3px solid ${c}">
-    <div class="kl">${l}</div><div class="kv" style="color:${c}">${v}</div>
-  </div>`).join('');
-
-  // Tabla
+  ].map(([l,v,c])=>`<div class="kpi" style="border-left:3px solid ${c}"><div class="kl">${l}</div><div class="kv" style="color:${c}">${v}</div></div>`).join('');
   const tbody=document.getElementById('conv_tbody');
   if(!tbody) return;
   if(!filtered.length){
-    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">Sin datos de visitas disponibles.<br><small>Asegurate de tener cuentas conectadas con token activo.</small></td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">Sin datos. Hacé clic en "↻ Recargar".</td></tr>';
     return;
   }
   tbody.innerHTML=filtered.map(it=>{
     const convColor=it.convPct>=0.03?'var(--grn)':it.convPct>=0.01?'var(--org)':'var(--red)';
     const convLabel=it.convPct>=0.03?'✅ Buena':it.convPct>=0.01?'⚠ Media':it.visits>100?'🔴 Baja':'—';
-    const opp = it.visits>200 && it.convPct<0.01;
-    return `<tr style="${opp?'background:rgba(255,100,0,.05)':''}">
-      <td><span style="font-size:10px;padding:2px 5px;background:var(--s2);border-radius:4px">${esc(it.acct)}</span></td>
-      <td>
-        <div style="font-size:11px;font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.title)}">${esc(it.title)}</div>
-        <div style="font-size:10px;color:var(--t3)">${esc(it.sku)} · ${fF(it.price)}</div>
-      </td>
-      <td class="mono">${it.visits.toLocaleString('es-AR')}</td>
-      <td class="mono">${it.salesQty}</td>
-      <td style="font-weight:600;color:${convColor}">${(it.convPct*100).toFixed(2)}%</td>
-      <td class="mono">${it.revenue>0?fS(it.revenue):'—'}</td>
-      <td><span style="font-size:11px">${convLabel}${opp?' 💡':''}</span></td>
-      <td>
-        <a href="https://www.mercadolibre.com.ar/p/${it.id}" target="_blank" class="btn-g btn-sm" style="font-size:10px;text-decoration:none">Ver →</a>
-      </td>
-    </tr>`;
+    const opp=it.visits>200&&it.convPct<0.01;
+    const link=it.permalink||`https://articulo.mercadolibre.com.ar/MLA-${it.id}`;
+    return '<tr style="'+(opp?'background:rgba(255,100,0,.05)':'')+'">'+
+      '<td><span style="font-size:10px;padding:2px 5px;background:var(--s2);border-radius:4px">'+esc(it.acct)+'</span></td>'+
+      '<td><div style="font-size:11px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(it.title)+'">'+esc(it.title)+'</div>'+
+      '<div style="font-size:10px;color:var(--t3)">'+esc(it.sku)+' · '+fF(it.price)+'</div></td>'+
+      '<td class="mono">'+it.visits.toLocaleString('es-AR')+'</td>'+
+      '<td class="mono">'+it.salesQty+'</td>'+
+      '<td style="font-weight:600;color:'+convColor+'">'+(it.convPct*100).toFixed(2)+'%</td>'+
+      '<td class="mono">'+(it.revenue>0?fS(it.revenue):'—')+'</td>'+
+      '<td>'+convLabel+(opp?' 💡':'')+'</td>'+
+      '<td><a href="'+link+'" target="_blank" class="btn-g btn-sm" style="font-size:10px;text-decoration:none">Ver →</a></td>'+
+      '</tr>';
   }).join('');
 };
 
@@ -4213,6 +4275,158 @@ window.openMob=()=>{document.getElementById("sb").classList.add("open");document
 window.closeMob=()=>{document.getElementById("sb").classList.remove("open");document.getElementById("mobOv").classList.remove("show");};
 
 init();
+
+// ── ADS AGENTE ────────────────────────────────────────────────────────────────
+let _adsHistory = [];
+let _adsContexto = '';
+let _adsInited = false;
+
+function renderAdsAgente(){
+  if(!_adsInited){
+    _adsInited = true;
+    adsAppendMsg('agent', `Hola! Soy tu agente especializado en MercadoAds Argentina.\n\nPara un análisis preciso, cargá tus datos en "📊 Datos de MercadoAds" arriba. O si preferís, contame directamente cuánto estás gastando y qué resultado estás viendo.`);
+  }
+  adsUpdateKpis();
+}
+
+window.adsToggleDatos = function(){
+  const el=document.getElementById('ads_datos_panel');
+  const btn=document.getElementById('ads_datos_toggle');
+  if(!el) return;
+  const open=el.style.display==='none';
+  el.style.display=open?'':'none';
+  if(btn) btn.textContent=open?'▲ Cerrar':'▼ Cargar datos';
+};
+
+window.adsUpdateKpis = function(){
+  const inv   = parseFloat(document.getElementById('ads_inversion')?.value)||0;
+  const vAds  = parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;
+  const vTot  = parseFloat(document.getElementById('ads_ventas_total')?.value)||0;
+  const acos  = vAds>0 ? (inv/vAds)*100 : 0;
+  const roas  = inv>0 ? vAds/inv : 0;
+  const pct   = vTot>0 ? (vAds/vTot)*100 : 0;
+  const acosEl=document.getElementById('ads_k_acos');
+  const roasEl=document.getElementById('ads_k_roas');
+  const pctEl =document.getElementById('ads_k_pct');
+  const invEl =document.getElementById('ads_k_inv');
+  if(acosEl){ acosEl.textContent=acos>0?acos.toFixed(1)+'%':'—'; acosEl.style.color=acos<=0?'var(--t3)':acos<=12?'var(--grn)':acos<=20?'var(--org)':'var(--red)'; }
+  if(roasEl){ roasEl.textContent=roas>0?roas.toFixed(1)+'x':'—'; roasEl.style.color=roas<=0?'var(--t3)':roas>=6?'var(--grn)':roas>=3?'var(--org)':'var(--red)'; }
+  if(pctEl) { pctEl.textContent=pct>0?pct.toFixed(0)+'%':'—'; pctEl.style.color=pct<=0?'var(--t3)':'var(--t1)'; }
+  if(invEl) { invEl.textContent=inv>0?fS(inv):'—'; invEl.style.color=inv>0?'var(--red)':'var(--t3)'; }
+};
+
+window.adsAnalizar = async function(){
+  const inv     = parseFloat(document.getElementById('ads_inversion')?.value)||0;
+  const vAds    = parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;
+  const vTot    = parseFloat(document.getElementById('ads_ventas_total')?.value)||0;
+  const margen  = parseFloat(document.getElementById('ads_margen')?.value)||0;
+  const cpc     = parseFloat(document.getElementById('ads_cpc')?.value)||0;
+  const periodo = document.getElementById('ads_periodo')?.value||'30';
+  const prods   = document.getElementById('ads_productos')?.value||'';
+  const problema= document.getElementById('ads_problema')?.value||'';
+  if(!inv||!vAds){ toast('Completá inversión y ventas ads','err'); return; }
+  const acos=(inv/vAds*100).toFixed(1), roas=(vAds/inv).toFixed(1);
+  _adsContexto = `DATOS MERCADOADS NIVIKO (${periodo} días):
+- Inversión: $${inv.toLocaleString('es-AR')} ARS
+- Ventas atribuidas: $${vAds.toLocaleString('es-AR')} ARS
+- Ventas totales: ${vTot>0?'$'+vTot.toLocaleString('es-AR')+' ARS':'no informado'}
+- ACOS: ${acos}% | ROAS: ${roas}x
+- Participación ads: ${vTot>0?((vAds/vTot)*100).toFixed(1):'?'}%
+- CPC: ${cpc>0?'$'+cpc.toLocaleString('es-AR'):'no informado'}
+- Margen real: ${margen>0?margen+'%':'no informado'}
+- Productos: ${prods||'mixto (muebles/electrónica)'}
+- Problema principal: ${problema||'no especificado'}
+CONTEXTO: MercadoLíder, 4 cuentas (GBA/BHO/IURA/GBS), alto volumen`;
+  document.getElementById('ads_datos_panel').style.display='none';
+  document.getElementById('ads_datos_toggle').textContent='▼ Cargar datos';
+  adsUpdateKpis();
+  const btn=document.getElementById('ads_send_btn');
+  if(btn) btn.disabled=true;
+  const thinkId=adsAppendThinking();
+  try{
+    const prompt=`Sos experto en MercadoAds Argentina para sellers de alto volumen.
+${_adsContexto}
+Analizá estos datos. Estructurá tu respuesta:
+1. DIAGNÓSTICO: 2-3 frases directas sobre el estado actual
+2. PROBLEMAS: los 2-3 más urgentes con impacto en pesos estimado  
+3. ACCIONES (prioridad):
+   • ESTA SEMANA: acciones inmediatas
+   • PRÓXIMO MES: optimizaciones
+4. OBJETIVO 30 DÍAS: ACOS/ROAS realista + ahorro estimado en ARS
+Sé directo, usa números reales, máximo 300 palabras.`;
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await resp.json();
+    const text=data.content?.[0]?.text||'Error al analizar.';
+    adsRemoveThinking(thinkId);
+    adsAppendMsg('agent',text);
+    _adsHistory=[{role:'user',content:`Mis datos:\n${_adsContexto}`},{role:'assistant',content:text}];
+    toast('✓ Análisis cargado al agente','ok');
+  }catch(e){
+    adsRemoveThinking(thinkId);
+    adsAppendMsg('agent','Error al conectar con la IA. Verificá tu conexión.');
+  }
+  if(btn) btn.disabled=false;
+};
+
+window.adsQuick = function(text){
+  const inp=document.getElementById('ads_input');
+  if(inp){ inp.value=text; adsSend(); }
+};
+
+window.adsSend = async function(){
+  const inp=document.getElementById('ads_input');
+  const text=(inp?.value||'').trim();
+  if(!text) return;
+  inp.value=''; inp.style.height='auto';
+  adsAppendMsg('user',text);
+  const btn=document.getElementById('ads_send_btn');
+  if(btn) btn.disabled=true;
+  const thinkId=adsAppendThinking();
+  const systemPrompt=`Sos experto en MercadoAds Argentina para sellers profesionales de MercadoLibre.
+${_adsContexto?`Contexto del cliente:\n${_adsContexto}`:'Cliente: NIVIKO, MercadoLíder, 4 cuentas, venden muebles y electrónica.'}
+Reglas: español directo, números en ARS, acciones concretas de ML hoy, máximo 200 palabras salvo que pidan más detalle.`;
+  const messages=[..._adsHistory,{role:'user',content:text}];
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages})});
+    const data=await resp.json();
+    const reply=data.content?.[0]?.text||'No pude responder.';
+    adsRemoveThinking(thinkId);
+    adsAppendMsg('agent',reply);
+    _adsHistory.push({role:'user',content:text},{role:'assistant',content:reply});
+    if(_adsHistory.length>20) _adsHistory=_adsHistory.slice(-20);
+  }catch(e){
+    adsRemoveThinking(thinkId);
+    adsAppendMsg('agent','❌ Error de conexión. Intentá de nuevo.');
+  }
+  if(btn) btn.disabled=false;
+};
+
+function adsAppendMsg(type,text){
+  const el=document.getElementById('ads_messages');
+  if(!el) return;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:8px;animation:fadeUp .3s ease;'+(type==='user'?'flex-direction:row-reverse':'');
+  const formatted=text.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--acc)">$1</strong>').replace(/•/g,'·').replace(/ESTA SEMANA/g,'<span style="background:rgba(255,71,87,.2);color:var(--red);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">ESTA SEMANA</span>').replace(/PRÓXIMO MES/g,'<span style="background:rgba(255,165,2,.2);color:var(--org);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">PRÓXIMO MES</span>');
+  const bubbleStyle=type==='user'
+    ?'background:var(--acc);color:#000;font-weight:500;border-radius:14px 14px 4px 14px'
+    :'background:var(--s2);border:1px solid var(--b1);color:var(--t1);border-radius:14px 14px 14px 4px';
+  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:${type==='user'?'var(--acc)':'var(--s3)'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:1px solid var(--b1)">${type==='user'?'👤':'🤖'}</div><div style="max-width:85%;padding:10px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;${bubbleStyle}">${formatted}</div>`;
+  el.appendChild(div);
+  el.scrollTop=el.scrollHeight;
+}
+
+function adsAppendThinking(){
+  const el=document.getElementById('ads_messages');
+  if(!el) return null;
+  const id='adsthink'+Date.now();
+  const div=document.createElement('div');
+  div.id=id;div.style.cssText='display:flex;gap:8px';
+  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:12px;border:1px solid var(--b1)">🤖</div><div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:10px 14px;display:flex;gap:4px;align-items:center"><div class="dot-ani"></div><div class="dot-ani" style="animation-delay:.2s"></div><div class="dot-ani" style="animation-delay:.4s"></div></div>`;
+  el.appendChild(div);el.scrollTop=el.scrollHeight;
+  return id;
+}
+
+function adsRemoveThinking(id){ if(id) document.getElementById(id)?.remove(); }
 
 // ── MAYORISTA ─────────────────────────────────────────────────────────────────
 let _mayPedidos = [];       // todos los pedidos en memoria
@@ -5567,7 +5781,8 @@ window.calcLoadSku = function(){
     const precios = ords.map(o=>o.venta/Math.max(o.unidades||1,1));
     const precioAvg = vt/ords.length;
     const precioEl = document.getElementById('calc_precio');
-    if(precioEl && !precioEl.value) precioEl.value = Math.round(precioAvg);
+    // Siempre actualizar precio al historial promedio del SKU seleccionado
+    if(precioEl) precioEl.value = Math.round(precioAvg);
     document.getElementById('calcHistPeriod').textContent = `${ords.length} órdenes · ${ut} unidades`;
     const mc = {Flex:0,Full:0,Correo:0};
     ords.forEach(o=>{ if(mc[o.modal]!==undefined) mc[o.modal]++; });
@@ -5643,8 +5858,9 @@ window.calcUpdate = function(){
   const costo   = parseFloat(document.getElementById('calc_costo')?.value)||0;
   const ivaPct  = parseFloat(document.getElementById('calc_iva')?.value)||21;
   const comPct  = parseFloat(document.getElementById('calc_com')?.value)||16;
-  const pubPct  = +(document.getElementById('calc_pub')?.value??5); // permite 0
-  const iibbPct = +(document.getElementById('calc_iibb2')?.value??4); // permite 0
+  const pubPct  = +(document.getElementById('calc_pub')?.value??5);
+  const iibbPct = +(document.getElementById('calc_iibb2')?.value??4);
+  const skuSel  = document.getElementById('calc_sku')?.value||'';
   const umbral  = S.cfg.umbral_free_ship||33000;
   const sobreU  = precio>=umbral;
   const BONIF_B = {1:S.cfg.bonif_bajo_c1||4490,2:S.cfg.bonif_bajo_c2||6490,3:S.cfg.bonif_bajo_c3||8490};
@@ -5659,48 +5875,34 @@ window.calcUpdate = function(){
     const com=precio*comPct/100,iva=precio*ivaPct/100,pub=precio*pubPct/100;
     const iibb=precio*iibbPct/100,ret=precio*0.012;
     let ingresoEnvio=0,costoCordon=0,costoEnvio=0;
-
-    // Leer costo de envío real del historial según selector
     const envMode = document.getElementById('calc_envio_mode')?.value||'auto';
     const stats = window._calcEnvioStats;
-    const getEnvioReal = (m) => {
-      if(!stats) return null;
-      if(envMode==='flex') return stats['Flex']?.avg||null;
-      if(envMode==='full') return stats['Full']?.avg||null;
-      if(envMode==='correo') return stats['Correo']?.avg||null;
-      return stats['all']?.avg||null; // auto = promedio total
-    };
-
     if(modal==='Flex'){
       costoCordon=CORD[cord];
       ingresoEnvio=(sobreU?BONIF_A:BONIF_B)[cord];
-      // Para Flex usamos siempre la lógica de bonif - cordón
     } else {
-      // Para Full y Correo: primero buscar en DB de envíos por SKU, luego historial, luego estimado
-      const dbEnvio = _envioDB[sku];
-      let realEnvio = null;
-      if(modal==='Full' && dbEnvio?.full>0) realEnvio = dbEnvio.full;
-      else if(modal==='Correo' && dbEnvio?.correo>0) realEnvio = dbEnvio.correo;
-      else if(modal==='Full' && dbEnvio?.correo>0) realEnvio = dbEnvio.correo; // fallback
-      // Si no hay en DB, usar historial
-      if(!realEnvio) realEnvio = stats?.[modal]?.avg || null;
-      if(realEnvio!=null && realEnvio>0){
-        costoEnvio = realEnvio;
-      } else {
-        costoEnvio = sobreU?(S.cfg.c3||6600):0;
+      const dbEnvio=(_envioDB||{})[skuSel];
+      let realEnvio=null;
+      if(modal==='Full'&&dbEnvio?.full>0) realEnvio=dbEnvio.full;
+      else if(modal==='Correo'&&dbEnvio?.correo>0) realEnvio=dbEnvio.correo;
+      else if(modal==='Full'&&dbEnvio?.correo>0) realEnvio=dbEnvio.correo;
+      if(!realEnvio){
+        if(envMode==='correo') realEnvio=stats?.['Correo']?.avg||null;
+        else if(envMode==='full') realEnvio=stats?.['Full']?.avg||null;
+        else realEnvio=stats?.[modal]?.avg||null;
       }
+      costoEnvio=(realEnvio>0)?realEnvio:(sobreU?(S.cfg.c3||6600):0);
     }
-    const ganancia = modal==='Flex'
-      ? precio+ingresoEnvio-com-costoCordon-costo-iva-pub-iibb-ret
-      : precio-com-costo-iva-pub-iibb-ret-costoEnvio;
-    const sku2=document.getElementById('calc_sku')?.value||'';
-    const dbE=_envioDB[sku2];
-    const envioLabel = modal==='Flex'
-      ? `Bonif ${fF(ingresoEnvio)} · Cordón ${fF(costoCordon)}`
-      : (dbE&&(modal==='Full'?dbE.full:dbE.correo)>0
-          ? `📌 DB real (${dbE.nota||'guardado'})`
-          : stats?.[modal]?.n>0 ? `Historial real (${stats[modal].n}ó)` : 'Estimado');
-    return {ganancia,pct:precio?ganancia/precio:0,roi:costo?ganancia/costo:0,
+    const ganancia=modal==='Flex'
+      ?precio+ingresoEnvio-com-costoCordon-costo-iva-pub-iibb-ret
+      :precio-com-costo-iva-pub-iibb-ret-costoEnvio;
+    const dbE=(_envioDB||{})[skuSel];
+    const envioLabel=modal==='Flex'
+      ?`Bonif ${fF(ingresoEnvio)} · Cordón ${fF(costoCordon)}`
+      :(dbE&&(modal==='Full'?dbE.full:dbE.correo)>0
+          ?`📌 DB real (${dbE.nota||'guardado'})`
+          :(stats?.[modal]?.n>0?`Historial (${stats[modal].n}ó)`:'Estimado'));
+    return{ganancia,pct:precio?ganancia/precio:0,roi:costo?ganancia/costo:0,
       com,iva,pub,iibb,ret,costoEnvio,ingresoEnvio,costoCordon,envioLabel,
       label:modal==='Flex'?`Flex C${cord}`:modal};
   };
