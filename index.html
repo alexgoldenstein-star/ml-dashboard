@@ -4461,7 +4461,6 @@ async function adsCargarDesdeAPI(accounts, dateFrom, dateTo, dias){
 function adsCargarDesdeOrdenes(dias, dateFrom, dateTo){
   // Filtrar órdenes del período
   const ords = S.orders.filter(o=>o.fecha>=dateFrom && o.fecha<=dateTo);
-  ords = S.orders.filter(o=>o.fecha>=dateFrom && o.fecha<=dateTo);
 
   if(!ords.length){
     if(statusEl) statusEl.textContent = '⚠ Sin órdenes en el período. Actualizá las ventas primero.';
