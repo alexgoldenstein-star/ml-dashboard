@@ -4352,489 +4352,196 @@ window.closeMob=()=>{document.getElementById("sb").classList.remove("open");docu
 
 init();
 
-// ── ADS AGENTE ────────────────────────────────────────────────────────────────
+// ── ADS AGENTE ───────────────────────────────────────────────────────────────
 let _adsHistory = [];
 let _adsContexto = '';
 let _adsInited = false;
-let _adsData = null; // datos cargados de ML
+let _adsData = null;
 
 async function renderAdsAgente(){
   if(!_adsInited){
-    _adsInited = true;
-    adsAppendMsg('agent', `Hola! Soy tu agente de MercadoAds.\n\nVoy a leer automáticamente los datos de tus cuentas de ML para analizarlos...`);
+    _adsInited=true;
+    adsMsg('agent','Hola! Soy tu agente de MercadoAds.\n\nAnalizando tus datos...');
   }
-  adsUpdateKpis();
-  // Auto-cargar datos de ML si hay cuentas conectadas
-  const accounts = (S.accounts||[]).filter(a=>a.token);
+  const accounts=(S.accounts||[]).filter(a=>a.token);
   if(accounts.length>0 && !_adsData){
-    await adsCargarDatosML(accounts);
+    await adsCargar(accounts);
   }
 }
 
-async function adsCargarDatosML(accounts){
-  const statusEl = document.getElementById('ads_status');
-  if(statusEl) statusEl.textContent = '⏳ Conectando con MercadoAds...';
+async function adsCargar(accounts){
+  const stEl=document.getElementById('ads_status');
+  const dias=parseInt(document.getElementById('ads_periodo_sel')?.value)||30;
+  const dateFrom=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
+  const dateTo=new Date().toISOString().split('T')[0];
 
-  const dias = parseInt(document.getElementById('ads_periodo_sel')?.value)||30;
-  const dateFrom = new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
-  const dateTo   = new Date().toISOString().split('T')[0];
-
-  // Intentar primero la API real de ML Ads
-  let apiOk = false;
-  const acct0 = accounts[0];
+  // Intentar API real de ML primero
+  if(stEl) stEl.textContent='⏳ Conectando con MercadoAds API...';
+  let apiOk=false;
+  const acct0=accounts[0];
   if(acct0){
-    const sellerId = UID[acct0.id]||acct0.id;
     try{
-      const diagR = await fetch(`${PROXY}/ads/diagnostico?seller_id=${sellerId}`,
-        {headers:{'x-ml-token':acct0.token}});
-      const diag = await diagR.json();
-      // Verificar si algún endpoint respondió con 200
-      const ok200 = Object.entries(diag.results||{}).filter(([,v])=>v.status===200);
-      if(ok200.length>0){
-        apiOk = true;
-        console.log('ML Ads API disponible:', ok200.map(([url])=>url));
-      } else {
-        console.log('ML Ads API no disponible. Status codes:', 
-          Object.entries(diag.results||{}).map(([url,v])=>`${url.split('/').slice(-2).join('/')}:${v.status}`).join(', '));
-      }
-    }catch(e){ console.warn('Diagnóstico ads falló:', e.message); }
+      const sid=UID[acct0.id]||acct0.id;
+      const d=await fetch(`${PROXY}/ads/diagnostico?seller_id=${sid}`,{headers:{'x-ml-token':acct0.token}}).then(r=>r.json()).catch(()=>({}));
+      apiOk=Object.values(d.results||{}).some(v=>v.status===200);
+    }catch(e){}
   }
 
   if(apiOk){
-    // Usar datos reales de la API de ML Ads
-    await adsCargarDesdeAPI(accounts, dateFrom, dateTo, dias);
+    await adsDesdeAPI(accounts,dateFrom,dateTo,dias);
   } else {
-    // Fallback: calcular desde órdenes propias
-    if(statusEl) statusEl.textContent = '⚠ API Ads sin acceso — usando historial de órdenes';
-    adsCargarDesdeOrdenes(dias, dateFrom, dateTo);
-    // Mostrar aviso de cómo habilitar
-    adsAppendMsg('agent', `No pude conectar con la API de MercadoAds directamente.\n\nPara habilitar el acceso completo:\n\n<strong>1.</strong> Ir a <strong>Sistema → Get Token</strong>\n<strong>2.</strong> Reconectar cada cuenta (el nuevo scope ya incluye <em>read_product_ads</em>)\n<strong>3.</strong> Volver acá y recargar\n\nMientras tanto, calculé las métricas de publicidad desde tus <strong>${S.orders.filter(o=>o.fecha>=dateFrom).length} órdenes reales</strong> del período.`);
+    if(stEl) stEl.textContent='⚠ API Ads requiere reconectar cuentas — usando historial de órdenes';
+    adsDesdeOrdenes(dias,dateFrom,dateTo);
+    adsMsg('agent',`No pude acceder a la API de MercadoAds directamente.\n\nPara habilitarlo:\n1. Ir a Sistema → Get Token\n2. Reconectar cada cuenta (ya incluye el scope read_product_ads)\n3. Volver y recargar\n\nMientras tanto, calculé las métricas desde tus órdenes reales del período.`);
   }
 }
 
-async function adsCargarDesdeAPI(accounts, dateFrom, dateTo, dias){
-  const statusEl = document.getElementById('ads_status');
-  if(statusEl) statusEl.textContent = '⏳ Leyendo métricas reales de MercadoAds...';
-  const resultados=[];
+async function adsDesdeAPI(accounts,dateFrom,dateTo,dias){
+  const stEl=document.getElementById('ads_status');
+  if(stEl) stEl.textContent='⏳ Leyendo métricas reales de MercadoAds...';
+  const res=[];
   for(const acct of accounts){
-    const sellerId=UID[acct.id]||acct.id;
+    const sid=UID[acct.id]||acct.id;
     const h={'x-ml-token':acct.token};
     try{
       const[metR,itemsR]=await Promise.all([
-        fetch(`${PROXY}/ads/metricas?seller_id=${sellerId}&date_from=${dateFrom}&date_to=${dateTo}`,{headers:h}).then(r=>r.json()).catch(()=>({})),
-        fetch(`${PROXY}/ads/items?seller_id=${sellerId}&date_from=${dateFrom}&date_to=${dateTo}&limit=15`,{headers:h}).then(r=>r.json()).catch(()=>({})),
+        fetch(`${PROXY}/ads/metricas?seller_id=${sid}&date_from=${dateFrom}&date_to=${dateTo}`,{headers:h}).then(r=>r.json()).catch(()=>({})),
+        fetch(`${PROXY}/ads/items?seller_id=${sid}&date_from=${dateFrom}&date_to=${dateTo}&limit=15`,{headers:h}).then(r=>r.json()).catch(()=>({})),
       ]);
-      const met=metR.metricas||{};
-      const spent=met.spent||met.total_spent||met.cost||0;
-      const clicks=met.clicks||met.total_clicks||0;
-      const impress=met.prints||met.impressions||0;
-      const ventas=met.total_sales||met.attributed_sales||0;
-      const ordenes=met.orders||met.total_orders||0;
-      const cpc=clicks>0?spent/clicks:0;
-      const acos=ventas>0?spent/ventas:null;
-      const roas=spent>0?ventas/spent:null;
-      const ventasTot=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.acct===acct.id).reduce((s,o)=>s+o.venta,0);
-      const ganTot=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.acct===acct.id).reduce((s,o)=>s+o.ganancia,0);
-      resultados.push({acct:acct.id,sellerId,spent,clicks,impress,ventas,ordenes,cpc,acos,roas,ventasTot,ganTot,items:itemsR.items||[]});
-    }catch(e){console.warn('Ads API error',acct.id,e);}
+      const m=metR.metricas||{};
+      const spent=m.spent||m.total_spent||m.cost||0;
+      const clicks=m.clicks||m.total_clicks||0;
+      const ventas=m.total_sales||m.attributed_sales||0;
+      const ordenes=m.orders||m.total_orders||0;
+      const vtot=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.acct===acct.id).reduce((s,o)=>s+o.venta,0);
+      const gant=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.acct===acct.id).reduce((s,o)=>s+o.ganancia,0);
+      res.push({acct:acct.id,spent,clicks,ventas,ordenes,vtot,gant,
+        acos:ventas>0?spent/ventas:null,roas:spent>0?ventas/spent:null,
+        cpc:clicks>0?spent/clicks:0,items:itemsR.items||[]});
+    }catch(e){console.warn('Ads API',acct.id,e);}
   }
-  if(!resultados.length){adsCargarDesdeOrdenes(dias,dateFrom,dateTo);return;}
-  const totSpent=resultados.reduce((s,r)=>s+r.spent,0);
-  const totVentas=resultados.reduce((s,r)=>s+r.ventas,0);
-  const totClicks=resultados.reduce((s,r)=>s+r.clicks,0);
-  const totVentasTot=resultados.reduce((s,r)=>s+r.ventasTot,0);
-  const acosTotal=totVentas>0?totSpent/totVentas:null;
-  const roasTotal=totSpent>0?totVentas/totSpent:null;
-  const setK=(id,text,color)=>{const el=document.getElementById(id);if(el){el.textContent=text;el.style.color=color;}};
-  setK('ads_k_acos',acosTotal!==null?(acosTotal*100).toFixed(1)+'%':'—',acosTotal===null?'var(--t3)':acosTotal<=0.12?'var(--grn)':acosTotal<=0.20?'var(--org)':'var(--red)');
-  setK('ads_k_roas',roasTotal!==null?roasTotal.toFixed(1)+'x':'—',roasTotal===null?'var(--t3)':roasTotal>=6?'var(--grn)':roasTotal>=3?'var(--org)':'var(--red)');
-  setK('ads_k_pct',totVentasTot>0?(totVentas/totVentasTot*100).toFixed(0)+'%':'—','var(--t1)');
-  setK('ads_k_inv',fS(totSpent),'var(--red)');
-  adsRenderTabla(resultados.map(r=>({acct:r.acct,spent:r.spent,ventas:r.ventas,ordenes:r.ordenes,acos:r.acos,roas:r.roas,clicks:r.clicks,cpc:r.cpc,margen:r.ventasTot>0?r.ganTot/r.ventasTot:null})));
-  const topItems=resultados.flatMap(r=>r.items).slice(0,5).map(i=>`  - ${i.item_id||i.id}: gastó $${(i.spent||0).toLocaleString('es-AR')}, ventas $${(i.sales||0).toLocaleString('es-AR')}`).join('\n');
-  _adsContexto=`DATOS REALES API MERCADOADS - NIVIKO (${dias} días):\n- Inversión: ${fS(totSpent)}\n- Ventas ads: ${fS(totVentas)}\n- ACOS: ${acosTotal!==null?(acosTotal*100).toFixed(1)+'%':'?'}\n- ROAS: ${roasTotal!==null?roasTotal.toFixed(1)+'x':'?'}\n- Clicks: ${totClicks.toLocaleString('es-AR')}\nPOR CUENTA:\n${resultados.map(r=>`  ${r.acct}: gasto ${fS(r.spent)}, ACOS ${r.acos!==null?(r.acos*100).toFixed(1)+'%':'?'}`).join('\n')}\nTOP ITEMS:\n${topItems}\nCONTEXTO: MercadoLíder, 4 cuentas, muebles y electrónica.`;
-  _adsData=resultados;
-  if(statusEl) statusEl.textContent=`✓ Datos reales de ML Ads · ${resultados.length} cuentas · ${dias}d`;
-  setTimeout(()=>adsAnalisisAuto(),300);
+  if(!res.length){adsDesdeOrdenes(dias,dateFrom,dateTo);return;}
+  const ts=res.reduce((s,r)=>s+r.spent,0);
+  const tv=res.reduce((s,r)=>s+r.ventas,0);
+  const tvt=res.reduce((s,r)=>s+r.vtot,0);
+  adsSetKpis(ts,tv,tvt,res);
+  _adsData=res;
+  _adsContexto=`DATOS REALES ML ADS (${dias}d):\nGasto: ${fS(ts)} | Ventas ads: ${fS(tv)} | ACOS: ${tv>0?((ts/tv)*100).toFixed(1)+'%':'?'} | ROAS: ${ts>0?(tv/ts).toFixed(1)+'x':'?'}\nPor cuenta:\n${res.map(r=>`  ${r.acct}: ${fS(r.spent)} gastado, ACOS ${r.acos!==null?(r.acos*100).toFixed(1)+'%':'?'}`).join('\n')}\nContexto: MercadoLíder, 4 cuentas, muebles y electrónica.`;
+  if(stEl) stEl.textContent=`✓ Datos reales de ML Ads · ${res.length} cuentas · ${dias}d`;
+  setTimeout(adsAnalisisAuto,300);
 }
 
-function adsCargarDesdeOrdenes(dias, dateFrom, dateTo){
-  // Filtrar órdenes del período
-  const ords = S.orders.filter(o=>o.fecha>=dateFrom && o.fecha<=dateTo);
-  const ords = S.orders.filter(o=>o.fecha>=dateFrom && o.fecha<=dateTo);
-
+function adsDesdeOrdenes(dias,dateFrom,dateTo){
+  const stEl=document.getElementById('ads_status');
+  const ords=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo);
   if(!ords.length){
-    if(statusEl) statusEl.textContent = '⚠ Sin órdenes en el período. Actualizá las ventas primero.';
-    adsAppendMsg('agent','No encontré órdenes en el período seleccionado. Hacé clic en "Actualizar ventas" primero, o cambiá el período.');
+    if(stEl) stEl.textContent='⚠ Sin órdenes. Actualizá las ventas primero.';
     return;
   }
-
-  // Calcular métricas reales desde las órdenes
-  // pub = gasto en publicidad de cada orden (ya calculado como venta * pubPct%)
-  const totPub     = ords.reduce((s,o)=>s+(o.pub||0),0);
-  const totVenta   = ords.reduce((s,o)=>s+(o.venta||0),0);
-  const totGan     = ords.reduce((s,o)=>s+(o.ganancia||0),0);
-  const totUnids   = ords.reduce((s,o)=>s+(o.unidades||0),0);
-  const totOrdenes = ords.length;
-
-  // Métricas por cuenta
-  const porCuenta = {};
-  ords.forEach(o=>{
-    const a=o.acct||'?';
-    if(!porCuenta[a]) porCuenta[a]={pub:0,venta:0,gan:0,ords:0};
-    porCuenta[a].pub  +=o.pub||0;
-    porCuenta[a].venta+=o.venta||0;
-    porCuenta[a].gan  +=o.ganancia||0;
-    porCuenta[a].ords ++;
-  });
-
-  // ACOS real = gasto pub / ventas totales (no solo ventas atribuidas)
-  // Para ML, toda venta "paga" publicidad (el % ya está en el costo)
-  const acosReal = totVenta>0 ? totPub/totVenta : null;
-  const roasReal = totPub>0  ? totVenta/totPub  : null;
-  const pubPorOrden = totOrdenes>0 ? totPub/totOrdenes : 0;
-  const margenReal  = totVenta>0  ? totGan/totVenta : 0;
-  const margenSinPub= totVenta>0  ? (totGan+totPub)/totVenta : 0; // margen sin contar pub
-
-  // Top SKUs por gasto en publicidad
-  const porSku = {};
-  ords.forEach(o=>{
-    if(!o.sku) return;
-    if(!porSku[o.sku]) porSku[o.sku]={pub:0,venta:0,gan:0,ords:0,desc:o.desc||o.sku};
-    porSku[o.sku].pub  +=o.pub||0;
-    porSku[o.sku].venta+=o.venta||0;
-    porSku[o.sku].gan  +=o.ganancia||0;
-    porSku[o.sku].ords ++;
-  });
-  const topSkus = Object.entries(porSku)
-    .sort((a,b)=>b[1].pub-a[1].pub)
-    .slice(0,8)
-    .map(([sku,d])=>({sku,pub:d.pub,venta:d.venta,gan:d.gan,ords:d.ords,desc:d.desc,
-      acos:d.venta>0?d.pub/d.venta:null,
-      margen:d.venta>0?d.gan/d.venta:null}));
-
-  // SKUs con bajo margen (candidatos a pausar)
-  const skusBajoMargen = topSkus.filter(s=>s.margen!==null&&s.margen<0.05&&s.pub>5000);
-  // SKUs con alto ACOS
-  const skusAltoAcos = topSkus.filter(s=>s.acos!==null&&s.acos>0.20&&s.pub>5000);
-
-  // Actualizar KPIs
-  const setK=(id,val,text,color)=>{const el=document.getElementById(id);if(el){el.textContent=text;el.style.color=color;}};
-  setK('ads_k_acos',acosReal, acosReal!==null?(acosReal*100).toFixed(1)+'%':'—',
-    acosReal===null?'var(--t3)':acosReal<=0.12?'var(--grn)':acosReal<=0.20?'var(--org)':'var(--red)');
-  setK('ads_k_roas',roasReal, roasReal!==null?roasReal.toFixed(1)+'x':'—',
-    roasReal===null?'var(--t3)':roasReal>=6?'var(--grn)':roasReal>=3?'var(--org)':'var(--red)');
-  setK('ads_k_pct',null, (margenReal*100).toFixed(1)+'%',
-    margenReal>=0.15?'var(--grn)':margenReal>=0.08?'var(--org)':'var(--red)');
-  setK('ads_k_inv',null, fS(totPub), 'var(--red)');
-
-  // Actualizar label del KPI de % a "Margen neto"
-  const kPctLabel = document.querySelector('#ads_k_pct')?.parentElement?.querySelector('.kpi-label, div');
-  // Render tabla
-  adsRenderTabla(Object.entries(porCuenta).map(([acct,d])=>({
-    acct, spent:d.pub, ventas:d.venta, ordenes:d.ords,
-    acos:d.venta>0?d.pub/d.venta:null,
-    roas:d.pub>0?d.venta/d.pub:null,
-    margen:d.venta>0?d.gan/d.venta:null,
-    clicks:null, cpc:null
-  })));
-
-  // Render tabla de top SKUs
-  const tablaEl = document.getElementById('ads_tabla');
+  const totPub=ords.reduce((s,o)=>s+(o.pub||0),0);
+  const totV=ords.reduce((s,o)=>s+(o.venta||0),0);
+  const totG=ords.reduce((s,o)=>s+(o.ganancia||0),0);
+  const porCuenta={};
+  ords.forEach(o=>{const a=o.acct||'?';if(!porCuenta[a])porCuenta[a]={pub:0,venta:0,gan:0,ords:0};porCuenta[a].pub+=o.pub||0;porCuenta[a].venta+=o.venta||0;porCuenta[a].gan+=o.ganancia||0;porCuenta[a].ords++;});
+  const porSku={};
+  ords.forEach(o=>{if(!o.sku)return;if(!porSku[o.sku])porSku[o.sku]={pub:0,venta:0,gan:0,ords:0};porSku[o.sku].pub+=o.pub||0;porSku[o.sku].venta+=o.venta||0;porSku[o.sku].gan+=o.ganancia||0;porSku[o.sku].ords++;});
+  const topSkus=Object.entries(porSku).sort((a,b)=>b[1].pub-a[1].pub).slice(0,8);
+  const acosR=totV>0?totPub/totV:null;
+  const roasR=totPub>0?totV/totPub:null;
+  const mgR=totV>0?totG/totV:0;
+  const res=Object.entries(porCuenta).map(([acct,d])=>({acct,spent:d.pub,ventas:d.venta,vtot:d.venta,gant:d.gan,ordenes:d.ords,acos:d.venta>0?d.pub/d.venta:null,roas:d.pub>0?d.venta/d.pub:null,cpc:0,items:[]}));
+  adsSetKpis(totPub,totV,totV,res);
+  _adsData=res;
+  const tablaEl=document.getElementById('ads_tabla');
   if(tablaEl){
-    let html = '<table class="tbl" style="font-size:11px"><thead><tr><th>Cuenta</th><th>Pub gastada</th><th>Ventas</th><th>ACOS</th><th>ROAS</th><th>Margen neto</th><th>Órdenes</th></tr></thead><tbody>';
-    Object.entries(porCuenta).forEach(([acct,d])=>{
-      const acos=d.venta>0?d.pub/d.venta:null;
-      const roas=d.pub>0?d.venta/d.pub:null;
-      const mg=d.venta>0?d.gan/d.venta:null;
-      const acosC=acos===null?'var(--t3)':acos<=0.12?'var(--grn)':acos<=0.20?'var(--org)':'var(--red)';
-      const roasC=roas===null?'var(--t3)':roas>=6?'var(--grn)':roas>=3?'var(--org)':'var(--red)';
+    let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Cuenta</th><th>Pub gastada</th><th>Ventas</th><th>ACOS</th><th>ROAS</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
+    Object.entries(porCuenta).forEach(([a,d])=>{
+      const ac=d.venta>0?d.pub/d.venta:null,ro=d.pub>0?d.venta/d.pub:null,mg=d.venta>0?d.gan/d.venta:null;
+      const acC=ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)';
+      const roC=ro===null?'var(--t3)':ro>=6?'var(--grn)':ro>=3?'var(--org)':'var(--red)';
       const mgC=mg===null?'var(--t3)':mg>=0.15?'var(--grn)':mg>=0.08?'var(--org)':'var(--red)';
-      html+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(acct)}</span></td><td class="mono" style="color:var(--red)">${fS(d.pub)}</td><td class="mono">${fS(d.venta)}</td><td style="font-weight:600;color:${acosC}">${acos!==null?(acos*100).toFixed(1)+'%':'—'}</td><td style="font-weight:600;color:${roasC}">${roas!==null?roas.toFixed(1)+'x':'—'}</td><td style="font-weight:600;color:${mgC}">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td></tr>`;
+      h+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(a)}</span></td><td class="mono" style="color:var(--red)">${fS(d.pub)}</td><td class="mono">${fS(d.venta)}</td><td style="color:${acC};font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="color:${roC};font-weight:600">${ro!==null?ro.toFixed(1)+'x':'—'}</td><td style="color:${mgC};font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td></tr>`;
     });
-    html += '</tbody></table>';
-    // Top SKUs por gasto
+    h+='</tbody></table>';
     if(topSkus.length){
-      html += '<div style="margin-top:10px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:4px">Top SKUs por gasto en publicidad</div>';
-      html += '<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
-      topSkus.forEach(s=>{
-        const acosC=s.acos===null?'var(--t3)':s.acos<=0.12?'var(--grn)':s.acos<=0.20?'var(--org)':'var(--red)';
-        const mgC=s.margen===null?'var(--t3)':s.margen>=0.10?'var(--grn)':s.margen>=0.05?'var(--org)':'var(--red)';
-        html+=`<tr><td><span class="sku">${esc(s.sku)}</span></td><td class="mono" style="color:var(--red)">${fS(s.pub)}</td><td class="mono">${fS(s.venta)}</td><td style="color:${acosC};font-weight:600">${s.acos!==null?(s.acos*100).toFixed(1)+'%':'—'}</td><td style="color:${mgC};font-weight:600">${s.margen!==null?(s.margen*100).toFixed(1)+'%':'—'}</td><td>${s.ords}</td></tr>`;
+      h+='<div style="margin-top:10px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:4px">Top SKUs por gasto en publicidad</div>';
+      h+='<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
+      topSkus.forEach(([sku,d])=>{
+        const ac=d.venta>0?d.pub/d.venta:null,mg=d.venta>0?d.gan/d.venta:null;
+        const acC=ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)';
+        const mgC=mg===null?'var(--t3)':mg>=0.10?'var(--grn)':mg>=0.05?'var(--org)':'var(--red)';
+        h+=`<tr><td><span class="sku">${esc(sku)}</span></td><td class="mono" style="color:var(--red)">${fS(d.pub)}</td><td class="mono">${fS(d.venta)}</td><td style="color:${acC};font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="color:${mgC};font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td></tr>`;
       });
-      html += '</tbody></table>';
+      h+='</tbody></table>';
     }
-    tablaEl.innerHTML = html;
+    tablaEl.innerHTML=h;
   }
-
-  // Construir contexto rico para el agente
-  _adsContexto = `DATOS REALES MERCADOADS - NIVIKO (últimos ${dias} días):
-Calculado desde ${totOrdenes} órdenes reales de ML.
-
-RESUMEN GLOBAL:
-- Gasto total en publicidad: ${fS(totPub)} ARS
-- Ventas totales: ${fS(totVenta)} ARS (${totUnids} unidades)
-- ACOS real: ${acosReal!==null?(acosReal*100).toFixed(1)+'%':'sin datos'}
-- ROAS: ${roasReal!==null?roasReal.toFixed(1)+'x':'sin datos'}
-- Margen neto (ya con pub descontada): ${(margenReal*100).toFixed(1)}%
-- Margen sin publicidad: ${(margenSinPub*100).toFixed(1)}%
-- Gasto pub promedio por orden: ${fS(Math.round(pubPorOrden))} ARS
-
-POR CUENTA:
-${Object.entries(porCuenta).map(([a,d])=>`  ${a}: pub ${fS(d.pub)}, ventas ${fS(d.venta)}, ACOS ${d.venta>0?((d.pub/d.venta)*100).toFixed(1)+'%':'?'}, margen ${d.venta>0?((d.gan/d.venta)*100).toFixed(1)+'%':'?'}, ${d.ords} órdenes`).join('\n')}
-
-TOP SKUs POR GASTO EN PUB:
-${topSkus.slice(0,5).map(s=>`  ${s.sku}: pub ${fS(s.pub)}, ventas ${fS(s.venta)}, ACOS ${s.acos!==null?(s.acos*100).toFixed(1)+'%':'?'}, margen ${s.margen!==null?(s.margen*100).toFixed(1)+'%':'?'}`).join('\n')}
-
-${skusBajoMargen.length?`SKUs CON BAJO MARGEN (<5%) Y ALTO GASTO:\n${skusBajoMargen.map(s=>`  ${s.sku}: margen ${((s.margen||0)*100).toFixed(1)}%, pub ${fS(s.pub)}`).join('\n')}`:''}
-${skusAltoAcos.length?`\nSKUs CON ACOS ALTO (>20%):\n${skusAltoAcos.map(s=>`  ${s.sku}: ACOS ${((s.acos||0)*100).toFixed(1)}%, pub ${fS(s.pub)}`).join('\n')}`:''}
-
-CONTEXTO EMPRESA: MercadoLíder, 4 cuentas (GBA/BHO/IURA/GBS), muebles y electrónica.
-NOTA: El gasto en publicidad está calculado como el % de publicidad aplicado sobre cada venta real.`;
-
-  if(statusEl) statusEl.textContent = `✓ ${totOrdenes} órdenes analizadas · ${dias} días · ${Object.keys(porCuenta).length} cuentas`;
-  _adsData = {totPub, totVenta, totGan, acosReal, roasReal, margenReal, topSkus};
-
-  // Análisis automático
-  setTimeout(()=>adsAnalisisAuto(), 300);
-}
+  _adsContexto=`DATOS ADS DESDE ÓRDENES REALES (${dias}d, ${ords.length} órdenes):\nGasto pub total: ${fS(totPub)} | Ventas: ${fS(totV)} | ACOS: ${acosR!==null?(acosR*100).toFixed(1)+'%':'?'} | ROAS: ${roasR!==null?roasR.toFixed(1)+'x':'?'} | Margen neto: ${(mgR*100).toFixed(1)}%\nPor cuenta:\n${Object.entries(porCuenta).map(([a,d])=>`  ${a}: pub ${fS(d.pub)}, ventas ${fS(d.venta)}, ACOS ${d.venta>0?((d.pub/d.venta)*100).toFixed(1)+'%':'?'}, margen ${d.venta>0?((d.gan/d.venta)*100).toFixed(1)+'%':'?'}`).join('\n')}\nTop SKUs por pub:\n${topSkus.slice(0,5).map(([s,d])=>`  ${s}: pub ${fS(d.pub)}, ACOS ${d.venta>0?((d.pub/d.venta)*100).toFixed(1)+'%':'?'}`).join('\n')}\nContexto: MercadoLíder, 4 cuentas, muebles y electrónica.`;
+  if(stEl) stEl.textContent=`✓ ${ords.length} órdenes analizadas · ${dias} días · historial interno`;
+  setTimeout(adsAnalisisAuto,300);
 }
 
-      // Normalizar métricas — ML puede devolver diferentes formatos
-      const met = metR.metricas || metR.performance || metR;
-      const spent    = met.spent      || met.total_spent    || met.cost        || 0;
-      const clicks   = met.clicks     || met.total_clicks   || 0;
-      const impress  = met.prints     || met.impressions    || met.total_prints || 0;
-      const ventas   = met.total_sales|| met.attributed_sales|| met.conversions  || 0;
-      const ordenes  = met.orders     || met.total_orders   || 0;
-      const cpc      = clicks>0 ? spent/clicks : 0;
-      const ctr      = impress>0 ? clicks/impress : 0;
-      const acos     = ventas>0 ? spent/ventas : null;
-      const roas     = spent>0  ? ventas/spent : null;
-
-      // Ventas totales del período desde S.orders
-      const ventasTot = S.orders
-        .filter(o=>o.fecha>=dateFrom && o.fecha<=dateTo)
-        .reduce((s,o)=>s+o.venta,0);
-      // Margen promedio del historial
-      const ordsPer = S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo);
-      const ganTot  = ordsPer.reduce((s,o)=>s+o.ganancia,0);
-      const margenProm = ventasTot>0 ? ganTot/ventasTot : 0;
-
-      resultados.push({
-        acct: acct.id, sellerId, dias,
-        spent, clicks, impress, ventas, ordenes, cpc, ctr, acos, roas,
-        ventasTot, margenProm,
-        items: itemsR.items||[],
-        status_met: metR.status_metricas,
-        raw_met: met,
-      });
-    } catch(e){ console.warn('Ads error', acct.id, e); }
-  }
-
-  if(!resultados.length){
-    if(statusEl) statusEl.textContent = '⚠ No se pudieron leer datos de ads. Cargalos manualmente.';
-    return;
-  }
-
-  _adsData = resultados;
-
-  // Agregar totales
-  const totSpent  = resultados.reduce((s,r)=>s+r.spent,0);
-  const totVentas = resultados.reduce((s,r)=>s+r.ventas,0);
-  const totClicks = resultados.reduce((s,r)=>s+r.clicks,0);
-  const totOrd    = resultados.reduce((s,r)=>s+r.ordenes,0);
-  const totVentasTot = resultados.reduce((s,r)=>s+r.ventasTot,0);
-  const acosTotal = totVentas>0 ? totSpent/totVentas : null;
-  const roasTotal = totSpent>0  ? totVentas/totSpent : null;
-  const margenProm= totVentasTot>0 ? resultados.reduce((s,r)=>s+r.ganTot,0)/totVentasTot : 0;
-
-  // Actualizar KPIs
-  const setKpi=(id,val,unit,thresholds)=>{
-    const el=document.getElementById(id);
-    if(!el||val===null) return;
-    el.textContent = val.toFixed(unit==='x'?1:0)+(unit==='%'?'%':unit==='x'?'x':'');
-    el.style.color = val<=thresholds[0]?'var(--grn)':val<=thresholds[1]?'var(--org)':'var(--red)';
-  };
-  if(acosTotal!==null) setKpi('ads_k_acos', acosTotal*100, '%', [12,20]);
-  if(roasTotal!==null){
-    const el=document.getElementById('ads_k_roas');
-    if(el){ el.textContent=roasTotal.toFixed(1)+'x'; el.style.color=roasTotal>=6?'var(--grn)':roasTotal>=3?'var(--org)':'var(--red)'; }
-  }
-  const pctEl=document.getElementById('ads_k_pct');
-  if(pctEl&&totVentasTot>0){ pctEl.textContent=(totVentas/totVentasTot*100).toFixed(0)+'%'; pctEl.style.color='var(--t1)'; }
-  const invEl=document.getElementById('ads_k_inv');
-  if(invEl&&totSpent>0){ invEl.textContent=fS(totSpent); invEl.style.color='var(--red)'; }
-
-  // Construir contexto para el agente
-  const topItems = resultados.flatMap(r=>r.items).slice(0,5).map(i=>`  - ${i.item_id||i.id}: gastó $${(i.spent||0).toLocaleString('es-AR')}, ventas $${(i.sales||0).toLocaleString('es-AR')}, ACOS ${i.sales>0?((i.spent/i.sales)*100).toFixed(0):'?'}%`).join('\n');
-  _adsContexto = `DATOS MERCADOADS - NIVIKO (últimos ${dias} días) — LEÍDOS AUTOMÁTICAMENTE DE ML:
-
-RESUMEN TOTAL (${resultados.length} cuentas):
-- Inversión en ads: $${totSpent.toLocaleString('es-AR')} ARS
-- Ventas atribuidas a ads: $${totVentas.toLocaleString('es-AR')} ARS  
-- ACOS global: ${acosTotal!==null?(acosTotal*100).toFixed(1)+'%':'sin datos'}
-- ROAS global: ${roasTotal!==null?roasTotal.toFixed(2)+'x':'sin datos'}
-- Clicks totales: ${totClicks.toLocaleString('es-AR')}
-- CPC promedio: $${totClicks>0?(totSpent/totClicks).toFixed(0):'?'} ARS
-- Órdenes atribuidas: ${totOrd}
-- Ventas totales ML (todas): $${totVentasTot.toLocaleString('es-AR')} ARS
-- % ventas por ads: ${totVentasTot>0?((totVentas/totVentasTot)*100).toFixed(1):'?'}%
-
-POR CUENTA:
-${resultados.map(r=>`  ${r.acct}: gasto $${r.spent.toLocaleString('es-AR')}, ventas ads $${r.ventas.toLocaleString('es-AR')}, ACOS ${r.acos!==null?(r.acos*100).toFixed(1)+'%':'?'}, ROAS ${r.roas!==null?r.roas.toFixed(1)+'x':'?'}`).join('\n')}
-
-TOP ITEMS POR GASTO:
-${topItems||'  Sin datos de items'}
-
-CONTEXTO:
-- MercadoLíder con 4 cuentas (GBA/BHO/IURA/GBS)
-- Margen promedio real del historial: ${(resultados[0]?.margenProm*100||0).toFixed(1)}%
-- Venden muebles (sillas, mesas) y electrónica
-- ${totSpent===0&&totVentas===0?'NOTA: La API de ads devolvió datos en 0 — puede que el endpoint de ML no esté habilitado para esta cuenta o el formato cambió.':''}`;
-
-  // Render tabla de cuentas
-  adsRenderTabla(resultados);
-
-  // Mensaje automático del agente
-  if(statusEl) statusEl.textContent = `✓ Datos de ${resultados.length} cuenta${resultados.length!==1?'s':''} leídos (${dias}d)`;
-
-  // Si hay datos reales, hacer análisis automático
-  if(totSpent>0||totVentas>0){
-    setTimeout(()=>adsAnalisisAuto(), 500);
-  } else {
-    adsAppendMsg('agent', `Leí los datos de tus ${resultados.length} cuentas pero la API de MercadoAds no devolvió métricas de gasto.\n\nEsto puede pasar si:\n• Tus campañas están pausadas\n• El acceso al endpoint de Product Ads requiere permiso especial del token\n• ML cambió el formato del endpoint\n\nPodés cargar los datos manualmente en el formulario de arriba, o preguntarme cualquier duda estratégica igual.`);
-  }
+function adsSetKpis(totPub,totV,totVT,res){
+  const ac=totV>0?totPub/totV:null,ro=totPub>0?totV/totPub:null,pct=totVT>0?totV/totVT:null;
+  const setK=(id,text,color)=>{const el=document.getElementById(id);if(el){el.textContent=text;el.style.color=color;}};
+  setK('ads_k_acos',ac!==null?(ac*100).toFixed(1)+'%':'—',ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)');
+  setK('ads_k_roas',ro!==null?ro.toFixed(1)+'x':'—',ro===null?'var(--t3)':ro>=6?'var(--grn)':ro>=3?'var(--org)':'var(--red)');
+  setK('ads_k_pct',pct!==null?(pct*100).toFixed(0)+'%':'—','var(--t1)');
+  setK('ads_k_inv',fS(totPub),'var(--red)');
 }
 
-function adsRenderTabla(resultados){
+function adsRenderTabla(res){
+  // Used by adsDesdeAPI
   const el=document.getElementById('ads_tabla');
   if(!el) return;
-  el.innerHTML=`<table class="tbl" style="font-size:11px">
-    <thead><tr><th>Cuenta</th><th>Gasto</th><th>Ventas ads</th><th>ACOS</th><th>ROAS</th><th>Clicks</th><th>CPC</th></tr></thead>
-    <tbody>${resultados.map(r=>{
-      const acosCol=r.acos===null?'var(--t3)':r.acos<=0.12?'var(--grn)':r.acos<=0.20?'var(--org)':'var(--red)';
-      const roasCol=r.roas===null?'var(--t3)':r.roas>=6?'var(--grn)':r.roas>=3?'var(--org)':'var(--red)';
-      return `<tr>
-        <td><span class="sku" style="background:var(--s3)">${esc(r.acct)}</span></td>
-        <td class="mono">${r.spent>0?fS(r.spent):'—'}</td>
-        <td class="mono">${r.ventas>0?fS(r.ventas):'—'}</td>
-        <td style="font-weight:600;color:${acosCol}">${r.acos!==null?(r.acos*100).toFixed(1)+'%':'—'}</td>
-        <td style="font-weight:600;color:${roasCol}">${r.roas!==null?r.roas.toFixed(1)+'x':'—'}</td>
-        <td class="mono">${r.clicks>0?r.clicks.toLocaleString('es-AR'):'—'}</td>
-        <td class="mono">${r.cpc>0?fS(r.cpc):'—'}</td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
+  let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Cuenta</th><th>Gasto</th><th>Ventas ads</th><th>ACOS</th><th>ROAS</th><th>CPC</th></tr></thead><tbody>';
+  res.forEach(r=>{
+    const acC=r.acos===null?'var(--t3)':r.acos<=0.12?'var(--grn)':r.acos<=0.20?'var(--org)':'var(--red)';
+    const roC=r.roas===null?'var(--t3)':r.roas>=6?'var(--grn)':r.roas>=3?'var(--org)':'var(--red)';
+    h+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(r.acct)}</span></td><td class="mono" style="color:var(--red)">${r.spent>0?fS(r.spent):'—'}</td><td class="mono">${r.ventas>0?fS(r.ventas):'—'}</td><td style="color:${acC};font-weight:600">${r.acos!==null?(r.acos*100).toFixed(1)+'%':'—'}</td><td style="color:${roC};font-weight:600">${r.roas!==null?r.roas.toFixed(1)+'x':'—'}</td><td class="mono">${r.cpc>0?fS(r.cpc):'—'}</td></tr>`;
+  });
+  el.innerHTML=h+'</tbody></table>';
 }
 
 async function adsAnalisisAuto(){
-  const thinkId=adsAppendThinking();
+  if(!_adsContexto) return;
+  const tid=adsThink();
   try{
-    const prompt=`Sos experto en MercadoAds Argentina para sellers de alto volumen.
-Acabo de leer los datos reales de sus cuentas:
-${_adsContexto}
-
-Hacé un análisis directo y práctico:
-1. DIAGNÓSTICO (2-3 frases sobre el estado real)
-2. PROBLEMA PRINCIPAL con impacto en pesos
-3. TOP 3 ACCIONES CONCRETAS para esta semana
-4. OBJETIVO REALISTA en 30 días (ACOS y ahorro en ARS)
-
-Máximo 250 palabras. Usá números reales de los datos.`;
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
-    const data=await resp.json();
-    const text=data.content?.[0]?.text||'';
-    adsRemoveThinking(thinkId);
-    if(text) {
-      adsAppendMsg('agent',text);
-      _adsHistory=[{role:'user',content:`Mis datos reales de ads:\n${_adsContexto}`},{role:'assistant',content:text}];
-    }
-  }catch(e){
-    adsRemoveThinking(thinkId);
-    adsAppendMsg('agent','Error al analizar. Podés preguntarme directamente.');
-  }
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Sos experto en MercadoAds Argentina para sellers de alto volumen.\n${_adsContexto}\nAnalizá estos datos:\n1. DIAGNÓSTICO (2-3 frases directas)\n2. PROBLEMA PRINCIPAL con impacto en pesos\n3. TOP 3 ACCIONES para esta semana\n4. OBJETIVO 30 DÍAS (ACOS objetivo + ahorro en ARS)\nMáximo 250 palabras, usá números reales.`}]})});
+    const d=await resp.json();
+    const text=d.content?.[0]?.text||'';
+    adsUnthink(tid);
+    if(text){adsMsg('agent',text);_adsHistory=[{role:'user',content:`Datos:\n${_adsContexto}`},{role:'assistant',content:text}];}
+  }catch(e){adsUnthink(tid);adsMsg('agent','Error al analizar. Preguntame directamente.');}
 }
 
-window.adsToggleDatos = function(){
-  const el=document.getElementById('ads_datos_panel');
-  const btn=document.getElementById('ads_datos_toggle');
-  if(!el) return;
-  const open=el.style.display==='none';
-  el.style.display=open?'':'none';
-  if(btn) btn.textContent=open?'▲ Cerrar':'▼ Datos manuales';
-};
+window.adsToggleDatos=function(){const el=document.getElementById('ads_datos_panel'),btn=document.getElementById('ads_datos_toggle');if(!el)return;const o=el.style.display==='none';el.style.display=o?'':'none';if(btn)btn.textContent=o?'▲ Cerrar':'▼ Datos manuales';};
+window.adsUpdateKpis=function(){const i=parseFloat(document.getElementById('ads_inversion')?.value)||0,v=parseFloat(document.getElementById('ads_ventas_ads')?.value)||0,vt=parseFloat(document.getElementById('ads_ventas_total')?.value)||0;if(!i||!v)return;adsSetKpis(i,v,vt||v,[]);};
+window.adsAnalizar=async function(){const i=parseFloat(document.getElementById('ads_inversion')?.value)||0,v=parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;if(!i||!v){toast('Completá inversión y ventas ads','err');return;}_adsContexto=`DATOS MANUALES (${document.getElementById('ads_periodo_sel')?.value||30}d): Gasto ${fS(i)}, Ventas ads ${fS(v)}, ACOS ${(i/v*100).toFixed(1)}%, ROAS ${(v/i).toFixed(1)}x. Prods: ${document.getElementById('ads_productos')?.value||'mixto'}. Contexto: MercadoLíder 4 cuentas.`;adsUpdateKpis();document.getElementById('ads_datos_panel').style.display='none';await adsAnalisisAuto();};
+window.adsRecargar=async function(){_adsData=null;_adsHistory=[];_adsContexto='';const acc=(S.accounts||[]).filter(a=>a.token);if(acc.length)await adsCargar(acc);else adsMsg('agent','No hay cuentas conectadas.');};
+window.adsQuick=function(t){const inp=document.getElementById('ads_input');if(inp){inp.value=t;adsSend();}};
+window.adsSend=async function(){const inp=document.getElementById('ads_input'),text=(inp?.value||'').trim();if(!text)return;inp.value='';inp.style.height='auto';adsMsg('user',text);const btn=document.getElementById('ads_send_btn');if(btn)btn.disabled=true;const tid=adsThink();const sys=`Sos experto en MercadoAds Argentina.\n${_adsContexto||'Cliente: NIVIKO, MercadoLíder, muebles y electrónica.'}\nRespondé en español, directo, máximo 200 palabras.`;try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[..._adsHistory,{role:'user',content:text}]})});const d=await resp.json();const reply=d.content?.[0]?.text||'Sin respuesta.';adsUnthink(tid);adsMsg('agent',reply);_adsHistory.push({role:'user',content:text},{role:'assistant',content:reply});if(_adsHistory.length>20)_adsHistory=_adsHistory.slice(-20);}catch(e){adsUnthink(tid);adsMsg('agent','❌ Error de conexión.');}if(btn)btn.disabled=false;};
 
-window.adsUpdateKpis = function(){
-  const inv  =parseFloat(document.getElementById('ads_inversion')?.value)||0;
-  const vAds =parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;
-  const vTot =parseFloat(document.getElementById('ads_ventas_total')?.value)||0;
-  if(!inv||!vAds) return;
-  const acos=inv/vAds*100, roas=vAds/inv, pct=vTot>0?vAds/vTot*100:0;
-  const acosEl=document.getElementById('ads_k_acos');
-  const roasEl=document.getElementById('ads_k_roas');
-  const pctEl =document.getElementById('ads_k_pct');
-  const invEl =document.getElementById('ads_k_inv');
-  if(acosEl){acosEl.textContent=acos.toFixed(1)+'%';acosEl.style.color=acos<=12?'var(--grn)':acos<=20?'var(--org)':'var(--red)';}
-  if(roasEl){roasEl.textContent=roas.toFixed(1)+'x';roasEl.style.color=roas>=6?'var(--grn)':roas>=3?'var(--org)':'var(--red)';}
-  if(pctEl&&pct){pctEl.textContent=pct.toFixed(0)+'%';}
-  if(invEl){invEl.textContent=fS(inv);invEl.style.color='var(--red)';}
-};
+function adsMsg(type,text){
+  const el=document.getElementById('ads_messages');if(!el)return;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:8px;margin-bottom:2px;'+(type==='user'?'flex-direction:row-reverse':'');
+  const fmt=text.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--acc)">$1</strong>');
+  const bub=type==='user'?'background:var(--acc);color:#000;font-weight:500;border-radius:14px 14px 4px 14px':'background:var(--s2);border:1px solid var(--b1);color:var(--t1);border-radius:14px 14px 14px 4px';
+  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:${type==='user'?'var(--acc)':'var(--s3)'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:1px solid var(--b1)">${type==='user'?'👤':'🤖'}</div><div style="max-width:85%;padding:10px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;${bub}">${fmt}</div>`;
+  el.appendChild(div);el.scrollTop=el.scrollHeight;
+}
 
-window.adsAnalizar = async function(){
-  const inv   =parseFloat(document.getElementById('ads_inversion')?.value)||0;
-  const vAds  =parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;
-  const vTot  =parseFloat(document.getElementById('ads_ventas_total')?.value)||0;
-  const margen=parseFloat(document.getElementById('ads_margen')?.value)||0;
-  const cpc   =parseFloat(document.getElementById('ads_cpc')?.value)||0;
-  const periodo=document.getElementById('ads_periodo_sel')?.value||'30';
-  const prods =document.getElementById('ads_productos')?.value||'';
-  const prob  =document.getElementById('ads_problema')?.value||'';
-  if(!inv||!vAds){toast('Completá inversión y ventas ads','err');return;}
-  _adsContexto=`DATOS MANUALES MERCADOADS (${periodo} días):
-- Inversión: $${inv.toLocaleString('es-AR')} ARS | Ventas ads: $${vAds.toLocaleString('es-AR')} ARS
-- ACOS: ${(inv/vAds*100).toFixed(1)}% | ROAS: ${(vAds/inv).toFixed(1)}x
-- Ventas totales: ${vTot>0?'$'+vTot.toLocaleString('es-AR'):'no informado'}
-- CPC: ${cpc>0?'$'+cpc:'-'} | Margen real: ${margen>0?margen+'%':'-'}
-- Productos: ${prods||'mixto'} | Problema: ${prob||'-'}
-CONTEXTO: MercadoLíder, 4 cuentas (GBA/BHO/IURA/GBS)`;
-  adsUpdateKpis();
-  document.getElementById('ads_datos_panel').style.display='none';
-  document.getElementById('ads_datos_toggle').textContent='▼ Datos manuales';
-  await adsAnalisisAuto();
-};
+function adsThink(){
+  const el=document.getElementById('ads_messages');if(!el)return null;
+  const id='t'+Date.now(),div=document.createElement('div');
+  div.id=id;div.style.cssText='display:flex;gap:8px';
+  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:12px;border:1px solid var(--b1)">🤖</div><div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:10px 14px;display:flex;gap:4px;align-items:center"><div class="dot-ani"></div><div class="dot-ani" style="animation-delay:.2s"></div><div class="dot-ani" style="animation-delay:.4s"></div></div>`;
+  el.appendChild(div);el.scrollTop=el.scrollHeight;return id;
+}
 
-window.adsRecargar = async function(){
-  _adsData=null;_adsHistory=[];_adsContexto='';
-  const accounts=(S.accounts||[]).filter(a=>a.token);
-  await adsCargarDatosML(accounts);
-};
+function adsUnthink(id){if(id)document.getElementById(id)?.remove();}
 
-window.adsQuick = function(text){ const inp=document.getElementById('ads_input'); if(inp){inp.value=text;adsSend();} };
-
-window.adsSend = async function(){
-  const inp=document.getElementById('ads_input');
-  const text=(inp?.value||'').trim();
-  if(!text) return;
-  inp.value='';inp.style.height='auto';
-  adsAppendMsg('user',text);
-  const btn=document.getElementById('ads_send_btn');
-  if(btn) btn.disabled=true;
-  const thinkId=adsAppendThinking();
-  const sys=`Sos experto en MercadoAds Argentina para sellers profesionales de MercadoLibre.
-${_adsContexto?`Datos del cliente:\n${_adsContexto}`:'Cliente: NIVIKO, MercadoLíder, muebles y electrónica.'}
-Respondé en español, directo, máximo 200 palabras, con números concretos en ARS.`;
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[..._adsHistory,{role:'user',content:text}]})});
-    const data=await resp.json();
-    const reply=data.content?.[0]?.text||'Sin respuesta.';
-    adsRemoveThinking(thinkId);
-    adsAppendMsg('agent',reply);
-    _adsHistory.push({role:'user',content:text},{role:'assistant',content:reply});
-    if(_adsHistory.length>20) _adsHistory=_adsHistory.slice(-20);
-  }catch(e){adsRemoveThinking(thinkId);adsAppendMsg('agent','❌ Error de conexión.');}
-  if(btn) btn.disabled=false;
-};
 
 // ── MAYORISTA ─────────────────────────────────────────────────────────────────
 
