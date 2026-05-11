@@ -1456,65 +1456,6 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       </div>
     </div>
 
-    <!-- ALERTAS -->
-
-        <!-- Formulario de datos -->
-        <div class="card" style="margin-bottom:10px" id="ads_datos_card">
-          <div class="ch">
-            <span class="ct">📊 Datos de MercadoAds</span>
-            <button class="btn-g btn-sm" onclick="adsToggleDatos()" id="ads_datos_toggle">▼ Cargar datos</button>
-          </div>
-          <div id="ads_datos_panel" style="display:none;margin-top:10px">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-              <div><label class="lbl">Inversión en ads (ARS)</label><input class="inp" id="ads_inversion" type="number" placeholder="850000" oninput="adsUpdateKpis()"></div>
-              <div><label class="lbl">Ventas atribuidas a ads (ARS)</label><input class="inp" id="ads_ventas_ads" type="number" placeholder="4200000" oninput="adsUpdateKpis()"></div>
-              <div><label class="lbl">Ventas totales del período (ARS)</label><input class="inp" id="ads_ventas_total" type="number" placeholder="8500000" oninput="adsUpdateKpis()"></div>
-              <div><label class="lbl">Margen promedio real %</label><input class="inp" id="ads_margen" type="number" placeholder="18" oninput="adsUpdateKpis()"></div>
-              <div><label class="lbl">CPC promedio (ARS)</label><input class="inp" id="ads_cpc" type="number" placeholder="320" oninput="adsUpdateKpis()"></div>
-              <div><label class="lbl">Período (días)</label><select class="inp" id="ads_periodo"><option value="7">7 días</option><option value="30" selected>30 días</option><option value="90">90 días</option></select></div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-              <div><label class="lbl">Productos en ads</label><input class="inp" id="ads_productos" placeholder="sillas, mesas, auriculares..."></div>
-              <div><label class="lbl">Principal problema</label>
-                <select class="inp" id="ads_problema">
-                  <option value="">— Seleccioná —</option>
-                  <option value="acos_alto">ACOS muy alto</option>
-                  <option value="pocas_ventas">Gasto pero no vendo suficiente</option>
-                  <option value="competencia">Competencia me lleva el tráfico</option>
-                  <option value="cpc_alto">CPC subió mucho</option>
-                  <option value="conversion">Clicks pero no convierten</option>
-                  <option value="presupuesto">No sé cuánto invertir</option>
-                </select>
-              </div>
-            </div>
-            <button class="btn btn-sm" onclick="adsAnalizar()" style="width:100%">🔍 Analizar y cargar al agente</button>
-          </div>
-        </div>
-
-        <!-- Chat con el agente -->
-        <div class="card" style="padding:0;overflow:hidden">
-          <div id="ads_messages" style="height:380px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px"></div>
-          <!-- Quick actions -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--b1);border-bottom:1px solid var(--b1)">
-            <button class="btn-g btn-sm" onclick="adsQuick('¿Cómo reduzco el ACOS sin perder visibilidad?')" style="font-size:10px">Reducir ACOS</button>
-            <button class="btn-g btn-sm" onclick="adsQuick('¿En qué productos conviene pausar los ads?')" style="font-size:10px">Qué pausar</button>
-            <button class="btn-g btn-sm" onclick="adsQuick('¿Cómo segmento campañas de muebles vs electrónica?')" style="font-size:10px">Segmentación</button>
-            <button class="btn-g btn-sm" onclick="adsQuick('¿Cuánto debería invertir según mis márgenes reales?')" style="font-size:10px">Presupuesto óptimo</button>
-            <button class="btn-g btn-sm" onclick="adsQuick('¿Cómo bajo el CPC en categoría muebles?')" style="font-size:10px">Bajar CPC</button>
-          </div>
-          <div style="display:flex;gap:8px;padding:10px">
-            <textarea id="ads_input" placeholder="Preguntá sobre tu estrategia de ads..." rows="1"
-              style="flex:1;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);color:var(--t1);font-size:12px;padding:9px 12px;outline:none;resize:none;font-family:inherit"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adsSend()}"
-              oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
-            <button onclick="adsSend()" id="ads_send_btn"
-              style="width:38px;height:38px;background:var(--acc);border:none;border-radius:var(--r);cursor:pointer;font-size:16px;flex-shrink:0">↑</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ALERTAS -->
     <div class="page" id="page-alertas">
       <div class="card"><div class="ch"><span class="ct" style="color:var(--red)">A completar</span></div><div id="alertasDet"></div></div>
     </div>
@@ -4507,7 +4448,7 @@ async function adsAnalisisAuto(){
   if(!_adsContexto) return;
   const tid=adsThink();
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Sos experto en MercadoAds Argentina para sellers de alto volumen.\n${_adsContexto}\nAnalizá estos datos:\n1. DIAGNÓSTICO (2-3 frases directas)\n2. PROBLEMA PRINCIPAL con impacto en pesos\n3. TOP 3 ACCIONES para esta semana\n4. OBJETIVO 30 DÍAS (ACOS objetivo + ahorro en ARS)\nMáximo 250 palabras, usá números reales.`}]})});
+    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Sos experto en MercadoAds Argentina para sellers de alto volumen.\n${_adsContexto}\nAnalizá estos datos:\n1. DIAGNÓSTICO (2-3 frases directas)\n2. PROBLEMA PRINCIPAL con impacto en pesos\n3. TOP 3 ACCIONES para esta semana\n4. OBJETIVO 30 DÍAS (ACOS objetivo + ahorro en ARS)\nMáximo 250 palabras, usá números reales.`}]})});
     const d=await resp.json();
     const text=d.content?.[0]?.text||'';
     adsUnthink(tid);
@@ -4520,7 +4461,7 @@ window.adsUpdateKpis=function(){const i=parseFloat(document.getElementById('ads_
 window.adsAnalizar=async function(){const i=parseFloat(document.getElementById('ads_inversion')?.value)||0,v=parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;if(!i||!v){toast('Completá inversión y ventas ads','err');return;}_adsContexto=`DATOS MANUALES (${document.getElementById('ads_periodo_sel')?.value||30}d): Gasto ${fS(i)}, Ventas ads ${fS(v)}, ACOS ${(i/v*100).toFixed(1)}%, ROAS ${(v/i).toFixed(1)}x. Prods: ${document.getElementById('ads_productos')?.value||'mixto'}. Contexto: MercadoLíder 4 cuentas.`;adsUpdateKpis();document.getElementById('ads_datos_panel').style.display='none';await adsAnalisisAuto();};
 window.adsRecargar=async function(){_adsData=null;_adsHistory=[];_adsContexto='';const acc=(S.accounts||[]).filter(a=>a.token);if(acc.length)await adsCargar(acc);else adsMsg('agent','No hay cuentas conectadas.');};
 window.adsQuick=function(t){const inp=document.getElementById('ads_input');if(inp){inp.value=t;adsSend();}};
-window.adsSend=async function(){const inp=document.getElementById('ads_input'),text=(inp?.value||'').trim();if(!text)return;inp.value='';inp.style.height='auto';adsMsg('user',text);const btn=document.getElementById('ads_send_btn');if(btn)btn.disabled=true;const tid=adsThink();const sys=`Sos experto en MercadoAds Argentina.\n${_adsContexto||'Cliente: NIVIKO, MercadoLíder, muebles y electrónica.'}\nRespondé en español, directo, máximo 200 palabras.`;try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[..._adsHistory,{role:'user',content:text}]})});const d=await resp.json();const reply=d.content?.[0]?.text||'Sin respuesta.';adsUnthink(tid);adsMsg('agent',reply);_adsHistory.push({role:'user',content:text},{role:'assistant',content:reply});if(_adsHistory.length>20)_adsHistory=_adsHistory.slice(-20);}catch(e){adsUnthink(tid);adsMsg('agent','❌ Error de conexión.');}if(btn)btn.disabled=false;};
+window.adsSend=async function(){const inp=document.getElementById('ads_input'),text=(inp?.value||'').trim();if(!text)return;inp.value='';inp.style.height='auto';adsMsg('user',text);const btn=document.getElementById('ads_send_btn');if(btn)btn.disabled=true;const tid=adsThink();const sys=`Sos experto en MercadoAds Argentina.\n${_adsContexto||'Cliente: NIVIKO, MercadoLíder, muebles y electrónica.'}\nRespondé en español, directo, máximo 200 palabras.`;try{const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[..._adsHistory,{role:'user',content:text}]})});const d=await resp.json();const reply=d.content?.[0]?.text||'Sin respuesta.';adsUnthink(tid);adsMsg('agent',reply);_adsHistory.push({role:'user',content:text},{role:'assistant',content:reply});if(_adsHistory.length>20)_adsHistory=_adsHistory.slice(-20);}catch(e){adsUnthink(tid);adsMsg('agent','❌ Error de conexión.');}if(btn)btn.disabled=false;};
 
 function adsMsg(type,text){
   const el=document.getElementById('ads_messages');if(!el)return;
@@ -4610,7 +4551,7 @@ Analizá estos datos. Estructurá tu respuesta:
    • PRÓXIMO MES: optimizaciones
 4. OBJETIVO 30 DÍAS: ACOS/ROAS realista + ahorro estimado en ARS
 Sé directo, usa números reales, máximo 300 palabras.`;
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
     const data=await resp.json();
     const text=data.content?.[0]?.text||'Error al analizar.';
     adsRemoveThinking(thinkId);
@@ -4643,7 +4584,7 @@ ${_adsContexto?`Contexto del cliente:\n${_adsContexto}`:'Cliente: NIVIKO, Mercad
 Reglas: español directo, números en ARS, acciones concretas de ML hoy, máximo 200 palabras salvo que pidan más detalle.`;
   const messages=[..._adsHistory,{role:'user',content:text}];
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages})});
+    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages})});
     const data=await resp.json();
     const reply=data.content?.[0]?.text||'No pude responder.';
     adsRemoveThinking(thinkId);
