@@ -2314,11 +2314,20 @@ async function refreshTokens(){
 }
 
 function checkAlertas(){
-  const prodSkus = new Set(S.products.map(p=>p.sku));
-  const sinProd=[...new Set(S.orders.filter(o=>o.sku&&o.sku!=="—"&&!prodSkus.has(o.sku)).map(o=>o.sku))];
+  const prodSkus = new Set(S.products.map(p=>(p.sku||"").trim().toUpperCase()));
+  // sinProd: SKUs sin costo cargado
+  const sinProd=[...new Set(S.orders.filter(o=>{
+    if(!o.sku||o.sku==="—") return false;
+    if(o.sinProducto===true) return true;
+    if((o.costo||0)>0) return false;
+    return !prodSkus.has((o.sku||"").trim().toUpperCase());
+  }).map(o=>o.sku))];
+  // sinZona: ciudades Flex sin cordón definido (en proxy ZONA O en S.zonas)
   const sinZona=[...new Set(S.orders.filter(o=>{
     if(o.modal!=='Flex'||!o.ciudad)return false;
-    return !S.zonas[o.ciudad.toLowerCase().trim()];
+    if(o.sinZona===false) return false; // servidor ya verificó
+    const k=o.ciudad.toLowerCase().trim();
+    return !S.zonas[k];
   }).map(o=>o.ciudad))];
 
   // Alerta 1: envío anómalo — costoEnvio > 30% del precio de venta
@@ -4316,24 +4325,28 @@ async function adsCargar(accounts){
   const dateFrom=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
   const dateTo=new Date().toISOString().split('T')[0];
 
-  // Intentar API real de ML primero
-  if(stEl) stEl.textContent='⏳ Conectando con MercadoAds API...';
+  if(stEl) stEl.textContent='⏳ Probando acceso a MercadoAds API...';
   let apiOk=false;
   const acct0=accounts[0];
   if(acct0){
     try{
       const sid=UID[acct0.id]||acct0.id;
-      const d=await fetch(`${PROXY}/ads/diagnostico?seller_id=${sid}`,{headers:{'x-ml-token':acct0.token}}).then(r=>r.json()).catch(()=>({}));
+      const d=await fetch(`${PROXY}/ads/diagnostico?seller_id=${sid}`,{headers:{'x-ml-token':acct0.token}}).then(r=>r.json()).catch(e=>({error:e.message,results:{}}));
+      console.log('ADS DIAGNOSTICO:', JSON.stringify(d,null,2));
+      // Mostrar resultado en chat
+      const statuses=Object.entries(d.results||{}).map(([url,v])=>`  ${url.split('/').slice(-2).join('/')}: HTTP ${v.status||'?'} ${v.ok?'✓':'✗'}\n  → ${(v.preview||v.error||'').substring(0,80)}`).join('\n');
+      adsMsg('agent',`🔍 Diagnóstico ML Ads (seller ${sid}):\n${statuses||'Sin resultados'}\n\n${d.error?'Error: '+d.error:''}`);
       apiOk=Object.values(d.results||{}).some(v=>v.status===200);
-    }catch(e){}
+    }catch(e){
+      adsMsg('agent','❌ Error al diagnosticar: '+e.message);
+    }
   }
 
   if(apiOk){
     await adsDesdeAPI(accounts,dateFrom,dateTo,dias);
   } else {
-    if(stEl) stEl.textContent='⚠ API Ads requiere reconectar cuentas — usando historial de órdenes';
+    if(stEl) stEl.textContent='📊 Usando historial de órdenes (API Ads no disponible)';
     adsDesdeOrdenes(dias,dateFrom,dateTo);
-    adsMsg('agent',`No pude acceder a la API de MercadoAds directamente.\n\nPara habilitarlo:\n1. Ir a Sistema → Get Token\n2. Reconectar cada cuenta (ya incluye el scope read_product_ads)\n3. Volver y recargar\n\nMientras tanto, calculé las métricas desde tus órdenes reales del período.`);
   }
 }
 
