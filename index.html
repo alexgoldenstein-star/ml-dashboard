@@ -1473,12 +1473,16 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       <div class="card">
         <div class="ch"><span class="ct">Obtener Access Token ML</span></div>
         <div style="background:var(--s2);border-radius:var(--r);padding:12px;margin-bottom:12px;border:1px solid var(--b1)">
-          <p style="font-size:11px;color:var(--t2);margin-bottom:6px">Paso 1 — Abrí este link para autorizar:</p>
-          <a id="authLink" href="#" target="_blank" style="font-size:10px;color:var(--acc);word-break:break-all;font-family:'DM Mono',monospace"></a>
+          <p style="font-size:11px;color:var(--t2);margin-bottom:6px"><strong>Paso 1</strong> — Abrí este link para autorizar cada cuenta:</p>
+          <a id="authLink" href="#" target="_blank" style="font-size:10px;color:var(--acc);word-break:break-all;font-family:'DM Mono',monospace">Ingresá el Client ID abajo para generar el link</a>
+          <button class="btn btn-sm" onclick="window.open(document.getElementById('authLink').href,'_blank')" style="margin-top:8px;width:100%">🔗 Abrir link de autorización</button>
         </div>
-        <label class="lbl">Client ID</label><input class="inp" id="gt_cid" placeholder="App ID" oninput="buildAuthLink()">
+        <label class="lbl">Client ID</label>
+        <input class="inp" id="gt_cid" placeholder="App ID" value="4974240011261700" oninput="buildAuthLink()">
         <label class="lbl">Client Secret</label><input class="inp" id="gt_sec" type="password">
-        <label class="lbl">Code (de la URL de callback)</label><input class="inp" id="gt_code" placeholder="TG-XXXXXXXXXX" style="margin-bottom:12px">
+        <label class="lbl">Code (de la URL de callback)</label>
+        <input class="inp" id="gt_code" placeholder="TG-XXXXXXXXXX" style="margin-bottom:4px">
+        <p style="font-size:10px;color:var(--t3);margin-bottom:12px">Después de autorizar, copiá el parámetro <strong>code=TG-XXXX</strong> de la URL de redirección.</p>
         <button class="btn" onclick="doGetToken()" id="gtBtn">Obtener Token</button>
         <div id="gtResult" style="margin-top:12px;display:none"></div>
       </div>
@@ -1631,7 +1635,12 @@ async function init(){
   // Config
   const cfg=await fb.get("config");
   if(cfg)Object.assign(S.cfg,cfg);
-  loadCfgUI();buildAuthLink();updateEnvioToggleUI();
+  loadCfgUI();
+  // Pre-cargar Client ID conocido si no hay uno guardado
+  const cidEl=document.getElementById('gt_cid');
+  if(cidEl&&!cidEl.value&&!S.cfg.cid) cidEl.value='4974240011261700';
+  buildAuthLink();
+  updateEnvioToggleUI();
 
   // Productos: proxy base + edits Firebase
   try{
