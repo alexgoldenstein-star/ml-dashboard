@@ -1785,7 +1785,9 @@ function applyProductCosts(orders){
     if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
     const costo = p.ars * (o.unidades||1); // multiplicar por unidades
     const ivaPct = p.iva/100;
-    const iva = o.venta*ivaPct; // directo sobre venta bruta
+    // IVA CORRECTO: el precio YA incluye IVA → desglozar dividiendo
+    const iva = Math.round(o.venta - o.venta/(1+ivaPct));
+    const ventaSinIva = o.venta - iva;
     const pub = p.pub===false ? 0 : o.venta*pubPct;
     // Corregir comisión para pack_order con múltiples unidades
     const comisionCache = o.comision||0;
@@ -1796,7 +1798,8 @@ function applyProductCosts(orders){
       : comisionCache;
     const comisionOk = comisionCorregida >= o.venta * 0.05;
     const comisionFinal = comisionOk ? comisionCorregida : Math.round(o.venta * 0.14);
-    const iibbFinal = Math.round(o.venta * iibbPct);
+    // IIBB CORRECTO: sobre precio SIN IVA
+    const iibbFinal = Math.round(ventaSinIva * iibbPct);
     // Retenciones ML: siempre 1.2% fijo (Créd/Déb 0.6% + SIRTAC 0.6%)
     // NO usar S.cfg.ret ni el caché — este valor es fijo por ley y no configurable
     const retML = Math.round(o.venta * 0.012);
