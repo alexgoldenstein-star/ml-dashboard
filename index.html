@@ -2314,21 +2314,16 @@ async function refreshTokens(){
 }
 
 function checkAlertas(){
-  const prodSkus = new Set(S.products.map(p=>(p.sku||"").trim().toUpperCase()));
-  // sinProd: SKUs sin costo cargado
-  const sinProd=[...new Set(S.orders.filter(o=>{
-    if(!o.sku||o.sku==="—") return false;
-    if(o.sinProducto===true) return true;
-    if((o.costo||0)>0) return false;
-    return !prodSkus.has((o.sku||"").trim().toUpperCase());
-  }).map(o=>o.sku))];
-  // sinZona: ciudades Flex sin cordón definido (en proxy ZONA O en S.zonas)
-  const sinZona=[...new Set(S.orders.filter(o=>{
-    if(o.modal!=='Flex'||!o.ciudad)return false;
-    if(o.sinZona===false) return false; // servidor ya verificó
-    const k=o.ciudad.toLowerCase().trim();
-    return !S.zonas[k];
-  }).map(o=>o.ciudad))];
+  // Confiar 100% en los flags del servidor (sinProducto, sinZona)
+  // El servidor tiene PRODS hardcoded + edits de Firebase — es la fuente de verdad
+  const sinProd=[...new Set(
+    S.orders.filter(o=>o.sinProducto===true && o.sku && o.sku!=='—')
+    .map(o=>o.sku)
+  )];
+  const sinZona=[...new Set(
+    S.orders.filter(o=>o.sinZona===true && o.ciudad)
+    .map(o=>o.ciudad)
+  )];
 
   // Alerta 1: envío anómalo — costoEnvio > 30% del precio de venta
   const envioAnomalo = S.orders.filter(o=>{
