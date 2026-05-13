@@ -6134,20 +6134,29 @@ window.calcUpdate = function(){
     const com=precio*comPct/100,iva=precio*ivaPct/100,pub=precio*pubPct/100;
     const iibb=precio*iibbPct/100,ret=precio*0.012;
     let ingresoEnvio=0,costoCordon=0,costoEnvio=0;
+
+    // Fee logístico ML (costo por unidad vendida) — aplica a TODAS las modalidades < $33k
+    // Fuente: mercadolibre.com.ar/knowledge-hub/Costos-de-vender-un-producto
+    let feeLogistico=0;
+    if(!sobreU){
+      if(precio<=15999)       feeLogistico=1255;
+      else if(precio<=23999)  feeLogistico=2500;
+      else                     feeLogistico=3030;
+    }
+
     const envMode = document.getElementById('calc_envio_mode')?.value||'auto';
     const stats = window._calcEnvioStats;
     if(modal==='Flex'){
-      // Tabla oficial ML: costo por unidad vendida según precio
-      if(!sobreU){
-        // Bajo $33k: costo basado en rango de precio (tabla oficial ML)
-        if(precio<=15999)       costoCordon=1255;
-        else if(precio<=23999)  costoCordon=2500;
-        else                     costoCordon=3030;
-      } else {
-        // Sobre $33k: costo geográfico por cordón
-        costoCordon=CORD[cord];
-      }
-      ingresoEnvio=(sobreU?BONIF_A:BONIF_B)[cord];
+      // Para Flex < $33k:
+      //   fee logístico (por unidad vendida) → siempre se cobra aparte
+      //   bonificación ML (lo que pagó el comprador) → ingreso
+      //   costo cordón → se resta de la bonificación
+      // Para Flex >= $33k:
+      //   no hay fee logístico
+      //   bonificación ML (menor: $449/$649/$849)
+      //   costo cordón → se resta de la bonificación
+      costoCordon = CORD[cord]; // siempre el cordón geográfico
+      ingresoEnvio = (sobreU?BONIF_A:BONIF_B)[cord];
     } else {
       const dbEnvio=(_envioDB||{})[skuSel];
       let realEnvio=null;
@@ -6162,8 +6171,8 @@ window.calcUpdate = function(){
       costoEnvio=(realEnvio>0)?realEnvio:(sobreU?(S.cfg.c3||6600):0);
     }
     const ganancia=modal==='Flex'
-      ?precio+ingresoEnvio-com-costoCordon-costo-iva-pub-iibb-ret
-      :precio-com-costo-iva-pub-iibb-ret-costoEnvio;
+      ?precio+ingresoEnvio-com-costoCordon-costo-iva-pub-iibb-ret-feeLogistico
+      :precio-com-costo-iva-pub-iibb-ret-costoEnvio-feeLogistico;
     const dbE=(_envioDB||{})[skuSel];
     const envioLabel=modal==='Flex'
       ?`Bonif ${fF(ingresoEnvio)} · Cordón ${fF(costoCordon)}`
@@ -6171,7 +6180,7 @@ window.calcUpdate = function(){
           ?`📌 DB real (${dbE.nota||'guardado'})`
           :(stats?.[modal]?.n>0?`Historial (${stats[modal].n}ó)`:'Estimado'));
     return{ganancia,pct:precio?ganancia/precio:0,roi:costo?ganancia/costo:0,
-      com,iva,pub,iibb,ret,costoEnvio,ingresoEnvio,costoCordon,envioLabel,
+      com,iva,pub,iibb,ret,costoEnvio,ingresoEnvio,costoCordon,feeLogistico,envioLabel,
       label:modal==='Flex'?`Flex C${cord}`:modal};
   };
 
@@ -6204,6 +6213,10 @@ window.calcUpdate = function(){
     ['— Retenciones ML 1.2%',actR.ret,true,''],
     ['— Costo producto',costo,true,''],
   ];
+  // Fee logístico ML (costo por unidad vendida < $33k)
+  if(actR.feeLogistico>0){
+    rows.push(['— Fee logístico ML',actR.feeLogistico,true,'']);
+  }
   if(_calcMod.startsWith('Flex')){
     rows.push(['+ Bonif. ML envío',actR.ingresoEnvio,false,'']);
     rows.push(['— Costo cordón',actR.costoCordon,true,'']);
