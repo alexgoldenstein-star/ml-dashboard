@@ -1288,39 +1288,28 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         <div class="card" style="margin-bottom:12px">
           <div class="ch">
             <span class="ct">💳 Cuotas sin interés</span>
-            <button class="btn-g btn-sm" onclick="calcToggleCuotasDesglose()" id="calc_cuotas_toggle_btn" style="font-size:10px">▼ Ver desglose</button>
           </div>
-          <p style="font-size:11px;color:var(--t3);margin-bottom:8px">ML te cobra un % adicional cuando ofrecés cuotas sin interés. Calculá a qué precio publicar para mantener la misma ganancia — o ingresá el precio y mirá cuánto te deja cada cuota.</p>
+          <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Calculá cuánto te deja el producto según la opción de cuotas que ofrecés. ML cobra un % adicional por cada opción.</p>
 
-          <!-- Modo: calcular precio o ingresar precio -->
-          <div style="display:flex;gap:4px;background:var(--s2);border-radius:var(--r2);padding:3px;width:fit-content;margin-bottom:10px">
-            <button id="cuotas_mode_calc" onclick="cuotasSetMode('calc')" style="padding:5px 12px;border-radius:5px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:var(--acc);color:#000">↑ ¿A qué precio publicar?</button>
-            <button id="cuotas_mode_sim" onclick="cuotasSetMode('sim')" style="padding:5px 12px;border-radius:5px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">↓ ¿Cuánto deja este precio?</button>
+          <!-- Selector de cuotas tipo tab -->
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px" id="cuotas_tabs">
+            <button class="tab-btn on" onclick="cuotasSelectN(0,this)" style="padding:6px 12px;border-radius:6px;border:1px solid var(--b1);background:var(--acc);color:#000;font-size:11px;font-weight:600;cursor:pointer">Sin cuotas</button>
+            <button class="tab-btn" onclick="cuotasSelectN(3,this)" style="padding:6px 12px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-size:11px;cursor:pointer">3 cuotas<br><span style="font-size:9px;opacity:.7">+8.8%</span></button>
+            <button class="tab-btn" onclick="cuotasSelectN(6,this)" style="padding:6px 12px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-size:11px;cursor:pointer">6 cuotas<br><span style="font-size:9px;opacity:.7">+12.7%</span></button>
+            <button class="tab-btn" onclick="cuotasSelectN(9,this)" style="padding:6px 12px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-size:11px;cursor:pointer">9 cuotas<br><span style="font-size:9px;opacity:.7">+15.9%</span></button>
+            <button class="tab-btn" onclick="cuotasSelectN(12,this)" style="padding:6px 12px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-size:11px;cursor:pointer">12 cuotas<br><span style="font-size:9px;opacity:.7">+19.3%</span></button>
           </div>
-          <!-- Simulador: ingresá el precio con cuotas -->
-          <div id="cuotas_sim_panel" style="display:none;background:var(--s2);border-radius:var(--r);padding:10px;margin-bottom:10px">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-              <div><label class="lbl">Precio de publicación (c/IVA)</label><input class="inp" id="cuotas_precio_pub" type="number" placeholder="88000" oninput="calcSimCuotas()"></div>
-              <div><label class="lbl">Cuotas a simular</label>
-                <select class="inp" id="cuotas_sim_n" onchange="calcSimCuotas()">
-                  <option value="3">3 cuotas (8.8%)</option>
-                  <option value="6" selected>6 cuotas (12.7%)</option>
-                  <option value="9">9 cuotas (15.9%)</option>
-                  <option value="12">12 cuotas (19.3%)</option>
-                </select>
-              </div>
+
+          <!-- Panel: precio a publicar para mantener ganancia -->
+          <div id="cuotas_panel_calc" style="margin-bottom:10px"></div>
+
+          <!-- Panel: simular con precio de mercado -->
+          <div style="background:var(--s2);border-radius:var(--r);padding:10px;border:1px solid var(--b1)">
+            <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Simular con precio de mercado</div>
+            <div style="display:flex;gap:8px;align-items:end">
+              <div style="flex:1"><label class="lbl">Precio de venta (c/IVA)</label><input class="inp" id="cuotas_precio_pub" type="number" placeholder="88000" oninput="calcSimCuotas()"></div>
             </div>
             <div id="cuotas_sim_result" style="margin-top:10px"></div>
-          </div>
-
-          <div id="calc_cuotas_cards" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px"></div>
-          <div id="calc_cuotas_desglose" style="display:none;border-top:1px solid var(--b1);padding-top:10px;margin-top:4px">
-            <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Desglose por opción de cuotas</div>
-            <div id="calc_cuotas_desglose_body"></div>
-            <div style="margin-top:8px;padding:8px;background:var(--s2);border-radius:var(--r);font-size:11px;color:var(--t3)">
-              <strong style="color:var(--t2)">Fórmula:</strong> Precio c/cuotas = (Ganancia + Costo) ÷ (1 − Com% − IVA% − Pub% − IIBB% − Ret% − Cuota%)<br>
-              Donde Cuota% es lo que cobra ML por ofrecer cuotas sin interés (ej: 12.7% para 6 cuotas).
-            </div>
           </div>
         </div>
 
@@ -4663,7 +4652,7 @@ async function adsAnalisisAuto(){
   if(!_adsContexto) return;
   const tid=adsThink();
   try{
-    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Sos experto en MercadoAds Argentina para sellers de alto volumen.\n${_adsContexto}\nAnalizá estos datos:\n1. DIAGNÓSTICO (2-3 frases directas)\n2. PROBLEMA PRINCIPAL con impacto en pesos\n3. TOP 3 ACCIONES para esta semana\n4. OBJETIVO 30 DÍAS (ACOS objetivo + ahorro en ARS)\nMáximo 250 palabras, usá números reales.`}]})});
+    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,messages:[{role:'user',content:`Sos experto en MercadoAds Argentina para sellers de alto volumen.\n${_adsContexto}\nAnalizá estos datos:\n1. DIAGNÓSTICO (2-3 frases directas)\n2. PROBLEMA PRINCIPAL con impacto en pesos\n3. TOP 3 ACCIONES para esta semana\n4. OBJETIVO 30 DÍAS (ACOS objetivo + ahorro en ARS)\nMáximo 250 palabras, usá números reales.`}]})});
     const d=await resp.json();
     const text=d.content?.[0]?.text||'';
     adsUnthink(tid);
@@ -4676,7 +4665,7 @@ window.adsUpdateKpis=function(){const i=parseFloat(document.getElementById('ads_
 window.adsAnalizar=async function(){const i=parseFloat(document.getElementById('ads_inversion')?.value)||0,v=parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;if(!i||!v){toast('Completá inversión y ventas ads','err');return;}_adsContexto=`DATOS MANUALES (${document.getElementById('ads_periodo_sel')?.value||30}d): Gasto ${fS(i)}, Ventas ads ${fS(v)}, ACOS ${(i/v*100).toFixed(1)}%, ROAS ${(v/i).toFixed(1)}x. Prods: ${document.getElementById('ads_productos')?.value||'mixto'}. Contexto: MercadoLíder 4 cuentas.`;adsUpdateKpis();document.getElementById('ads_datos_panel').style.display='none';await adsAnalisisAuto();};
 window.adsRecargar=async function(){_adsData=null;_adsHistory=[];_adsContexto='';const acc=(S.accounts||[]).filter(a=>a.token);if(acc.length)await adsCargar(acc);else adsMsg('agent','No hay cuentas conectadas.');};
 window.adsQuick=function(t){const inp=document.getElementById('ads_input');if(inp){inp.value=t;adsSend();}};
-window.adsSend=async function(){const inp=document.getElementById('ads_input'),text=(inp?.value||'').trim();if(!text)return;inp.value='';inp.style.height='auto';adsMsg('user',text);const btn=document.getElementById('ads_send_btn');if(btn)btn.disabled=true;const tid=adsThink();const sys=`Sos experto en MercadoAds Argentina.\n${_adsContexto||'Cliente: NIVIKO, MercadoLíder, muebles y electrónica.'}\nRespondé en español, directo, máximo 200 palabras.`;try{const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,messages:[..._adsHistory,{role:'user',content:text}]})});const d=await resp.json();const reply=d.content?.[0]?.text||'Sin respuesta.';adsUnthink(tid);adsMsg('agent',reply);_adsHistory.push({role:'user',content:text},{role:'assistant',content:reply});if(_adsHistory.length>20)_adsHistory=_adsHistory.slice(-20);}catch(e){adsUnthink(tid);adsMsg('agent','❌ Error de conexión.');}if(btn)btn.disabled=false;};
+window.adsSend=async function(){const inp=document.getElementById('ads_input'),text=(inp?.value||'').trim();if(!text)return;inp.value='';inp.style.height='auto';adsMsg('user',text);const btn=document.getElementById('ads_send_btn');if(btn)btn.disabled=true;const tid=adsThink();const sys=`Sos experto en MercadoAds Argentina.\n${_adsContexto||'Cliente: NIVIKO, MercadoLíder, muebles y electrónica.'}\nRespondé en español, directo, máximo 200 palabras.`;try{const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:sys,messages:[..._adsHistory,{role:'user',content:text}]})});const d=await resp.json();const reply=d.content?.[0]?.text||'Sin respuesta.';adsUnthink(tid);adsMsg('agent',reply);_adsHistory.push({role:'user',content:text},{role:'assistant',content:reply});if(_adsHistory.length>20)_adsHistory=_adsHistory.slice(-20);}catch(e){adsUnthink(tid);adsMsg('agent','❌ Error de conexión.');}if(btn)btn.disabled=false;};
 
 function adsMsg(type,text){
   const el=document.getElementById('ads_messages');if(!el)return;
@@ -4766,7 +4755,7 @@ Analizá estos datos. Estructurá tu respuesta:
    • PRÓXIMO MES: optimizaciones
 4. OBJETIVO 30 DÍAS: ACOS/ROAS realista + ahorro estimado en ARS
 Sé directo, usa números reales, máximo 300 palabras.`;
-    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
     const data=await resp.json();
     const text=data.content?.[0]?.text||'Error al analizar.';
     adsRemoveThinking(thinkId);
@@ -4799,7 +4788,7 @@ ${_adsContexto?`Contexto del cliente:\n${_adsContexto}`:'Cliente: NIVIKO, Mercad
 Reglas: español directo, números en ARS, acciones concretas de ML hoy, máximo 200 palabras salvo que pidan más detalle.`;
   const messages=[..._adsHistory,{role:'user',content:text}];
   try{
-    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:systemPrompt,messages})});
+    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:systemPrompt,messages})});
     const data=await resp.json();
     const reply=data.content?.[0]?.text||'No pude responder.';
     adsRemoveThinking(thinkId);
@@ -5467,24 +5456,113 @@ window.mayGuardarConfig = async function(){
 };
 
 // ── CALCULADORA ML — CUOTAS Y GUARDADO ───────────────────────────────────────
-window.cuotasSetMode = function(mode){
-  window._cuotasMode = mode;
-  const cBtn=document.getElementById('cuotas_mode_calc');
-  const sBtn=document.getElementById('cuotas_mode_sim');
-  const sPanel=document.getElementById('cuotas_sim_panel');
-  const cCards=document.getElementById('calc_cuotas_cards');
-  if(mode==='sim'){
-    if(cBtn){cBtn.style.background='transparent';cBtn.style.color='var(--t2)';}
-    if(sBtn){sBtn.style.background='var(--acc)';sBtn.style.color='#000';}
-    if(sPanel) sPanel.style.display='';
-    if(cCards) cCards.style.display='none';
-  } else {
-    if(cBtn){cBtn.style.background='var(--acc)';cBtn.style.color='#000';}
-    if(sBtn){sBtn.style.background='transparent';sBtn.style.color='var(--t2)';}
-    if(sPanel) sPanel.style.display='none';
-    if(cCards) cCards.style.display='grid';
-  }
+let _cuotasN = 0; // cuotas seleccionadas actualmente
+
+window.cuotasSelectN = function(n, btn){
+  _cuotasN = n;
+  // Actualizar tabs
+  document.querySelectorAll('#cuotas_tabs .tab-btn').forEach(b=>{
+    b.style.background='var(--s2)'; b.style.color='var(--t2)';
+    b.style.borderColor='var(--b1)'; b.style.fontWeight='normal';
+  });
+  if(btn){ btn.style.background='var(--acc)'; btn.style.color='#000'; btn.style.fontWeight='600'; }
+  cuotasRenderPanel();
+  calcSimCuotas(); // actualizar simulador también
 };
+
+function cuotasRenderPanel(){
+  const el=document.getElementById('cuotas_panel_calc');
+  if(!el) return;
+  const precio=parseFloat(document.getElementById('calc_precio')?.value)||0;
+  const costo=parseFloat(document.getElementById('calc_costo')?.value)||0;
+  if(!precio||!costo){ el.innerHTML=''; return; }
+
+  const ivaPct=parseFloat(document.getElementById('calc_iva')?.value)||21;
+  const comPct=parseFloat(document.getElementById('calc_com')?.value)||16;
+  const pubPct=+(document.getElementById('calc_pub')?.value??5);
+  const iibbPct=+(document.getElementById('calc_iibb2')?.value??4);
+  const cuotasCosto={0:0,3:8.8,6:12.7,9:15.9,12:19.3};
+  const cuotaPct=cuotasCosto[_cuotasN]||0;
+
+  if(_cuotasN===0){
+    // Sin cuotas: mostrar el precio actual y su desglose
+    const iva=Math.round(precio-precio/(1+ivaPct/100));
+    const ventaSinIva=precio-iva;
+    const iibb=Math.round(ventaSinIva*iibbPct/100);
+    const com=Math.round(precio*comPct/100);
+    const pub=Math.round(precio*pubPct/100);
+    const ret=Math.round(precio*0.012);
+    const gan=precio-com-iva-pub-iibb-ret-costo;
+    const ganColor=gan>=0?'var(--grn)':'var(--red)';
+    el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid ${ganColor}">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Ganancia s/cuotas</div>
+        <div style="font-size:18px;font-weight:700;color:${ganColor}">${fF(Math.round(gan))}</div>
+      </div>
+      <div style="padding:10px;background:var(--s2);border-radius:var(--r)">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Margen s/venta</div>
+        <div style="font-size:18px;font-weight:700">${precio>0?(gan/precio*100).toFixed(1):'0'}%</div>
+      </div>
+      <div style="padding:10px;background:var(--s2);border-radius:var(--r)">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Precio actual</div>
+        <div style="font-size:18px;font-weight:700">${fF(precio)}</div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  // Con cuotas: calcular precio necesario para mantener la misma ganancia
+  // Primero calcular ganancia sin cuotas
+  const ganSinCuotas = window._calcLastResult?.ganancia || 0;
+  const factor = 1 - comPct/100 - ivaPct/100 - pubPct/100 - iibbPct/100 - 0.012 - cuotaPct/100;
+  if(factor<=0){ el.innerHTML='<p style="color:var(--red);font-size:12px">Costos superan el 100%</p>'; return; }
+  const precioNuevo = (ganSinCuotas + costo) / factor;
+  const aumento = precioNuevo - precio;
+  const aumentoPct = precio>0 ? aumento/precio*100 : 0;
+
+  const com=Math.round(precioNuevo*comPct/100);
+  const iva=Math.round(precioNuevo-precioNuevo/(1+ivaPct/100));
+  const ventaSinIva=precioNuevo-iva;
+  const iibb=Math.round(ventaSinIva*iibbPct/100);
+  const pub=Math.round(precioNuevo*pubPct/100);
+  const ret=Math.round(precioNuevo*0.012);
+  const cuota=Math.round(precioNuevo*cuotaPct/100);
+  const ganCheck=precioNuevo-com-iva-pub-iibb-ret-cuota-costo;
+
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--acc)">
+      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Publicar a</div>
+      <div style="font-size:18px;font-weight:700">${fF(Math.ceil(precioNuevo/10)*10)}</div>
+    </div>
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--org)">
+      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Aumento necesario</div>
+      <div style="font-size:18px;font-weight:700;color:var(--org)">+${fF(Math.ceil(aumento/10)*10)}</div>
+      <div style="font-size:10px;color:var(--t3)">+${aumentoPct.toFixed(1)}%</div>
+    </div>
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--red)">
+      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Costo ML cuotas</div>
+      <div style="font-size:18px;font-weight:700;color:var(--red)">-${fF(cuota)}</div>
+      <div style="font-size:10px;color:var(--t3)">${cuotaPct}%</div>
+    </div>
+    <div style="padding:10px;background:var(--s2);border-radius:var(--r);border-left:3px solid var(--grn)">
+      <div style="font-size:9px;color:var(--t3);text-transform:uppercase">Ganancia (misma)</div>
+      <div style="font-size:18px;font-weight:700;color:var(--grn)">${fF(Math.round(ganCheck))}</div>
+    </div>
+  </div>
+  <table class="tbl" style="font-size:11px"><thead><tr><th>Concepto</th><th>Monto</th></tr></thead><tbody>
+    <tr><td>Precio con ${_cuotasN} cuotas</td><td class="mono" style="color:var(--grn)">+${fF(Math.ceil(precioNuevo/10)*10)}</td></tr>
+    <tr><td>— Comisión ML ${comPct}%</td><td class="mono" style="color:var(--red)">-${fF(com)}</td></tr>
+    <tr><td>— IVA ${ivaPct}% (implícito)</td><td class="mono" style="color:var(--red)">-${fF(iva)}</td></tr>
+    <tr><td>— Publicidad ${pubPct}%</td><td class="mono" style="color:var(--red)">-${fF(pub)}</td></tr>
+    <tr><td>— IIBB ${iibbPct}%</td><td class="mono" style="color:var(--red)">-${fF(iibb)}</td></tr>
+    <tr><td>— Retenciones 1.2%</td><td class="mono" style="color:var(--red)">-${fF(ret)}</td></tr>
+    <tr><td>— Costo cuotas ${_cuotasN}x (${cuotaPct}%)</td><td class="mono" style="color:var(--red)">-${fF(cuota)}</td></tr>
+    <tr><td>— Costo producto</td><td class="mono" style="color:var(--red)">-${fF(costo)}</td></tr>
+    <tr style="font-weight:700"><td>= Ganancia neta</td><td class="mono" style="color:var(--grn)">+${fF(Math.round(ganCheck))}</td></tr>
+  </tbody></table>`;
+}
+
+
 
 window.calcSimCuotas = function(){
   const precioPub=parseFloat(document.getElementById('cuotas_precio_pub')?.value)||0;
@@ -6513,6 +6591,8 @@ window.calcUpdate = function(){
   window._calcLastResult=actR;
   // Actualizar calculadora de cuotas
   calcUpdateCuotas(precio, actR.ganancia, comPct, ivaPct, pubPct, iibbPct, costo);
+  // Actualizar panel de cuotas con nueva ganancia
+  cuotasRenderPanel();
 };
 // ── CONTENEDOR ───────────────────────────────────────────────────────────────
 let _contData = { nombre:'', costo_usd:0, dolar:0, periodo:90, skus:[] };
