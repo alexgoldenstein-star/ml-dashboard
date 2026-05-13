@@ -1287,18 +1287,39 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         <!-- Calculadora de cuotas con desglose -->
         <div class="card" style="margin-bottom:12px">
           <div class="ch">
-            <span class="ct">💳 Precio para ganar lo mismo en cuotas</span>
-            <button class="btn-g btn-sm" onclick="calcToggleCuotasDesglose()" id="calc_cuotas_toggle_btn" style="font-size:10px">▼ Ver cómo se calcula</button>
+            <span class="ct">💳 Cuotas sin interés</span>
+            <button class="btn-g btn-sm" onclick="calcToggleCuotasDesglose()" id="calc_cuotas_toggle_btn" style="font-size:10px">▼ Ver desglose</button>
           </div>
-          <p style="font-size:11px;color:var(--t3);margin-bottom:10px">ML te cobra un % adicional cuando ofrecés cuotas sin interés. Para mantener la misma ganancia, publicás a un precio mayor.</p>
+          <p style="font-size:11px;color:var(--t3);margin-bottom:8px">ML te cobra un % adicional cuando ofrecés cuotas sin interés. Calculá a qué precio publicar para mantener la misma ganancia — o ingresá el precio y mirá cuánto te deja cada cuota.</p>
+
+          <!-- Modo: calcular precio o ingresar precio -->
+          <div style="display:flex;gap:4px;background:var(--s2);border-radius:var(--r2);padding:3px;width:fit-content;margin-bottom:10px">
+            <button id="cuotas_mode_calc" onclick="cuotasSetMode('calc')" style="padding:5px 12px;border-radius:5px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:var(--acc);color:#000">↑ ¿A qué precio publicar?</button>
+            <button id="cuotas_mode_sim" onclick="cuotasSetMode('sim')" style="padding:5px 12px;border-radius:5px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">↓ ¿Cuánto deja este precio?</button>
+          </div>
+          <!-- Simulador: ingresá el precio con cuotas -->
+          <div id="cuotas_sim_panel" style="display:none;background:var(--s2);border-radius:var(--r);padding:10px;margin-bottom:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div><label class="lbl">Precio de publicación (c/IVA)</label><input class="inp" id="cuotas_precio_pub" type="number" placeholder="88000" oninput="calcSimCuotas()"></div>
+              <div><label class="lbl">Cuotas a simular</label>
+                <select class="inp" id="cuotas_sim_n" onchange="calcSimCuotas()">
+                  <option value="3">3 cuotas (8.8%)</option>
+                  <option value="6" selected>6 cuotas (12.7%)</option>
+                  <option value="9">9 cuotas (15.9%)</option>
+                  <option value="12">12 cuotas (19.3%)</option>
+                </select>
+              </div>
+            </div>
+            <div id="cuotas_sim_result" style="margin-top:10px"></div>
+          </div>
+
           <div id="calc_cuotas_cards" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px"></div>
-          <!-- Desglose expandible -->
           <div id="calc_cuotas_desglose" style="display:none;border-top:1px solid var(--b1);padding-top:10px;margin-top:4px">
-            <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Cómo se calcula el precio con cuotas</div>
+            <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Desglose por opción de cuotas</div>
             <div id="calc_cuotas_desglose_body"></div>
             <div style="margin-top:8px;padding:8px;background:var(--s2);border-radius:var(--r);font-size:11px;color:var(--t3)">
-              <strong style="color:var(--t2)">Fórmula:</strong> Precio con cuotas = (Ganancia objetivo + Costo) ÷ (1 − Comisión% − IVA% − Pub% − IIBB% − Ret% − CostoCuotas%)<br>
-              Donde CostoCuotas% es lo que cobra ML por ofrecer cuotas sin interés (ej: 12.7% para 6 cuotas).
+              <strong style="color:var(--t2)">Fórmula:</strong> Precio c/cuotas = (Ganancia + Costo) ÷ (1 − Com% − IVA% − Pub% − IIBB% − Ret% − Cuota%)<br>
+              Donde Cuota% es lo que cobra ML por ofrecer cuotas sin interés (ej: 12.7% para 6 cuotas).
             </div>
           </div>
         </div>
@@ -3600,7 +3621,9 @@ async function renderMedidas(el,accounts){
     +'<button class="btn btn-sm" onclick="medGuardar()" style="height:34px;margin-top:auto">Guardar</button></div>'
     +'<div id="med_lista"></div></div>'
     +'<div class="card"><div class="ch"><span class="ct">🔍 Validar costos de envío</span>'
-    +'<button class="btn btn-sm" onclick="medValidar()" style="font-size:11px">Analizar 30 días</button></div>'
+    +'<div style="display:flex;gap:6px;align-items:center">'
+    +'<select class="inp" id="med_dias" style="font-size:11px;padding:4px 8px;height:auto"><option value="30">30 días</option><option value="60">60 días</option><option value="90">90 días</option></select>'
+    +'<button class="btn btn-sm" onclick="medValidar()" style="font-size:11px">Analizar</button></div></div>'
     +'<p style="font-size:11px;color:var(--t3);margin-bottom:8px">Detecta si ML cobró un envío mayor al esperado según peso/volumen del producto.</p>'
     +'<div id="med_validacion"></div></div>';
   medRenderLista();
@@ -3649,37 +3672,42 @@ window.medEliminar=async function(sku){
 };
 window.medValidar=function(){
   const el=document.getElementById('med_validacion');if(!el)return;
-  const dateFrom=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+  const dias=parseInt(document.getElementById('med_dias')?.value||30);
+  const dateFrom=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
   const ords=S.orders.filter(function(o){return o.fecha>=dateFrom&&(o.modal==='Correo'||o.modal==='Full')&&(o.costoEnvio||0)>100;});
-  if(!ords.length){el.innerHTML='<p style="color:var(--t3);font-size:12px">Sin órdenes Correo/Full con costo de envío en los últimos 30 días.</p>';return;}
+  if(!ords.length){el.innerHTML='<p style="color:var(--t3);font-size:12px">Sin órdenes Correo/Full con costo de envío en los últimos '+dias+' días.</p>';return;}
   const porSku={};
-  ords.forEach(function(o){
-    if(!o.sku)return;
-    if(!porSku[o.sku])porSku[o.sku]={sku:o.sku,ords:[],med:_medidasDB[o.sku]||null};
-    porSku[o.sku].ords.push(o);
-  });
-  let h='<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Órdenes</th><th>Envío prom.</th><th>Peso efect.</th><th>Diagnóstico</th></tr></thead><tbody>';
-  Object.values(porSku).sort(function(a,b){return b.ords.length-a.ords.length;}).forEach(function(item){
+  ords.forEach(function(o){if(!o.sku)return;if(!porSku[o.sku])porSku[o.sku]={sku:o.sku,ords:[],med:_medidasDB[o.sku]||null};porSku[o.sku].ords.push(o);});
+  const sortBy=window._medSort||'issue';
+  const rows=Object.values(porSku).map(function(item){
     const sku=item.sku,ords=item.ords,med=item.med;
     const avg=ords.reduce(function(s,o){return s+(o.costoEnvio||0);},0)/ords.length;
+    const max=Math.max.apply(null,ords.map(function(o){return o.costoEnvio||0;}));
+    const min=Math.min.apply(null,ords.map(function(o){return o.costoEnvio||0;}));
     const volKg=(med&&med.alto&&med.ancho&&med.prof)?(med.alto*med.ancho*med.prof)/4000:null;
     const pesoEf=med?Math.max(med.peso||0,volKg||0):null;
-    let estado='—',col='var(--t3)';
-    if(!med){estado='⚠ Sin medidas cargadas';col='var(--org)';}
-    else{
-      const esperado=pesoEf*1800+1500;
-      const diff=avg-esperado;
-      if(diff>2000){estado='🔴 Cobro posiblemente alto (+'+fF(Math.round(diff))+')';col='var(--red)';}
-      else if(diff<-3000){estado='🟡 Verificar (cobro bajo)';col='var(--org)';}
-      else{estado='✅ Cobro normal';col='var(--grn)';}
-    }
-    h+='<tr><td><span class="sku">'+esc(sku)+'</span></td><td>'+ords.length+'</td>'
-      +'<td class="mono">'+fS(Math.round(avg))+'</td>'
-      +'<td class="mono">'+(pesoEf!==null?pesoEf.toFixed(2)+' kg':'—')+'</td>'
-      +'<td style="color:'+col+';font-size:11px">'+estado+'</td></tr>';
+    let estado='—',col='var(--t3)',prio=0;
+    if(!med){estado='⚠ Sin medidas';col='var(--org)';prio=1;}
+    else{const esp=pesoEf*1800+1500;const diff=avg-esp;if(diff>2000){estado='🔴 Cobro alto (+'+fF(Math.round(diff))+')';col='var(--red)';prio=3;}else if(diff<-3000){estado='🟡 Verificar';col='var(--org)';prio=2;}else{estado='✅ Normal';col='var(--grn)';prio=0;}}
+    return{sku,n:ords.length,avg,max,min,pesoEf,estado,col,prio,modales:[...new Set(ords.map(function(o){return o.modal;}))]};
   });
-  el.innerHTML=h+'</tbody></table><p style="font-size:10px;color:var(--t3);margin-top:6px">Estimación basada en tarifas promedio. Cargá las medidas con embalaje para mayor precisión.</p>';
+  rows.sort(function(a,b){return sortBy==='avg'?b.avg-a.avg:sortBy==='n'?b.n-a.n:b.prio-a.prio;});
+  const btns='<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center"><span style="font-size:11px;color:var(--t3)">Ordenar:</span>'
+    +'<button class="btn-g btn-sm" onclick="window._medSort=\'issue\';medValidar()" style="font-size:10px'+(sortBy==='issue'?';background:var(--s3)':'')+'">🔴 Problemas</button>'
+    +'<button class="btn-g btn-sm" onclick="window._medSort=\'avg\';medValidar()" style="font-size:10px'+(sortBy==='avg'?';background:var(--s3)':'')+'">$ Más caro</button>'
+    +'<button class="btn-g btn-sm" onclick="window._medSort=\'n\';medValidar()" style="font-size:10px'+(sortBy==='n'?';background:var(--s3)':'')+'">Más órdenes</button></div>';
+  const tbody=rows.map(function(r){
+    return '<tr><td><span class="sku">'+esc(r.sku)+'</span></td><td>'+r.n+'</td>'
+      +'<td class="mono" style="font-weight:600">'+fS(Math.round(r.avg))+'</td>'
+      +'<td class="mono" style="font-size:10px;color:var(--t3)">'+fS(Math.round(r.min))+' / '+fS(Math.round(r.max))+'</td>'
+      +'<td class="mono">'+(r.pesoEf!==null?r.pesoEf.toFixed(2)+' kg':'—')+'</td>'
+      +'<td style="font-size:10px">'+r.modales.join(', ')+'</td>'
+      +'<td style="color:'+r.col+';font-size:11px">'+r.estado+'</td></tr>';
+  }).join('');
+  el.innerHTML=btns+'<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Órdenes</th><th>Envío prom.</th><th>Mín/Máx</th><th>Peso efect.</th><th>Modales</th><th>Diagnóstico</th></tr></thead><tbody>'+tbody+'</tbody></table>'
+    +'<p style="font-size:10px;color:var(--t3);margin-top:6px">Solo Correo y Full. Flex excluido. Estimación aproximada — usá medidas con embalaje para mayor precisión.</p>';
 };
+
 
 // ── VENTAS CANCELADAS / DEVUELTAS ─────────────────────────────
 function renderCanceladas(el){
@@ -5439,6 +5467,79 @@ window.mayGuardarConfig = async function(){
 };
 
 // ── CALCULADORA ML — CUOTAS Y GUARDADO ───────────────────────────────────────
+window.cuotasSetMode = function(mode){
+  window._cuotasMode = mode;
+  const cBtn=document.getElementById('cuotas_mode_calc');
+  const sBtn=document.getElementById('cuotas_mode_sim');
+  const sPanel=document.getElementById('cuotas_sim_panel');
+  const cCards=document.getElementById('calc_cuotas_cards');
+  if(mode==='sim'){
+    if(cBtn){cBtn.style.background='transparent';cBtn.style.color='var(--t2)';}
+    if(sBtn){sBtn.style.background='var(--acc)';sBtn.style.color='#000';}
+    if(sPanel) sPanel.style.display='';
+    if(cCards) cCards.style.display='none';
+  } else {
+    if(cBtn){cBtn.style.background='var(--acc)';cBtn.style.color='#000';}
+    if(sBtn){sBtn.style.background='transparent';sBtn.style.color='var(--t2)';}
+    if(sPanel) sPanel.style.display='none';
+    if(cCards) cCards.style.display='grid';
+  }
+};
+
+window.calcSimCuotas = function(){
+  const precioPub=parseFloat(document.getElementById('cuotas_precio_pub')?.value)||0;
+  const nCuotas=parseInt(document.getElementById('cuotas_sim_n')?.value)||6;
+  const el=document.getElementById('cuotas_sim_result');
+  if(!el||!precioPub) return;
+
+  // Costos base de la calculadora
+  const costo=parseFloat(document.getElementById('calc_costo')?.value)||0;
+  const ivaPct=parseFloat(document.getElementById('calc_iva')?.value)||21;
+  const comPct=parseFloat(document.getElementById('calc_com')?.value)||16;
+  const pubPct=+(document.getElementById('calc_pub')?.value??5);
+  const iibbPct=+(document.getElementById('calc_iibb2')?.value??4);
+
+  // Costo de cuotas según cantidad
+  const cuotasCosto={3:8.8,6:12.7,9:15.9,12:19.3};
+  const cuotaPct=cuotasCosto[nCuotas]||12.7;
+
+  const com=Math.round(precioPub*comPct/100);
+  const iva=Math.round(precioPub - precioPub/(1+ivaPct/100));
+  const ventaSinIva=precioPub-iva;
+  const iibb=Math.round(ventaSinIva*iibbPct/100);
+  const pub=Math.round(precioPub*pubPct/100);
+  const ret=Math.round(precioPub*0.012);
+  const cuota=Math.round(precioPub*cuotaPct/100);
+  const ganancia=precioPub-com-iva-pub-iibb-ret-cuota-costo;
+  const margen=precioPub>0?ganancia/precioPub*100:0;
+  const roi=costo>0?ganancia/costo*100:0;
+  const ganColor=ganancia>=0?'var(--grn)':'var(--red)';
+
+  el.innerHTML='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">'
+    +'<div style="padding:10px;background:var(--s1);border-radius:var(--r);border-left:3px solid '+ganColor+'">'
+    +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase">Ganancia neta</div>'
+    +'<div style="font-size:18px;font-weight:700;color:'+ganColor+'">'+fF(Math.round(ganancia))+'</div></div>'
+    +'<div style="padding:10px;background:var(--s1);border-radius:var(--r)">'
+    +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase">Margen s/venta</div>'
+    +'<div style="font-size:18px;font-weight:700;color:'+ganColor+'">'+margen.toFixed(1)+'%</div></div>'
+    +'<div style="padding:10px;background:var(--s1);border-radius:var(--r)">'
+    +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase">Costo '+nCuotas+' cuotas ML</div>'
+    +'<div style="font-size:18px;font-weight:700;color:var(--red)">-'+fF(cuota)+'</div>'
+    +'<div style="font-size:10px;color:var(--t3)">'+cuotaPct+'%</div></div>'
+    +'</div>'
+    +'<table class="tbl" style="font-size:11px"><thead><tr><th>Concepto</th><th>Monto</th></tr></thead><tbody>'
+    +'<tr><td>Precio publicado</td><td class="mono" style="color:var(--grn)">+'+fF(precioPub)+'</td></tr>'
+    +'<tr><td>— Comisión ML '+comPct+'%</td><td class="mono" style="color:var(--red)">-'+fF(com)+'</td></tr>'
+    +'<tr><td>— IVA '+ivaPct+'% (implícito)</td><td class="mono" style="color:var(--red)">-'+fF(iva)+'</td></tr>'
+    +'<tr><td>— Publicidad '+pubPct+'%</td><td class="mono" style="color:var(--red)">-'+fF(pub)+'</td></tr>'
+    +'<tr><td>— IIBB '+iibbPct+'%</td><td class="mono" style="color:var(--red)">-'+fF(iibb)+'</td></tr>'
+    +'<tr><td>— Retenciones 1.2%</td><td class="mono" style="color:var(--red)">-'+fF(ret)+'</td></tr>'
+    +'<tr><td>— Costo cuotas '+nCuotas+'x ('+cuotaPct+'%)</td><td class="mono" style="color:var(--red)">-'+fF(cuota)+'</td></tr>'
+    +'<tr><td>— Costo producto</td><td class="mono" style="color:var(--red)">-'+fF(costo)+'</td></tr>'
+    +'<tr style="font-weight:700"><td>= Ganancia neta</td><td class="mono" style="color:'+ganColor+'">'+(ganancia>=0?'+':'')+fF(Math.round(ganancia))+'</td></tr>'
+    +'</tbody></table>';
+};
+
 const ML_CUOTAS = [
   {n:3,  label:'3 cuotas s/interés',  costo_pct:8.8,  tag:''},
   {n:6,  label:'6 cuotas s/interés',  costo_pct:12.7, tag:'recomendado'},
