@@ -6131,14 +6131,21 @@ window.calcUpdate = function(){
   if(umEl) umEl.textContent=umbral.toLocaleString('es-AR');
 
   const calcR = (modal,cord=3)=>{
-    const com=precio*comPct/100,iva=precio*ivaPct/100,pub=precio*pubPct/100;
-    const iibb=precio*iibbPct/100,ret=precio*0.012;
+    const com=precio*comPct/100;
+    // IVA CORRECTO: el precio c/IVA ya lo incluye → desglosar dividiendo
+    const iva=Math.round(precio - precio/(1+ivaPct/100));
+    const ventaSinIva=precio-iva;
+    // IIBB CORRECTO: sobre precio sin IVA
+    const iibb=Math.round(ventaSinIva*iibbPct/100);
+    const pub=Math.round(precio*pubPct/100);
+    const ret=Math.round(precio*0.012);
     let ingresoEnvio=0,costoCordon=0,costoEnvio=0;
 
-    // Fee logístico ML (costo por unidad vendida) — aplica a TODAS las modalidades < $33k
-    // Fuente: mercadolibre.com.ar/knowledge-hub/Costos-de-vender-un-producto
+    // Fee logístico ML (costo por unidad vendida):
+    // Solo aplica en Flex < $33k (envío gratis al comprador siempre)
+    // En Correo/Full < $33k el comprador paga el envío → no hay fee logístico
     let feeLogistico=0;
-    if(!sobreU){
+    if(modal==='Flex' && !sobreU){
       if(precio<=15999)       feeLogistico=1255;
       else if(precio<=23999)  feeLogistico=2500;
       else                     feeLogistico=3030;
