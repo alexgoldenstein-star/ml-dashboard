@@ -6141,11 +6141,11 @@ window.calcUpdate = function(){
     const ret=Math.round(precio*0.012);
     let ingresoEnvio=0,costoCordon=0,costoEnvio=0;
 
-    // Fee logístico ML (costo por unidad vendida):
-    // Solo aplica en Flex < $33k (envío gratis al comprador siempre)
-    // En Correo/Full < $33k el comprador paga el envío → no hay fee logístico
+    // Fee logístico ML (costo fijo por unidad vendida) — aplica a TODAS las modalidades < $33k
+    // Es un cargo adicional a la comisión, independiente de quién paga el envío
+    // Fuente: mercadolibre.com.ar/ayuda/Cargos-por-vender-productos_870
     let feeLogistico=0;
-    if(modal==='Flex' && !sobreU){
+    if(!sobreU){
       if(precio<=15999)       feeLogistico=1255;
       else if(precio<=23999)  feeLogistico=2500;
       else                     feeLogistico=3030;
