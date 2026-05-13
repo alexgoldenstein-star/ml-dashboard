@@ -1816,6 +1816,13 @@ function applyProductCosts(orders){
     if(o.modal==='Flex'){
       const CORD_MAP = {1: S.cfg.c1||3330, 2: S.cfg.c2||5355, 3: S.cfg.c3||6600};
       costoCordonFinal = CORD_MAP[o.cordon||3];
+      if(!sobreUmbral){
+        if(precioUnit<=15999)       costoCordonFinal=1255;
+        else if(precioUnit<=23999)  costoCordonFinal=2500;
+        else                         costoCordonFinal=3030;
+      } else {
+        costoCordonFinal = CORD_MAP[o.cordon||3];
+      }
       // Tabla de bonificaciones desde Config (con defaults oficiales ML)
       const BONIF_BAJO = {1: S.cfg.bonif_bajo_c1||4490, 2: S.cfg.bonif_bajo_c2||6490, 3: S.cfg.bonif_bajo_c3||8490};
       const BONIF_ALTO = {1: S.cfg.bonif_alto_c1||449,  2: S.cfg.bonif_alto_c2||649,  3: S.cfg.bonif_alto_c3||849};
@@ -6130,7 +6137,16 @@ window.calcUpdate = function(){
     const envMode = document.getElementById('calc_envio_mode')?.value||'auto';
     const stats = window._calcEnvioStats;
     if(modal==='Flex'){
-      costoCordon=CORD[cord];
+      // Tabla oficial ML: costo por unidad vendida según precio
+      if(!sobreU){
+        // Bajo $33k: costo basado en rango de precio (tabla oficial ML)
+        if(precio<=15999)       costoCordon=1255;
+        else if(precio<=23999)  costoCordon=2500;
+        else                     costoCordon=3030;
+      } else {
+        // Sobre $33k: costo geográfico por cordón
+        costoCordon=CORD[cord];
+      }
       ingresoEnvio=(sobreU?BONIF_A:BONIF_B)[cord];
     } else {
       const dbEnvio=(_envioDB||{})[skuSel];
