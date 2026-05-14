@@ -165,6 +165,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="calc"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>Calculadora</div>
     <div class="ni" data-p="container"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="14" height="8" rx="1.5"/><path d="M4 5V3a1 1 0 011-1h6a1 1 0 011 1v2M6 9h4"/></svg>Contenedor</div>
     <div class="ni" data-p="importacion"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 7l4 4 4-4"/><path d="M1 13h14"/></svg>Importación</div>
+    <div class="ni" data-p="portafolio"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Portafolio</div>
     <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
     <div class="ns">Sistema</div>
@@ -744,6 +745,99 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- PORTAFOLIO DE PRODUCTOS -->
+    <div class="page" id="page-portafolio">
+      <div class="card" style="margin-bottom:10px">
+        <div class="ch">
+          <span class="ct">➕ Agregar producto al portafolio</span>
+          <button class="btn btn-sm" onclick="portGuardar()">Guardar</button>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;gap:8px;align-items:end">
+          <div><label class="lbl">Nombre / SKU</label><input class="inp" id="port_nombre" placeholder="Ej: Silla Gaming NVK-3000"></div>
+          <div><label class="lbl">FOB USD</label><input class="inp" id="port_fob" type="number" placeholder="15000"></div>
+          <div><label class="lbl">Rentabilidad %</label><input class="inp" id="port_rent" type="number" placeholder="20" step="0.5"></div>
+          <div><label class="lbl">Días rot. óptimo</label><input class="inp" id="port_dias" type="number" placeholder="30"></div>
+          <div><label class="lbl">Días rot. máx.</label><input class="inp" id="port_dias_max" type="number" placeholder="45"></div>
+          <div><label class="lbl">Categoría</label>
+            <select class="inp" id="port_cat">
+              <option value="muebles">Muebles</option>
+              <option value="electronica">Electrónica</option>
+              <option value="hogar">Hogar</option>
+              <option value="exterior">Exterior</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;align-items:end">
+          <div><label class="lbl">Canal principal</label>
+            <select class="inp" id="port_canal">
+              <option value="ml">MercadoLibre</option>
+              <option value="mayorista">Mayorista</option>
+              <option value="ambos">Ambos</option>
+            </select>
+          </div>
+          <div><label class="lbl">Estado actual</label>
+            <select class="inp" id="port_estado">
+              <option value="activo">Activo</option>
+              <option value="evaluar">En evaluación</option>
+              <option value="pausar">Candidato a pausar</option>
+              <option value="nuevo">Nuevo</option>
+            </select>
+          </div>
+          <div><label class="lbl">Notas</label><input class="inp" id="port_notas" placeholder="Observaciones"></div>
+        </div>
+      </div>
+
+      <!-- Controles de vista -->
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+        <select class="sel" id="port_sort" onchange="portRender()">
+          <option value="roi">Ordenar: ROI anualizado</option>
+          <option value="ganancia">Ordenar: Ganancia anual</option>
+          <option value="rent">Ordenar: Rentabilidad %</option>
+          <option value="dias">Ordenar: Días rotación</option>
+          <option value="nombre">Ordenar: Nombre</option>
+        </select>
+        <select class="sel" id="port_cat_filter" onchange="portRender()">
+          <option value="all">Todas las categorías</option>
+          <option value="muebles">Muebles</option>
+          <option value="electronica">Electrónica</option>
+          <option value="hogar">Hogar</option>
+          <option value="exterior">Exterior</option>
+          <option value="otro">Otro</option>
+        </select>
+        <select class="sel" id="port_capital" onchange="portRender()">
+          <option value="50000">Capital: USD 50k</option>
+          <option value="100000">Capital: USD 100k</option>
+          <option value="150000">Capital: USD 150k</option>
+          <option value="200000">Capital: USD 200k</option>
+        </select>
+        <button class="btn-g btn-sm" onclick="portImportarML()" style="font-size:11px">📊 Importar desde ventas ML</button>
+      </div>
+
+      <!-- KPIs globales -->
+      <div id="port_kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px"></div>
+
+      <!-- Ranking -->
+      <div id="port_ranking"></div>
+
+      <!-- Gráfico ROI -->
+      <div class="card" style="margin-top:10px">
+        <div class="ch"><span class="ct">ROI anualizado por producto</span></div>
+        <div style="position:relative;height:280px"><canvas id="port_chart" role="img" aria-label="Gráfico de ROI anualizado por producto del portafolio"></canvas></div>
+      </div>
+
+      <!-- Comparador rápido -->
+      <div class="card" style="margin-top:10px">
+        <div class="ch"><span class="ct">Comparador financiero rápido</span></div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Seleccioná dos productos para ver el análisis detallado de cuál conviene más reponer.</p>
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:end">
+          <div style="flex:1"><label class="lbl">Producto A</label><select class="inp" id="port_cmp_a" onchange="portComparar()"></select></div>
+          <div style="flex:1"><label class="lbl">Producto B</label><select class="inp" id="port_cmp_b" onchange="portComparar()"></select></div>
+        </div>
+        <div id="port_comparador"></div>
       </div>
     </div>
 
@@ -1733,7 +1827,7 @@ function setupNav(){
     el.addEventListener("click",()=>{goPage(el.dataset.p);closeMob();});
   });
 }
-const TITLES={overview:"Overview",ventas:"Ventas",rent:"Rentabilidad",envios:"Análisis de Envíos",productos:"Productos & Costos",zonas:"Zonas Flex",mercado:"Est. Mercado",ctrl_prod:"Control de Productos",alertas:"A completar",cuentas:"Cuentas ML",gettoken:"Get Token",config:"Configuración"};
+const TITLES={overview:"Overview",ventas:"Ventas",rent:"Rentabilidad",envios:"Análisis de Envíos",productos:"Productos & Costos",zonas:"Zonas Flex",mercado:"Est. Mercado",ctrl_prod:"Control de Productos",alertas:"A completar",cuentas:"Cuentas ML",gettoken:"Get Token",config:"Configuración",portafolio:"Portafolio de Productos"};
 const NO_FILTER=["config","gettoken","alertas","cuentas"];
 
 window.goPage=p=>{
@@ -1747,7 +1841,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -4494,20 +4588,16 @@ window.closeMob=()=>{document.getElementById("sb").classList.remove("open");docu
 init();
 
 // ── ADS AGENTE ───────────────────────────────────────────────────────────────
-let _adsHistory = [];
-let _adsContexto = '';
-let _adsInited = false;
-let _adsData = null;
+let _adsHistory=[], _adsContexto='', _adsInited=false, _adsData=null;
 
 async function renderAdsAgente(){
   if(!_adsInited){
     _adsInited=true;
-    adsMsg('agent','Hola! Soy tu agente de MercadoAds.\n\nAnalizando tus datos...');
+    adsMsg('agent','📊 Cargando métricas de publicidad desde tus ventas reales...');
   }
   const accounts=(S.accounts||[]).filter(a=>a.token);
-  if(accounts.length>0 && !_adsData){
-    await adsCargar(accounts);
-  }
+  if(accounts.length>0) await adsCargar(accounts);
+  else adsMsg('agent','Sin cuentas conectadas. Conectá tus cuentas ML primero.');
 }
 
 async function adsCargar(accounts){
@@ -4515,165 +4605,262 @@ async function adsCargar(accounts){
   const dias=parseInt(document.getElementById('ads_periodo_sel')?.value)||30;
   const dateFrom=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
   const dateTo=new Date().toISOString().split('T')[0];
-
-  if(stEl) stEl.textContent='⏳ Probando acceso a MercadoAds API...';
-  let apiOk=false;
-  const acct0=accounts[0];
-  if(acct0){
-    try{
-      const sid=UID[acct0.id]||acct0.id;
-      const d=await fetch(`${PROXY}/ads/diagnostico?seller_id=${sid}`,{headers:{'x-ml-token':acct0.token}}).then(r=>r.json()).catch(e=>({error:e.message,results:{}}));
-      console.log('ADS DIAGNOSTICO:', JSON.stringify(d,null,2));
-      // Mostrar resultado en chat
-      const statuses=Object.entries(d.results||{}).map(([url,v])=>`  ${url.split('/').slice(-2).join('/')}: HTTP ${v.status||'?'} ${v.ok?'✓':'✗'}\n  → ${(v.preview||v.error||'').substring(0,80)}`).join('\n');
-      adsMsg('agent',`🔍 Diagnóstico ML Ads (seller ${sid}):\n${statuses||'Sin resultados'}\n\n${d.error?'Error: '+d.error:''}`);
-      apiOk=Object.values(d.results||{}).some(v=>v.status===200);
-    }catch(e){
-      adsMsg('agent','❌ Error al diagnosticar: '+e.message);
-    }
-  }
-
-  if(apiOk){
-    await adsDesdeAPI(accounts,dateFrom,dateTo,dias);
-  } else {
-    if(stEl) stEl.textContent='📊 Usando historial de órdenes (API Ads no disponible)';
-    adsDesdeOrdenes(dias,dateFrom,dateTo);
-  }
-}
-
-async function adsDesdeAPI(accounts,dateFrom,dateTo,dias){
-  const stEl=document.getElementById('ads_status');
-  if(stEl) stEl.textContent='⏳ Leyendo métricas reales de MercadoAds...';
-  const res=[];
-  for(const acct of accounts){
-    const sid=UID[acct.id]||acct.id;
-    const h={'x-ml-token':acct.token};
-    try{
-      const[metR,itemsR]=await Promise.all([
-        fetch(`${PROXY}/ads/metricas?seller_id=${sid}&date_from=${dateFrom}&date_to=${dateTo}`,{headers:h}).then(r=>r.json()).catch(()=>({})),
-        fetch(`${PROXY}/ads/items?seller_id=${sid}&date_from=${dateFrom}&date_to=${dateTo}&limit=15`,{headers:h}).then(r=>r.json()).catch(()=>({})),
-      ]);
-      const m=metR.metricas||{};
-      const spent=m.spent||m.total_spent||m.cost||0;
-      const clicks=m.clicks||m.total_clicks||0;
-      const ventas=m.total_sales||m.attributed_sales||0;
-      const ordenes=m.orders||m.total_orders||0;
-      const vtot=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.acct===acct.id).reduce((s,o)=>s+o.venta,0);
-      const gant=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.acct===acct.id).reduce((s,o)=>s+o.ganancia,0);
-      res.push({acct:acct.id,spent,clicks,ventas,ordenes,vtot,gant,
-        acos:ventas>0?spent/ventas:null,roas:spent>0?ventas/spent:null,
-        cpc:clicks>0?spent/clicks:0,items:itemsR.items||[]});
-    }catch(e){console.warn('Ads API',acct.id,e);}
-  }
-  if(!res.length){adsDesdeOrdenes(dias,dateFrom,dateTo);return;}
-  const ts=res.reduce((s,r)=>s+r.spent,0);
-  const tv=res.reduce((s,r)=>s+r.ventas,0);
-  const tvt=res.reduce((s,r)=>s+r.vtot,0);
-  adsSetKpis(ts,tv,tvt,res);
-  _adsData=res;
-  _adsContexto=`DATOS REALES ML ADS (${dias}d):\nGasto: ${fS(ts)} | Ventas ads: ${fS(tv)} | ACOS: ${tv>0?((ts/tv)*100).toFixed(1)+'%':'?'} | ROAS: ${ts>0?(tv/ts).toFixed(1)+'x':'?'}\nPor cuenta:\n${res.map(r=>`  ${r.acct}: ${fS(r.spent)} gastado, ACOS ${r.acos!==null?(r.acos*100).toFixed(1)+'%':'?'}`).join('\n')}\nContexto: MercadoLíder, 4 cuentas, muebles y electrónica.`;
-  if(stEl) stEl.textContent=`✓ Datos reales de ML Ads · ${res.length} cuentas · ${dias}d`;
-  setTimeout(adsAnalisisAuto,300);
+  if(stEl) stEl.textContent='⏳ Calculando métricas desde órdenes reales...';
+  adsDesdeOrdenes(dias,dateFrom,dateTo);
 }
 
 function adsDesdeOrdenes(dias,dateFrom,dateTo){
   const stEl=document.getElementById('ads_status');
-  const ords=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo);
+  const ords=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
+
   if(!ords.length){
     if(stEl) stEl.textContent='⚠ Sin órdenes. Actualizá las ventas primero.';
+    adsMsg('agent','No encontré órdenes en el período. Actualizá las ventas primero.');
     return;
   }
+
+  // Métricas globales
   const totPub=ords.reduce((s,o)=>s+(o.pub||0),0);
   const totV=ords.reduce((s,o)=>s+(o.venta||0),0);
   const totG=ords.reduce((s,o)=>s+(o.ganancia||0),0);
-  const porCuenta={};
-  ords.forEach(o=>{const a=o.acct||'?';if(!porCuenta[a])porCuenta[a]={pub:0,venta:0,gan:0,ords:0};porCuenta[a].pub+=o.pub||0;porCuenta[a].venta+=o.venta||0;porCuenta[a].gan+=o.ganancia||0;porCuenta[a].ords++;});
-  const porSku={};
-  ords.forEach(o=>{if(!o.sku)return;if(!porSku[o.sku])porSku[o.sku]={pub:0,venta:0,gan:0,ords:0};porSku[o.sku].pub+=o.pub||0;porSku[o.sku].venta+=o.venta||0;porSku[o.sku].gan+=o.ganancia||0;porSku[o.sku].ords++;});
-  const topSkus=Object.entries(porSku).sort((a,b)=>b[1].pub-a[1].pub).slice(0,8);
+  const totU=ords.reduce((s,o)=>s+(o.unidades||0),0);
   const acosR=totV>0?totPub/totV:null;
   const roasR=totPub>0?totV/totPub:null;
   const mgR=totV>0?totG/totV:0;
-  const res=Object.entries(porCuenta).map(([acct,d])=>({acct,spent:d.pub,ventas:d.venta,vtot:d.venta,gant:d.gan,ordenes:d.ords,acos:d.venta>0?d.pub/d.venta:null,roas:d.pub>0?d.venta/d.pub:null,cpc:0,items:[]}));
-  adsSetKpis(totPub,totV,totV,res);
-  _adsData=res;
+  const mgSinPub=totV>0?(totG+totPub)/totV:0;
+  const pubXorden=ords.length>0?totPub/ords.length:0;
+
+  // Por cuenta
+  const porCuenta={};
+  ords.forEach(o=>{
+    const a=o.acct||'?';
+    if(!porCuenta[a]) porCuenta[a]={pub:0,venta:0,gan:0,ords:0,unids:0};
+    porCuenta[a].pub+=o.pub||0;
+    porCuenta[a].venta+=o.venta||0;
+    porCuenta[a].gan+=o.ganancia||0;
+    porCuenta[a].ords++;
+    porCuenta[a].unids+=o.unidades||0;
+  });
+
+  // Por SKU — top 10 por gasto en pub
+  const porSku={};
+  ords.forEach(o=>{
+    if(!o.sku) return;
+    if(!porSku[o.sku]) porSku[o.sku]={pub:0,venta:0,gan:0,ords:0,unids:0,desc:o.desc||o.sku};
+    porSku[o.sku].pub+=o.pub||0;
+    porSku[o.sku].venta+=o.venta||0;
+    porSku[o.sku].gan+=o.ganancia||0;
+    porSku[o.sku].ords++;
+    porSku[o.sku].unids+=o.unidades||0;
+  });
+  const topSkus=Object.entries(porSku).sort((a,b)=>b[1].pub-a[1].pub).slice(0,10);
+
+  // Por modalidad — cómo impacta el envío en la rentabilidad
+  const porModal={};
+  ords.forEach(o=>{
+    const m=o.modal||'?';
+    if(!porModal[m]) porModal[m]={pub:0,venta:0,gan:0,ords:0};
+    porModal[m].pub+=o.pub||0;
+    porModal[m].venta+=o.venta||0;
+    porModal[m].gan+=o.ganancia||0;
+    porModal[m].ords++;
+  });
+
+  // SKUs problemáticos: alto gasto pub + bajo margen
+  const skusBajoMargen=topSkus.filter(([,d])=>d.venta>0&&d.gan/d.venta<0.05&&d.pub>5000);
+  const skusAltoAcos=topSkus.filter(([,d])=>d.venta>0&&d.pub/d.venta>0.20&&d.pub>5000);
+
+  // Actualizar KPIs
+  const setK=(id,text,color)=>{const el=document.getElementById(id);if(el){el.textContent=text;el.style.color=color;}};
+  setK('ads_k_acos',acosR!==null?(acosR*100).toFixed(1)+'%':'—',
+    acosR===null?'var(--t3)':acosR<=0.12?'var(--grn)':acosR<=0.20?'var(--org)':'var(--red)');
+  setK('ads_k_roas',roasR!==null?roasR.toFixed(1)+'x':'—',
+    roasR===null?'var(--t3)':roasR>=6?'var(--grn)':roasR>=3?'var(--org)':'var(--red)');
+  setK('ads_k_pct',(mgR*100).toFixed(1)+'%',
+    mgR>=0.15?'var(--grn)':mgR>=0.08?'var(--org)':'var(--red)');
+  setK('ads_k_inv',fS(Math.round(totPub)),'var(--red)');
+
+  // Tabla por cuenta
   const tablaEl=document.getElementById('ads_tabla');
   if(tablaEl){
-    let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Cuenta</th><th>Pub gastada</th><th>Ventas</th><th>ACOS</th><th>ROAS</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
-    Object.entries(porCuenta).forEach(([a,d])=>{
-      const ac=d.venta>0?d.pub/d.venta:null,ro=d.pub>0?d.venta/d.pub:null,mg=d.venta>0?d.gan/d.venta:null;
+    let h='<table class="tbl" style="font-size:11px"><thead><tr>'
+      +'<th>Cuenta</th><th>Pub gastada</th><th>Ventas</th><th>ACOS</th><th>ROAS</th><th>Margen</th><th>Órdenes</th><th>Unidades</th>'
+      +'</tr></thead><tbody>';
+    Object.entries(porCuenta).sort((a,b)=>b[1].pub-a[1].pub).forEach(([acct,d])=>{
+      const ac=d.venta>0?d.pub/d.venta:null;
+      const ro=d.pub>0?d.venta/d.pub:null;
+      const mg=d.venta>0?d.gan/d.venta:null;
       const acC=ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)';
       const roC=ro===null?'var(--t3)':ro>=6?'var(--grn)':ro>=3?'var(--org)':'var(--red)';
       const mgC=mg===null?'var(--t3)':mg>=0.15?'var(--grn)':mg>=0.08?'var(--org)':'var(--red)';
-      h+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(a)}</span></td><td class="mono" style="color:var(--red)">${fS(d.pub)}</td><td class="mono">${fS(d.venta)}</td><td style="color:${acC};font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="color:${roC};font-weight:600">${ro!==null?ro.toFixed(1)+'x':'—'}</td><td style="color:${mgC};font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td></tr>`;
+      h+=`<tr>
+        <td><span class="sku" style="background:var(--s3)">${esc(acct)}</span></td>
+        <td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td>
+        <td class="mono">${fS(Math.round(d.venta))}</td>
+        <td style="font-weight:600;color:${acC}">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td>
+        <td style="font-weight:600;color:${roC}">${ro!==null?ro.toFixed(1)+'x':'—'}</td>
+        <td style="font-weight:600;color:${mgC}">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td>
+        <td>${d.ords}</td>
+        <td>${d.unids}</td>
+      </tr>`;
     });
+    // Total row
+    const acT=totV>0?totPub/totV:null, roT=totPub>0?totV/totPub:null, mgT=totV>0?totG/totV:null;
+    h+=`<tr style="font-weight:700;border-top:2px solid var(--b1)">
+      <td>TOTAL</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(totPub))}</td>
+      <td class="mono">${fS(Math.round(totV))}</td>
+      <td style="color:${acT!==null&&acT<=0.12?'var(--grn)':acT!==null&&acT<=0.20?'var(--org)':'var(--red)'}">${acT!==null?(acT*100).toFixed(1)+'%':'—'}</td>
+      <td>${roT!==null?roT.toFixed(1)+'x':'—'}</td>
+      <td style="color:${mgT!==null&&mgT>=0.15?'var(--grn)':mgT!==null&&mgT>=0.08?'var(--org)':'var(--red)'}">${mgT!==null?(mgT*100).toFixed(1)+'%':'—'}</td>
+      <td>${ords.length}</td>
+      <td>${totU}</td>
+    </tr>`;
     h+='</tbody></table>';
+
+    // Top SKUs
     if(topSkus.length){
-      h+='<div style="margin-top:10px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:4px">Top SKUs por gasto en publicidad</div>';
-      h+='<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
+      h+='<div style="margin-top:14px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Top SKUs por gasto en publicidad</div>';
+      h+='<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th><th>Alerta</th></tr></thead><tbody>';
       topSkus.forEach(([sku,d])=>{
-        const ac=d.venta>0?d.pub/d.venta:null,mg=d.venta>0?d.gan/d.venta:null;
+        const ac=d.venta>0?d.pub/d.venta:null;
+        const mg=d.venta>0?d.gan/d.venta:null;
         const acC=ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)';
         const mgC=mg===null?'var(--t3)':mg>=0.10?'var(--grn)':mg>=0.05?'var(--org)':'var(--red)';
-        h+=`<tr><td><span class="sku">${esc(sku)}</span></td><td class="mono" style="color:var(--red)">${fS(d.pub)}</td><td class="mono">${fS(d.venta)}</td><td style="color:${acC};font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="color:${mgC};font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td></tr>`;
+        let alerta='';
+        if(mg!==null&&mg<0.05&&d.pub>5000) alerta='🔴 Margen bajo';
+        else if(ac!==null&&ac>0.20&&d.pub>5000) alerta='🟡 ACOS alto';
+        else if(d.ords>5) alerta='✅ OK';
+        h+=`<tr>
+          <td><span class="sku">${esc(sku)}</span></td>
+          <td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td>
+          <td class="mono">${fS(Math.round(d.venta))}</td>
+          <td style="color:${acC};font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td>
+          <td style="color:${mgC};font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td>
+          <td>${d.ords}</td>
+          <td style="font-size:11px">${alerta}</td>
+        </tr>`;
       });
       h+='</tbody></table>';
     }
+
+    // Análisis por modalidad
+    h+='<div style="margin-top:14px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Por modalidad de envío</div>';
+    h+='<table class="tbl" style="font-size:11px"><thead><tr><th>Modal</th><th>Pub gastada</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
+    Object.entries(porModal).sort((a,b)=>b[1].ords-a[1].ords).forEach(([modal,d])=>{
+      const ac=d.venta>0?d.pub/d.venta:null;
+      const mg=d.venta>0?d.gan/d.venta:null;
+      h+=`<tr>
+        <td><span class="sku" style="background:var(--s3)">${esc(modal)}</span></td>
+        <td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td>
+        <td class="mono">${fS(Math.round(d.venta))}</td>
+        <td style="font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td>
+        <td style="font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td>
+        <td>${d.ords}</td>
+      </tr>`;
+    });
+    h+='</tbody></table>';
     tablaEl.innerHTML=h;
   }
-  _adsContexto=`DATOS ADS DESDE ÓRDENES REALES (${dias}d, ${ords.length} órdenes):\nGasto pub total: ${fS(totPub)} | Ventas: ${fS(totV)} | ACOS: ${acosR!==null?(acosR*100).toFixed(1)+'%':'?'} | ROAS: ${roasR!==null?roasR.toFixed(1)+'x':'?'} | Margen neto: ${(mgR*100).toFixed(1)}%\nPor cuenta:\n${Object.entries(porCuenta).map(([a,d])=>`  ${a}: pub ${fS(d.pub)}, ventas ${fS(d.venta)}, ACOS ${d.venta>0?((d.pub/d.venta)*100).toFixed(1)+'%':'?'}, margen ${d.venta>0?((d.gan/d.venta)*100).toFixed(1)+'%':'?'}`).join('\n')}\nTop SKUs por pub:\n${topSkus.slice(0,5).map(([s,d])=>`  ${s}: pub ${fS(d.pub)}, ACOS ${d.venta>0?((d.pub/d.venta)*100).toFixed(1)+'%':'?'}`).join('\n')}\nContexto: MercadoLíder, 4 cuentas, muebles y electrónica.`;
-  if(stEl) stEl.textContent=`✓ ${ords.length} órdenes analizadas · ${dias} días · historial interno`;
-  setTimeout(adsAnalisisAuto,300);
+
+  // Resumen en el chat
+  const resumen=`📊 Métricas de publicidad — últimos ${dias} días (${ords.length} órdenes)
+
+`
+    +`💰 Inversión total en pub: ${fS(Math.round(totPub))}
+`
+    +`📦 Ventas totales: ${fS(Math.round(totV))} (${totU} unidades)
+`
+    +`📈 ACOS: ${acosR!==null?(acosR*100).toFixed(1)+'%':'sin datos'} | ROAS: ${roasR!==null?roasR.toFixed(1)+'x':'sin datos'}
+`
+    +`💚 Margen neto: ${(mgR*100).toFixed(1)}% | Sin pub sería: ${(mgSinPub*100).toFixed(1)}%
+`
+    +`🔖 Pub promedio por orden: ${fS(Math.round(pubXorden))}
+`
+    +(skusBajoMargen.length?`
+⚠️ SKUs con bajo margen y alto gasto: ${skusBajoMargen.map(([s])=>s).join(', ')}`:'' )
+    +(skusAltoAcos.length?`
+⚠️ SKUs con ACOS alto (>20%): ${skusAltoAcos.map(([s])=>s).join(', ')}`:'')
+    +`
+
+💡 El análisis IA estará disponible cuando se configure la API key de Anthropic.`;
+
+  _adsContexto=resumen;
+  _adsData={totPub,totV,totG,acosR,roasR,mgR,topSkus,porCuenta};
+
+  if(stEl) stEl.textContent=`✓ ${ords.length} órdenes · ${dias} días · ${Object.keys(porCuenta).length} cuentas`;
+
+  // Limpiar chat previo y mostrar resumen
+  const msgEl=document.getElementById('ads_messages');
+  if(msgEl) msgEl.innerHTML='';
+  adsMsg('agent',resumen);
 }
 
 function adsSetKpis(totPub,totV,totVT,res){
-  const ac=totV>0?totPub/totV:null,ro=totPub>0?totV/totPub:null,pct=totVT>0?totV/totVT:null;
+  const ac=totV>0?totPub/totV:null,ro=totPub>0?totV/totPub:null;
   const setK=(id,text,color)=>{const el=document.getElementById(id);if(el){el.textContent=text;el.style.color=color;}};
   setK('ads_k_acos',ac!==null?(ac*100).toFixed(1)+'%':'—',ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)');
   setK('ads_k_roas',ro!==null?ro.toFixed(1)+'x':'—',ro===null?'var(--t3)':ro>=6?'var(--grn)':ro>=3?'var(--org)':'var(--red)');
-  setK('ads_k_pct',pct!==null?(pct*100).toFixed(0)+'%':'—','var(--t1)');
   setK('ads_k_inv',fS(totPub),'var(--red)');
 }
 
 function adsRenderTabla(res){
-  // Used by adsDesdeAPI
-  const el=document.getElementById('ads_tabla');
-  if(!el) return;
-  let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Cuenta</th><th>Gasto</th><th>Ventas ads</th><th>ACOS</th><th>ROAS</th><th>CPC</th></tr></thead><tbody>';
+  const el=document.getElementById('ads_tabla');if(!el)return;
+  let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Cuenta</th><th>Gasto</th><th>Ventas</th><th>ACOS</th><th>ROAS</th></tr></thead><tbody>';
   res.forEach(r=>{
     const acC=r.acos===null?'var(--t3)':r.acos<=0.12?'var(--grn)':r.acos<=0.20?'var(--org)':'var(--red)';
-    const roC=r.roas===null?'var(--t3)':r.roas>=6?'var(--grn)':r.roas>=3?'var(--org)':'var(--red)';
-    h+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(r.acct)}</span></td><td class="mono" style="color:var(--red)">${r.spent>0?fS(r.spent):'—'}</td><td class="mono">${r.ventas>0?fS(r.ventas):'—'}</td><td style="color:${acC};font-weight:600">${r.acos!==null?(r.acos*100).toFixed(1)+'%':'—'}</td><td style="color:${roC};font-weight:600">${r.roas!==null?r.roas.toFixed(1)+'x':'—'}</td><td class="mono">${r.cpc>0?fS(r.cpc):'—'}</td></tr>`;
+    h+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(r.acct)}</span></td><td class="mono" style="color:var(--red)">${r.spent>0?fS(r.spent):'—'}</td><td class="mono">${r.ventas>0?fS(r.ventas):'—'}</td><td style="color:${acC};font-weight:600">${r.acos!==null?(r.acos*100).toFixed(1)+'%':'—'}</td><td>${r.roas!==null?r.roas.toFixed(1)+'x':'—'}</td></tr>`;
   });
   el.innerHTML=h+'</tbody></table>';
 }
 
-async function adsAnalisisAuto(){
-  if(!_adsContexto) return;
-  const tid=adsThink();
-  try{
-    const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,messages:[{role:'user',content:`Sos experto en MercadoAds Argentina para sellers de alto volumen.\n${_adsContexto}\nAnalizá estos datos:\n1. DIAGNÓSTICO (2-3 frases directas)\n2. PROBLEMA PRINCIPAL con impacto en pesos\n3. TOP 3 ACCIONES para esta semana\n4. OBJETIVO 30 DÍAS (ACOS objetivo + ahorro en ARS)\nMáximo 250 palabras, usá números reales.`}]})});
-    const d=await resp.json();
-    const text=d.content?.[0]?.text||'';
-    adsUnthink(tid);
-    if(text){adsMsg('agent',text);_adsHistory=[{role:'user',content:`Datos:\n${_adsContexto}`},{role:'assistant',content:text}];}
-  }catch(e){adsUnthink(tid);adsMsg('agent','Error al analizar. Preguntame directamente.');}
-}
+window.adsRecargar=async function(){
+  _adsData=null;_adsHistory=[];_adsContexto='';
+  const acc=(S.accounts||[]).filter(a=>a.token);
+  if(acc.length) await adsCargar(acc);
+  else adsMsg('agent','No hay cuentas conectadas.');
+};
 
-window.adsToggleDatos=function(){const el=document.getElementById('ads_datos_panel'),btn=document.getElementById('ads_datos_toggle');if(!el)return;const o=el.style.display==='none';el.style.display=o?'':'none';if(btn)btn.textContent=o?'▲ Cerrar':'▼ Datos manuales';};
-window.adsUpdateKpis=function(){const i=parseFloat(document.getElementById('ads_inversion')?.value)||0,v=parseFloat(document.getElementById('ads_ventas_ads')?.value)||0,vt=parseFloat(document.getElementById('ads_ventas_total')?.value)||0;if(!i||!v)return;adsSetKpis(i,v,vt||v,[]);};
-window.adsAnalizar=async function(){const i=parseFloat(document.getElementById('ads_inversion')?.value)||0,v=parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;if(!i||!v){toast('Completá inversión y ventas ads','err');return;}_adsContexto=`DATOS MANUALES (${document.getElementById('ads_periodo_sel')?.value||30}d): Gasto ${fS(i)}, Ventas ads ${fS(v)}, ACOS ${(i/v*100).toFixed(1)}%, ROAS ${(v/i).toFixed(1)}x. Prods: ${document.getElementById('ads_productos')?.value||'mixto'}. Contexto: MercadoLíder 4 cuentas.`;adsUpdateKpis();document.getElementById('ads_datos_panel').style.display='none';await adsAnalisisAuto();};
-window.adsRecargar=async function(){_adsData=null;_adsHistory=[];_adsContexto='';const acc=(S.accounts||[]).filter(a=>a.token);if(acc.length)await adsCargar(acc);else adsMsg('agent','No hay cuentas conectadas.');};
-window.adsQuick=function(t){const inp=document.getElementById('ads_input');if(inp){inp.value=t;adsSend();}};
-window.adsSend=async function(){const inp=document.getElementById('ads_input'),text=(inp?.value||'').trim();if(!text)return;inp.value='';inp.style.height='auto';adsMsg('user',text);const btn=document.getElementById('ads_send_btn');if(btn)btn.disabled=true;const tid=adsThink();const sys=`Sos experto en MercadoAds Argentina.\n${_adsContexto||'Cliente: NIVIKO, MercadoLíder, muebles y electrónica.'}\nRespondé en español, directo, máximo 200 palabras.`;try{const resp=await fetch(`${PROXY}/ai/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:sys,messages:[..._adsHistory,{role:'user',content:text}]})});const d=await resp.json();const reply=d.content?.[0]?.text||'Sin respuesta.';adsUnthink(tid);adsMsg('agent',reply);_adsHistory.push({role:'user',content:text},{role:'assistant',content:reply});if(_adsHistory.length>20)_adsHistory=_adsHistory.slice(-20);}catch(e){adsUnthink(tid);adsMsg('agent','❌ Error de conexión.');}if(btn)btn.disabled=false;};
+window.adsToggleDatos=function(){
+  const el=document.getElementById('ads_datos_panel'),btn=document.getElementById('ads_datos_toggle');
+  if(!el)return;
+  const o=el.style.display==='none';
+  el.style.display=o?'':'none';
+  if(btn)btn.textContent=o?'▲ Cerrar':'▼ Cargar datos manuales';
+};
+
+window.adsUpdateKpis=function(){
+  const i=parseFloat(document.getElementById('ads_inversion')?.value)||0;
+  const v=parseFloat(document.getElementById('ads_ventas_ads')?.value)||0;
+  const vt=parseFloat(document.getElementById('ads_ventas_total')?.value)||0;
+  if(!i||!v)return;
+  adsSetKpis(i,v,vt||v,[]);
+};
+
+window.adsSend=async function(){
+  const inp=document.getElementById('ads_input'),text=(inp?.value||'').trim();
+  if(!text)return;
+  inp.value='';
+  adsMsg('user',text);
+  // Sin API key — responder con datos locales
+  const respuesta=_adsContexto
+    ?`Tengo estos datos de tus ventas:
+
+${_adsContexto}
+
+⚠️ El análisis IA completo requiere configurar la API key de Anthropic en el proxy de Vercel.`
+    :'⚠️ Actualizá las ventas primero para ver los datos de publicidad. El análisis IA completo requiere configurar la API key de Anthropic.';
+  adsMsg('agent',respuesta);
+};
 
 function adsMsg(type,text){
   const el=document.getElementById('ads_messages');if(!el)return;
   const div=document.createElement('div');
-  div.style.cssText='display:flex;gap:8px;margin-bottom:2px;'+(type==='user'?'flex-direction:row-reverse':'');
-  const fmt=text.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--acc)">$1</strong>');
+  div.style.cssText='display:flex;gap:8px;margin-bottom:8px;'+(type==='user'?'flex-direction:row-reverse':'');
+  const fmt=text.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--acc)">$1</strong>').replace(/
+/g,'<br>');
   const bub=type==='user'?'background:var(--acc);color:#000;font-weight:500;border-radius:14px 14px 4px 14px':'background:var(--s2);border:1px solid var(--b1);color:var(--t1);border-radius:14px 14px 14px 4px';
-  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:${type==='user'?'var(--acc)':'var(--s3)'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:1px solid var(--b1)">${type==='user'?'👤':'🤖'}</div><div style="max-width:85%;padding:10px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;${bub}">${fmt}</div>`;
+  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:${type==='user'?'var(--acc)':'var(--s3)'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:1px solid var(--b1)">${type==='user'?'👤':'📊'}</div><div style="max-width:85%;padding:10px 14px;font-size:13px;line-height:1.6;${bub}">${fmt}</div>`;
   el.appendChild(div);el.scrollTop=el.scrollHeight;
 }
 
@@ -4681,12 +4868,290 @@ function adsThink(){
   const el=document.getElementById('ads_messages');if(!el)return null;
   const id='t'+Date.now(),div=document.createElement('div');
   div.id=id;div.style.cssText='display:flex;gap:8px';
-  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:12px;border:1px solid var(--b1)">🤖</div><div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:10px 14px;display:flex;gap:4px;align-items:center"><div class="dot-ani"></div><div class="dot-ani" style="animation-delay:.2s"></div><div class="dot-ani" style="animation-delay:.4s"></div></div>`;
+  div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:12px;border:1px solid var(--b1)">📊</div><div style="background:var(--s2);border:1px solid var(--b1);border-radius:14px;padding:10px 14px;display:flex;gap:4px;align-items:center"><div class="dot-ani"></div><div class="dot-ani" style="animation-delay:.2s"></div><div class="dot-ani" style="animation-delay:.4s"></div></div>`;
   el.appendChild(div);el.scrollTop=el.scrollHeight;return id;
 }
 
 function adsUnthink(id){if(id)document.getElementById(id)?.remove();}
 
+
+// ── PORTAFOLIO DE PRODUCTOS ──────────────────────────────────────────────────
+let _portData = [];
+let _portChart = null;
+
+async function renderPortafolio(){
+  const saved = await fb.get('portafolio_db').catch(()=>null);
+  _portData = saved?.items || [];
+  portRender();
+}
+
+window.portGuardar = async function(editIdx){
+  const nombre = document.getElementById('port_nombre')?.value?.trim();
+  if(!nombre){ toast('Ingresá un nombre','err'); return; }
+  const fob   = parseFloat(document.getElementById('port_fob')?.value)||0;
+  const rent  = parseFloat(document.getElementById('port_rent')?.value)||0;
+  const dias  = parseFloat(document.getElementById('port_dias')?.value)||30;
+  const diasMax = parseFloat(document.getElementById('port_dias_max')?.value)||dias*1.5;
+  const cat   = document.getElementById('port_cat')?.value||'otro';
+  const canal = document.getElementById('port_canal')?.value||'ml';
+  const estado= document.getElementById('port_estado')?.value||'activo';
+  const notas = document.getElementById('port_notas')?.value||'';
+  const item  = {nombre,fob,rent,dias,diasMax,cat,canal,estado,notas,updated:new Date().toISOString().split('T')[0]};
+  if(editIdx!=null) _portData[editIdx]=item;
+  else _portData.push(item);
+  await fb.set('portafolio_db',{items:_portData});
+  // Limpiar form
+  ['port_nombre','port_fob','port_rent','port_dias','port_dias_max','port_notas'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  portRender();
+  toast('Producto guardado en portafolio','ok');
+};
+
+window.portEliminar = async function(idx){
+  if(!confirm('Eliminar "'+_portData[idx]?.nombre+'" del portafolio?')) return;
+  _portData.splice(idx,1);
+  await fb.set('portafolio_db',{items:_portData});
+  portRender(); toast('Eliminado','ok');
+};
+
+window.portEditar = function(idx){
+  const d=_portData[idx]; if(!d) return;
+  const set=(id,val)=>{const e=document.getElementById(id);if(e)e.value=val||'';};
+  set('port_nombre',d.nombre); set('port_fob',d.fob); set('port_rent',d.rent);
+  set('port_dias',d.dias); set('port_dias_max',d.diasMax); set('port_notas',d.notas);
+  ['port_cat','port_canal','port_estado'].forEach(id=>{
+    const e=document.getElementById(id); if(e&&d[id.replace('port_','')])e.value=d[id.replace('port_','')];
+  });
+  // Change save button to update
+  const btn=document.querySelector('[onclick="portGuardar()"]');
+  if(btn){btn.onclick=function(){portGuardar(idx);btn.textContent='Guardar';btn.onclick=function(){portGuardar();};};btn.textContent='Actualizar';}
+};
+
+function portCalc(d){
+  if(!d.fob||!d.rent||!d.dias) return null;
+  const ganLote = d.fob*(d.rent/100);
+  const rotaciones = 365/d.dias;
+  const roiAnual = (d.rent/100)*rotaciones*100;
+  const ganAnual = ganLote*rotaciones;
+  // Escenario pesimista con diasMax
+  const rotPes = 365/d.diasMax;
+  const roiPes = (d.rent/100)*rotPes*100;
+  return {ganLote,rotaciones,roiAnual,ganAnual,roiPes,rotPes};
+}
+
+function portDecision(calc,d){
+  if(!calc) return {label:'Sin datos',color:'var(--t3)',priority:99};
+  if(calc.roiAnual>=120) return {label:'★ Reponer YA',color:'var(--grn)',priority:1};
+  if(calc.roiAnual>=80)  return {label:'↑ Reponer',color:'var(--grn)',priority:2};
+  if(calc.roiAnual>=50)  return {label:'→ Mantener',color:'var(--org)',priority:3};
+  if(calc.roiAnual>=25)  return {label:'↓ Evaluar',color:'var(--org)',priority:4};
+  return {label:'✕ Reemplazar',color:'var(--red)',priority:5};
+}
+
+function portRender(){
+  const sortBy = document.getElementById('port_sort')?.value||'roi';
+  const catFilter = document.getElementById('port_cat_filter')?.value||'all';
+  const capital = parseFloat(document.getElementById('port_capital')?.value)||50000;
+
+  let items = _portData.map((d,i)=>({...d,idx:i,calc:portCalc(d)}));
+  if(catFilter!=='all') items=items.filter(d=>d.cat===catFilter);
+
+  // Sort
+  items.sort((a,b)=>{
+    if(sortBy==='roi')     return (b.calc?.roiAnual||0)-(a.calc?.roiAnual||0);
+    if(sortBy==='ganancia') return (b.calc?.ganAnual||0)-(a.calc?.ganAnual||0);
+    if(sortBy==='rent')    return (b.rent||0)-(a.rent||0);
+    if(sortBy==='dias')    return (a.dias||999)-(b.dias||999);
+    return (a.nombre||'').localeCompare(b.nombre||'');
+  });
+
+  // KPIs globales
+  const conCalc = items.filter(d=>d.calc);
+  const avgROI = conCalc.length ? conCalc.reduce((s,d)=>s+d.calc.roiAnual,0)/conCalc.length : 0;
+  const bestROI = conCalc.length ? Math.max(...conCalc.map(d=>d.calc.roiAnual)) : 0;
+  const bestItem = conCalc.find(d=>d.calc.roiAnual===bestROI);
+  const reponer = conCalc.filter(d=>d.calc.roiAnual>=80).length;
+  const reemplazar = conCalc.filter(d=>d.calc.roiAnual<25).length;
+
+  document.getElementById('port_kpis').innerHTML=`
+    <div class="kpi"><div class="kl">Productos en portafolio</div><div class="kv">${items.length}</div></div>
+    <div class="kpi"><div class="kl">ROI anual promedio</div><div class="kv" style="color:var(--grn)">${avgROI.toFixed(0)}%</div></div>
+    <div class="kpi"><div class="kl">Reponer (ROI>80%)</div><div class="kv" style="color:var(--grn)">${reponer}</div></div>
+    <div class="kpi"><div class="kl">Reemplazar (ROI<25%)</div><div class="kv" style="color:var(--red)">${reemplazar}</div></div>`;
+
+  // Ranking tabla
+  if(!items.length){
+    document.getElementById('port_ranking').innerHTML='<div class="card"><p style="color:var(--t3);text-align:center;padding:20px">Sin productos en el portafolio. Agregá el primero arriba.</p></div>';
+    return;
+  }
+
+  let html='<div class="card"><div class="tbl-wrap"><table class="tbl" style="font-size:11px"><thead><tr>'
+    +'<th>#</th><th>Producto</th><th>FOB</th><th>Rent%</th><th>Días opt/máx</th>'
+    +'<th>Rotaciones/año</th><th>Gan/lote</th><th>ROI anual</th><th>ROI pesimista</th>'
+    +'<th>Gan anual</th><th>Decisión</th><th>Canal</th><th></th>'
+    +'</tr></thead><tbody>';
+
+  items.forEach((d,rank)=>{
+    const c=d.calc;
+    const dec=portDecision(c,d);
+    const catColor={muebles:'var(--blu)',electronica:'var(--org)',hogar:'var(--grn)',exterior:'var(--acc)',otro:'var(--t3)'}[d.cat]||'var(--t3)';
+    html+=`<tr>
+      <td style="font-weight:700;color:${rank<3?'var(--acc)':'var(--t3)'}">${rank+1}</td>
+      <td>
+        <div style="font-weight:500;font-size:12px">${esc(d.nombre)}</div>
+        <div style="font-size:10px;color:${catColor}">${d.cat||''}</div>
+      </td>
+      <td class="mono">$${(d.fob||0).toLocaleString('es-AR')}</td>
+      <td class="mono" style="font-weight:600">${d.rent||0}%</td>
+      <td class="mono">${d.dias||'—'}/${d.diasMax||'—'}d</td>
+      <td class="mono">${c?c.rotaciones.toFixed(1)+'x':'—'}</td>
+      <td class="mono">${c?'$'+Math.round(c.ganLote).toLocaleString('es-AR'):'—'}</td>
+      <td class="mono" style="font-weight:700;color:${c?c.roiAnual>=80?'var(--grn)':c.roiAnual>=40?'var(--org)':'var(--red)':'var(--t3)'}">${c?c.roiAnual.toFixed(0)+'%':'—'}</td>
+      <td class="mono" style="color:var(--t3)">${c?c.roiPes.toFixed(0)+'%':'—'}</td>
+      <td class="mono">${c?'$'+Math.round(c.ganAnual).toLocaleString('es-AR'):'—'}</td>
+      <td><span style="font-size:11px;font-weight:600;color:${dec.color}">${dec.label}</span></td>
+      <td><span class="sku" style="font-size:10px">${d.canal||'—'}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn-g btn-sm" onclick="portEditar(${d.idx})" title="Editar">✏</button>
+        <button class="btn-g btn-sm" onclick="portEliminar(${d.idx})" style="color:var(--red)" title="Eliminar">×</button>
+      </td>
+    </tr>`;
+  });
+
+  html+='</tbody></table></div></div>';
+  document.getElementById('port_ranking').innerHTML=html;
+
+  // Gráfico
+  portRenderChart(items);
+
+  // Actualizar selectores del comparador
+  const opts = items.map(d=>`<option value="${d.idx}">${esc(d.nombre)} (${d.calc?d.calc.roiAnual.toFixed(0)+'%':'?'})</option>`).join('');
+  const selA=document.getElementById('port_cmp_a'), selB=document.getElementById('port_cmp_b');
+  if(selA) selA.innerHTML=opts;
+  if(selB){ selB.innerHTML=opts; if(items.length>1) selB.selectedIndex=1; }
+  portComparar();
+}
+
+function portRenderChart(items){
+  const canvas=document.getElementById('port_chart'); if(!canvas) return;
+  if(_portChart){ _portChart.destroy(); _portChart=null; }
+  const top=items.slice(0,15); // max 15 en el gráfico
+  const labels=top.map(d=>d.nombre.length>18?d.nombre.substring(0,18)+'…':d.nombre);
+  const rois=top.map(d=>d.calc?+d.calc.roiAnual.toFixed(1):0);
+  const roisPes=top.map(d=>d.calc?+d.calc.roiPes.toFixed(1):0);
+  const colors=rois.map(r=>r>=80?'#1D9E75':r>=40?'#EF9F27':'#E24B4A');
+  _portChart=new Chart(canvas,{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'ROI óptimo (%)',data:rois,backgroundColor:colors,borderRadius:3},
+      {label:'ROI pesimista (%)',data:roisPes,backgroundColor:'rgba(136,135,128,0.3)',borderRadius:3}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{font:{size:10},maxRotation:35}},
+        y:{ticks:{callback:v=>v+'%'},grid:{color:'rgba(128,128,128,0.1)'}}
+      }
+    }
+  });
+}
+
+window.portComparar = function(){
+  const idxA=parseInt(document.getElementById('port_cmp_a')?.value);
+  const idxB=parseInt(document.getElementById('port_cmp_b')?.value);
+  const el=document.getElementById('port_comparador'); if(!el) return;
+  const A=_portData[idxA], B=_portData[idxB];
+  if(!A||!B||idxA===idxB){ el.innerHTML=''; return; }
+  const cA=portCalc(A), cB=portCalc(B);
+  if(!cA||!cB){ el.innerHTML='<p style="color:var(--t3);font-size:12px">Completá FOB, rentabilidad y días de los dos productos para comparar.</p>'; return; }
+
+  const winner=cA.roiAnual>=cB.roiAnual?'A':'B';
+  const ratio=cA.roiAnual/cB.roiAnual;
+  const capital=parseFloat(document.getElementById('port_capital')?.value)||50000;
+  const lotesA=Math.max(1,Math.floor(capital/A.fob));
+  const lotesB=Math.max(1,Math.floor(capital/B.fob));
+
+  // Punto de equilibrio
+  const rentBE=(A.rent*B.dias)/A.dias;
+  const diasBE=(B.rent*A.dias)/A.rent;
+
+  let insight='';
+  if(ratio>1.5) insight=`<strong>${A.nombre}</strong> gana por amplio margen — su rotación de ${A.dias}d hace que el menor margen (${A.rent}%) sea más eficiente que el ${B.rent}% de <strong>${B.nombre}</strong>. Diferencia anual: <strong>$${Math.round(Math.abs(cA.ganAnual-cB.ganAnual)).toLocaleString('es-AR')} USD</strong>.`;
+  else if(ratio>1.1) insight=`<strong>${A.nombre}</strong> gana por rotación. La diferencia de ROI (${(cA.roiAnual-cB.roiAnual).toFixed(0)}%) puede parecer pequeña pero sobre USD ${A.fob.toLocaleString('es-AR')} representa <strong>$${Math.round(cA.ganAnual-cB.ganAnual).toLocaleString('es-AR')} USD/año</strong> más.`;
+  else if(ratio>0.9) insight=`Están <strong>prácticamente empatados</strong> (diferencia de ${Math.abs(cA.roiAnual-cB.roiAnual).toFixed(0)}%). En este rango decidís por otros factores: riesgo de stock, facilidad operativa, estacionalidad.`;
+  else if(ratio>0.67) insight=`<strong>${B.nombre}</strong> gana por rentabilidad. Aunque rota más lento, su margen del ${B.rent}% compensa. Diferencia anual: <strong>$${Math.round(Math.abs(cA.ganAnual-cB.ganAnual)).toLocaleString('es-AR')} USD</strong>.`;
+  else insight=`<strong>${B.nombre}</strong> gana ampliamente — su margen del ${B.rent}% supera holgadamente al ${A.rent}% de A incluso rotando más lento.`;
+
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="card" style="${winner==='A'?'border:2px solid var(--grn)':''}">
+        <div style="font-size:11px;font-weight:600;margin-bottom:8px">${winner==='A'?'🏆 ':''} ${esc(A.nombre)}</div>
+        <div style="font-size:11px;display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">FOB</span><span>USD ${A.fob.toLocaleString('es-AR')}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Rentabilidad</span><span>${A.rent}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Días rotación</span><span>${A.dias}–${A.diasMax}d</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Rotaciones/año</span><span>${cA.rotaciones.toFixed(1)}x</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Ganancia/lote</span><span>USD ${Math.round(cA.ganLote).toLocaleString('es-AR')}</span></div>
+          <div style="display:flex;justify-content:space-between;font-weight:600"><span>ROI anualizado</span><span style="color:${cA.roiAnual>=80?'var(--grn)':cA.roiAnual>=40?'var(--org)':'var(--red)'}">${cA.roiAnual.toFixed(0)}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Gan. anual</span><span>USD ${Math.round(cA.ganAnual).toLocaleString('es-AR')}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Con USD ${(capital/1000).toFixed(0)}k cap.</span><span>USD ${Math.round(cA.ganAnual*lotesA).toLocaleString('es-AR')}/año</span></div>
+        </div>
+      </div>
+      <div class="card" style="${winner==='B'?'border:2px solid var(--grn)':''}">
+        <div style="font-size:11px;font-weight:600;margin-bottom:8px">${winner==='B'?'🏆 ':''} ${esc(B.nombre)}</div>
+        <div style="font-size:11px;display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">FOB</span><span>USD ${B.fob.toLocaleString('es-AR')}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Rentabilidad</span><span>${B.rent}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Días rotación</span><span>${B.dias}–${B.diasMax}d</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Rotaciones/año</span><span>${cB.rotaciones.toFixed(1)}x</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Ganancia/lote</span><span>USD ${Math.round(cB.ganLote).toLocaleString('es-AR')}</span></div>
+          <div style="display:flex;justify-content:space-between;font-weight:600"><span>ROI anualizado</span><span style="color:${cB.roiAnual>=80?'var(--grn)':cB.roiAnual>=40?'var(--org)':'var(--red)'}">${cB.roiAnual.toFixed(0)}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Gan. anual</span><span>USD ${Math.round(cB.ganAnual).toLocaleString('es-AR')}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Con USD ${(capital/1000).toFixed(0)}k cap.</span><span>USD ${Math.round(cB.ganAnual*lotesB).toLocaleString('es-AR')}/año</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--s2);border-radius:var(--r);padding:10px;font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:8px">${insight}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="kpi"><div class="kl">Rent. mínima de ${esc(B.nombre)} para empatar</div><div class="kv">${rentBE.toFixed(1)}%</div><div class="ks">tiene ${B.rent}% — ${B.rent>=rentBE?'✅ supera el mínimo':'⚠ por debajo'}</div></div>
+      <div class="kpi"><div class="kl">Días máx. de ${esc(B.nombre)} para empatar</div><div class="kv">${Math.round(diasBE)}d</div><div class="ks">tarda ${B.dias}d — ${B.dias<=diasBE?'✅ dentro del límite':'⚠ excede el límite'}</div></div>
+    </div>`;
+};
+
+window.portImportarML = function(){
+  if(!S.orders?.length){ toast('Actualizá las ventas primero','err'); return; }
+  const dias30=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+  const porSku={};
+  S.orders.filter(o=>o.fecha>=dias30&&o.sku&&o.sku!=='—').forEach(o=>{
+    if(!porSku[o.sku]) porSku[o.sku]={sku:o.sku,desc:o.desc||o.sku,venta:0,gan:0,ords:0,pub:0};
+    porSku[o.sku].venta+=o.venta||0;
+    porSku[o.sku].gan+=o.ganancia||0;
+    porSku[o.sku].ords+=1;
+    porSku[o.sku].pub+=o.pub||0;
+  });
+  // Estimar días de rotación: si vendió N unidades en 30 días → 30/N días por unidad
+  let added=0;
+  Object.values(porSku).forEach(s=>{
+    const existente=_portData.find(d=>d.nombre===s.sku||d.nombre===s.desc);
+    if(existente) return; // no duplicar
+    if(!s.venta) return;
+    const rentPct=s.venta>0?Math.max(0,(s.gan/s.venta)*100):0;
+    const diasRot=s.ords>0?Math.round(30/s.ords*1.2):30;
+    _portData.push({
+      nombre:s.sku,desc:s.desc,fob:0,rent:+rentPct.toFixed(1),
+      dias:diasRot,diasMax:Math.round(diasRot*1.5),
+      cat:'otro',canal:'ml',estado:'activo',
+      notas:'Importado desde ML 30d · '+s.ords+' órdenes',
+      updated:new Date().toISOString().split('T')[0]
+    });
+    added++;
+  });
+  fb.set('portafolio_db',{items:_portData});
+  portRender();
+  toast(added+' productos importados desde ML (sin FOB — completá manualmente)','ok');
+};
 
 // ── MAYORISTA ─────────────────────────────────────────────────────────────────
 
