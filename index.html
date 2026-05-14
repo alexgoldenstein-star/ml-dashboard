@@ -3951,30 +3951,6 @@ window.convRecargar = async function(){
   convRenderTable();
 };
 
-  window._convItems = [];
-  for(const acct of accounts){
-    const sellerId = UID[acct.id]||acct.userId||acct.id;
-    try{
-      const itemsR = await fetch(`${PROXY}/plataforma/publicaciones?seller_id=${sellerId}&limit=50`,{headers:{'x-ml-token':acct.token}});
-      if(!itemsR.ok) continue;
-      const itemsD = await itemsR.json();
-      const items = itemsD.items||[];
-      for(const item of items.slice(0,30)){
-        try{
-          const visR = await fetch(`${PROXY}/plataforma/visitas?item_id=${item.id}&date_from=${dateFrom}&date_to=${dateTo}`,{headers:{'x-ml-token':acct.token}});
-          const visD = visR.ok ? await visR.json() : {};
-          const visits = visD.total_visits||0;
-          const itemOrds = S.orders.filter(o=>o.fecha>=dateFrom && o.fecha<=dateTo && (o.mlItemId===item.id||o.sku===item.seller_sku));
-          const salesQty = itemOrds.reduce((s,o)=>s+o.unidades,0);
-          const revenue  = itemOrds.reduce((s,o)=>s+o.venta,0);
-          const convPct  = visits>0 ? salesQty/visits : 0;
-          window._convItems.push({acct:acct.id,id:item.id,sku:item.seller_sku||item.titulo||'—',title:item.titulo||'—',price:item.precio||0,visits,salesQty,revenue,convPct,permalink:item.permalink});
-        }catch(e){/*skip*/}
-      }
-    }catch(e){console.warn('Conv error',acct.id,e);}
-  }
-  convRenderTable();
-};
 
 window.convSort = function(col){
   if(_convSort.col===col) _convSort.dir*=-1; else{_convSort.col=col;_convSort.dir=-1;}
