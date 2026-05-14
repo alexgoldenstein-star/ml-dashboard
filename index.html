@@ -3959,8 +3959,8 @@ window.convSort = function(col){
 
 window.convRenderTable = function(){
   const items = window._convItems||[];
-  const q = (document.getElementById('conv_search')?.value||'').toLowerCase();
-  let filtered = items.filter(it=>!q||it.sku.toLowerCase().includes(q)||it.title.toLowerCase().includes(q));
+  const q=(document.getElementById('conv_search')?.value||'').toLowerCase();
+  let filtered=items.filter(it=>!q||it.sku.toLowerCase().includes(q)||it.title.toLowerCase().includes(q));
   const {col,dir}=_convSort;
   filtered.sort((a,b)=>((b[col]??0)-(a[col]??0))*dir);
   ['visits','salesQty','convPct','revenue','margen','acos'].forEach(c=>{
@@ -3970,74 +3970,39 @@ window.convRenderTable = function(){
   const totVisits=filtered.reduce((s,i)=>s+(i.visits||0),0);
   const totSales=filtered.reduce((s,i)=>s+i.salesQty,0);
   const totRev=filtered.reduce((s,i)=>s+i.revenue,0);
-  const totGan=filtered.reduce((s,i)=>s+i.ganancia,0);
+  const totGan=filtered.reduce((s,i)=>s+(i.ganancia||0),0);
   const avgConv=totVisits>0?totSales/totVisits:0;
   const avgMargen=totRev>0?totGan/totRev:0;
   const kpiEl=document.getElementById('conv_kpis');
   if(kpiEl) kpiEl.innerHTML=[
-    ['Total visitas',totVisits>0?totVisits.toLocaleString('es-AR'):'(sin datos API)','var(--blu)'],
-    ['SKUs analizados',filtered.length+'','var(--t1)'],
-    ['Conv. prom.',totVisits>0?(avgConv*100).toFixed(2)+'%':'desde órdenes',avgConv>=0.02?'var(--grn)':avgConv>=0.01?'var(--org)':'var(--t3)'],
-    ['Facturación',fS(totRev),'var(--grn)'],
+    ['Facturación total',fS(totRev),'var(--grn)'],
+    ['SKUs analizados',String(filtered.length),'var(--t1)'],
+    ['Visitas (top 10)',totVisits>0?totVisits.toLocaleString('es-AR'):'via API','var(--blu)'],
+    ['Conv. prom.',totVisits>0?(avgConv*100).toFixed(2)+'%':'—',avgConv>=0.02?'var(--grn)':avgConv>=0.01?'var(--org)':'var(--t3)'],
     ['Margen prom.',(avgMargen*100).toFixed(1)+'%',avgMargen>=0.15?'var(--grn)':avgMargen>=0.08?'var(--org)':'var(--red)'],
-  ].map(([l,v,c])=>`<div class="kpi" style="border-left:3px solid ${c}"><div class="kl">${l}</div><div class="kv" style="color:${c}">${v}</div></div>`).join('');
+  ].map(([l,v,c])=>'<div class="kpi" style="border-left:3px solid '+c+'"><div class="kl">'+l+'</div><div class="kv" style="color:'+c+'">'+v+'</div></div>').join('');
   const tbody=document.getElementById('conv_tbody');
   if(!tbody) return;
   if(!filtered.length){
-    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--t3)">Sin datos. Actualizá las ventas primero.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--t3)">Sin datos. Actualizá las ventas primero.</td></tr>';
     return;
   }
-  tbody.innerHTML=filtered.map(it=>{
+  tbody.innerHTML=filtered.map(function(it){
     const convColor=it.convPct===null?'var(--t3)':it.convPct>=0.03?'var(--grn)':it.convPct>=0.01?'var(--org)':'var(--red)';
-    const mgColor=it.margen>=0.15?'var(--grn)':it.margen>=0.08?'var(--org)':'var(--red)';
-    const acosColor=it.acos<=0.10?'var(--grn)':it.acos<=0.20?'var(--org)':'var(--red)';
-    const link=it.permalink||`https://articulo.mercadolibre.com.ar/MLA-${it.id}`;
+    const mgColor=(it.margen||0)>=0.15?'var(--grn)':(it.margen||0)>=0.08?'var(--org)':'var(--red)';
+    const acosColor=(it.acos||0)<=0.10?'var(--grn)':(it.acos||0)<=0.20?'var(--org)':'var(--red)';
+    const link=it.permalink||'';
     return '<tr>'+
       '<td><span style="font-size:10px;padding:2px 5px;background:var(--s2);border-radius:4px">'+esc(it.acct||'')+'</span></td>'+
-      '<td><div style="font-size:11px;font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(it.title)+'">'+esc(it.title)+'</div>'+
-      '<div style="font-size:10px;color:var(--t3)"><span class="sku">'+esc(it.sku)+'</span></div></td>'+
+      '<td><div style="font-size:11px;font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(it.title||'')+'</div>'+
+      '<div style="font-size:10px;color:var(--t3)"><span class="sku">'+esc(it.sku||'')+'</span></div></td>'+
       '<td class="mono">'+(it.visits>0?it.visits.toLocaleString('es-AR'):'—')+'</td>'+
       '<td class="mono">'+it.salesQty+'</td>'+
       '<td style="font-weight:600;color:'+convColor+'">'+(it.convPct!==null?(it.convPct*100).toFixed(2)+'%':'—')+'</td>'+
       '<td class="mono">'+(it.revenue>0?fS(it.revenue):'—')+'</td>'+
-      '<td style="font-weight:600;color:'+mgColor+'">'+(it.margen*100).toFixed(1)+'%</td>'+
-      '<td style="font-weight:600;color:'+acosColor+'">'+(it.acos*100).toFixed(1)+'%</td>'+
-      '<td>'+(it.permalink?'<a href="'+link+'" target="_blank" class="btn-g btn-sm" style="font-size:10px;text-decoration:none">Ver →</a>':'—')+'</td>'+
-      '</tr>';
-  }).join('');
-};
-  const totVisits=filtered.reduce((s,i)=>s+i.visits,0);
-  const totSales=filtered.reduce((s,i)=>s+i.salesQty,0);
-  const totRev=filtered.reduce((s,i)=>s+i.revenue,0);
-  const avgConv=totVisits>0?totSales/totVisits:0;
-  const kpiEl=document.getElementById('conv_kpis');
-  if(kpiEl) kpiEl.innerHTML=[
-    ['Total visitas',totVisits.toLocaleString('es-AR'),'var(--blu)'],
-    ['Ventas totales',totSales.toLocaleString('es-AR'),'var(--grn)'],
-    ['Conversión prom.',(avgConv*100).toFixed(2)+'%',avgConv>=0.02?'var(--grn)':avgConv>=0.01?'var(--org)':'var(--red)'],
-    ['Facturación',fS(totRev),'var(--grn)'],
-  ].map(([l,v,c])=>`<div class="kpi" style="border-left:3px solid ${c}"><div class="kl">${l}</div><div class="kv" style="color:${c}">${v}</div></div>`).join('');
-  const tbody=document.getElementById('conv_tbody');
-  if(!tbody) return;
-  if(!filtered.length){
-    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">Sin datos. Hacé clic en "↻ Recargar".</td></tr>';
-    return;
-  }
-  tbody.innerHTML=filtered.map(it=>{
-    const convColor=it.convPct>=0.03?'var(--grn)':it.convPct>=0.01?'var(--org)':'var(--red)';
-    const convLabel=it.convPct>=0.03?'✅ Buena':it.convPct>=0.01?'⚠ Media':it.visits>100?'🔴 Baja':'—';
-    const opp=it.visits>200&&it.convPct<0.01;
-    const link=it.permalink||`https://articulo.mercadolibre.com.ar/MLA-${it.id}`;
-    return '<tr style="'+(opp?'background:rgba(255,100,0,.05)':'')+'">'+
-      '<td><span style="font-size:10px;padding:2px 5px;background:var(--s2);border-radius:4px">'+esc(it.acct)+'</span></td>'+
-      '<td><div style="font-size:11px;font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(it.title)+'">'+esc(it.title)+'</div>'+
-      '<div style="font-size:10px;color:var(--t3)">'+esc(it.sku)+' · '+fF(it.price)+'</div></td>'+
-      '<td class="mono">'+it.visits.toLocaleString('es-AR')+'</td>'+
-      '<td class="mono">'+it.salesQty+'</td>'+
-      '<td style="font-weight:600;color:'+convColor+'">'+(it.convPct*100).toFixed(2)+'%</td>'+
-      '<td class="mono">'+(it.revenue>0?fS(it.revenue):'—')+'</td>'+
-      '<td>'+convLabel+(opp?' 💡':'')+'</td>'+
-      '<td><a href="'+link+'" target="_blank" class="btn-g btn-sm" style="font-size:10px;text-decoration:none">Ver →</a></td>'+
+      '<td style="font-weight:600;color:'+mgColor+'">'+(((it.margen||0)*100).toFixed(1))+'%</td>'+
+      '<td style="font-weight:600;color:'+acosColor+'">'+(((it.acos||0)*100).toFixed(1))+'%</td>'+
+      '<td>'+(link?'<a href="'+link+'" target="_blank" class="btn-g btn-sm" style="font-size:10px;text-decoration:none">Ver</a>':'—')+'</td>'+
       '</tr>';
   }).join('');
 };
