@@ -4951,8 +4951,7 @@ function adsMsg(type,text){
   const el=document.getElementById('ads_messages');if(!el)return;
   const div=document.createElement('div');
   div.style.cssText='display:flex;gap:8px;margin-bottom:8px;'+(type==='user'?'flex-direction:row-reverse':'');
-  const fmt=text.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--acc)">$1</strong>').replace(/
-/g,'<br>');
+  const fmt=text.replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--acc)">$1</strong>').replace(/\n/g,'<br>');
   const bub=type==='user'?'background:var(--acc);color:#000;font-weight:500;border-radius:14px 14px 4px 14px':'background:var(--s2);border:1px solid var(--b1);color:var(--t1);border-radius:14px 14px 14px 4px';
   div.innerHTML=`<div style="width:26px;height:26px;border-radius:50%;background:${type==='user'?'var(--acc)':'var(--s3)'};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:1px solid var(--b1)">${type==='user'?'👤':'📊'}</div><div style="max-width:85%;padding:10px 14px;font-size:13px;line-height:1.6;${bub}">${fmt}</div>`;
   el.appendChild(div);el.scrollTop=el.scrollHeight;
