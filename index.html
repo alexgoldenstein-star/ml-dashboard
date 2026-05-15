@@ -5265,45 +5265,6 @@ function portConstruirAnalisis(){
     // Plan trimestral (cuánto comprar cada trimestre para no quebrar)
     const uTrimestre = Math.round(uMes * 3 * 1.15); // +15% de buffer
     const contTrimestre = ucontenedor > 0 ? Math.ceil(uTrimestre/ucontenedor) : null;
-    const base = existIdx>=0 ? _portData[existIdx] : {};
-
-    // Buscar en _portData si ya existe este SKU
-    const existIdx = _portData.findIndex(d=>d.nombre===s.sku);
-      desc:     s.desc,
-      fob:      costoUSD > 0 ? +costoUSD.toFixed(2) : (base.fob||0),
-      rent:     +(rentML.toFixed(1)),
-      dias:     diasRot,
-      diasMax:  Math.round(diasRot*1.5),
-      cat:      base.cat||'otro',
-      canal:    canal==='ML+Mayorista'?'ambos':canal==='ML'?'ml':'mayorista',
-      estado:   rentML>=15&&pctQuiebre<0.3?'activo':pctQuiebre>=0.5?'evaluar':'activo',
-      notas,
-      _historico:{
-        unidades:      uTotal,  // unidades físicas (x pack)
-        unidadesOrdenes: s.ml.u + s.may.u, // órdenes/ventas sin multiplicar
-        pack,          // multiplicador del pack
-        unidadesML:    s.ml.u * pack,
-        unidadesMay:   s.may.u * pack,
-        diasDatos:     Math.round(diasConDatos),
-        mesesConVentas,
-        mesesSinVentas,
-        pctQuiebre:    +pctQuiebre.toFixed(2),
-        unidadesPorMes:+uMes.toFixed(1),
-        picoPorMes,
-        potencialAnual,
-        rentReal:      +rentML.toFixed(1),
-        acosReal:      +acosML.toFixed(1),
-        costoARS,
-        costoUSD:      +costoUSD.toFixed(2),
-        tcambio,
-        primerVenta,
-        ultimaVenta,
-        ventaML:       Math.round(s.ml.venta),
-        ganML:         Math.round(s.ml.gan),
-        ventaMay:      Math.round(s.may.venta),
-      },
-      updated: ahora.toISOString().split('T')[0]
-    };
 
     if(existIdx>=0) _portData[existIdx] = item;
     else _portData.push(item);
