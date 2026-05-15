@@ -1278,7 +1278,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
                 <option value="">— Seleccioná un producto —</option>
               </select>
             </div>
-            <button class="btn-g btn-sm" onclick="calcLoadSku()" style="height:34px">↻</button>
+            <button class="btn-g btn-sm" onclick="renderCalc()" style="height:34px" title="Recargar productos">↻</button>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
             <div>
@@ -1766,6 +1766,8 @@ async function init(){
     S.products=Object.values(merged);
     const el=document.getElementById("prodCount");
     if(el)el.textContent=S.products.length;
+    // Si la calculadora está abierta, refrescar el selector
+    if(document.getElementById('page-calc')?.classList.contains('on')) renderCalc();
   }catch(e){console.warn("products",e);}
 
   // Zonas: proxy base + edits Firebase
@@ -6779,8 +6781,28 @@ function renderCalc(){
   const sel = document.getElementById('calc_sku');
   if(!sel) return;
   const current = sel.value;
+
+  if(!S.products||!S.products.length){
+    sel.innerHTML = '<option value="">⏳ Cargando productos...</option>';
+    // Retry in 1 second
+    setTimeout(renderCalc, 1000);
+    return;
+  }
+
   sel.innerHTML = '<option value="">— Seleccioná un producto —</option>' +
-    S.products.map(p=>`<option value="${p.sku}" ${p.sku===current?'selected':''}>${p.sku} — ${p.desc||''}</option>`).join('');
+    S.products
+      .filter(p=>p.sku&&p.ars>0)  // solo con costo cargado
+      .sort((a,b)=>(a.sku||'').localeCompare(b.sku||''))
+      .map(p=>`<option value="${p.sku}" ${p.sku===current?'selected':''}>${p.sku}${p.desc?' — '+p.desc:''}</option>`).join('');
+
+  // Si hay productos pero el filtro los eliminó, mostrar todos
+  if(sel.options.length <= 1 && S.products.length > 0){
+    sel.innerHTML = '<option value="">— Seleccioná un producto —</option>' +
+      S.products
+        .sort((a,b)=>(a.sku||'').localeCompare(b.sku||''))
+        .map(p=>`<option value="${p.sku}" ${p.sku===current?'selected':''}>${p.sku}${p.desc?' — '+p.desc:''}</option>`).join('');
+  }
+
   const pub = document.getElementById('calc_pub');
   const iibb = document.getElementById('calc_iibb2');
   if(pub && !pub.value) pub.value = S.cfg.pub || 5;
@@ -6788,7 +6810,7 @@ function renderCalc(){
   if(current) calcLoadSku();
   else calcUpdate();
   calcLoadHistorial();
-  calcLoadEnvioDB(); // Cargar DB de costos de envío
+  calcLoadEnvioDB();
 }
 
 window.calcLoadSku = function(){
