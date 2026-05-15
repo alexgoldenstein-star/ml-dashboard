@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="NIVIKO">
 <title>NIVIKO · ML Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 :root{
   --bg:#0A0A0B;--s1:#111114;--s2:#18181C;--s3:#1E1E24;
@@ -5221,8 +5222,11 @@ function portConstruirAnalisis(){
       costoARS>0 ? `Costo ARS: ${fS(costoARS)}` : '⚠ Sin costo cargado',
     ].filter(Boolean).join(' · ');
 
+    // Buscar en _portData si ya existe este SKU (necesario para base y ucontenedor)
+    const existIdx = _portData.findIndex(d=>d.nombre===s.sku);
+    const base = existIdx>=0 ? _portData[existIdx] : {};
+
     // ── PLAN DE COMPRAS ──────────────────────────────────────────────────────
-    // Unidades por contenedor (manual o estimado)
     const ucontenedor = base.ucontenedor || 0;
 
     // Escenario base: venta histórica real
