@@ -755,9 +755,10 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <span class="ct">➕ Agregar producto al portafolio</span>
           <button class="btn btn-sm" onclick="portGuardar()">Guardar</button>
         </div>
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;gap:8px;align-items:end">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:8px;align-items:end">
           <div><label class="lbl">Nombre / SKU</label><input class="inp" id="port_nombre" placeholder="Ej: Silla Gaming NVK-3000"></div>
-          <div><label class="lbl">FOB USD</label><input class="inp" id="port_fob" type="number" placeholder="15000"></div>
+          <div><label class="lbl">FOB USD total</label><input class="inp" id="port_fob" type="number" placeholder="15000"></div>
+          <div><label class="lbl">U por contenedor</label><input class="inp" id="port_ucontenedor" type="number" placeholder="100" title="Unidades que entran por pedido/contenedor"></div>
           <div><label class="lbl">Rentabilidad %</label><input class="inp" id="port_rent" type="number" placeholder="20" step="0.5"></div>
           <div><label class="lbl">Días rot. óptimo</label><input class="inp" id="port_dias" type="number" placeholder="30"></div>
           <div><label class="lbl">Días rot. máx.</label><input class="inp" id="port_dias_max" type="number" placeholder="45"></div>
@@ -796,8 +797,10 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         <select class="sel" id="port_sort" onchange="portRender()">
           <option value="roi">Ordenar: ROI anualizado</option>
           <option value="ganancia">Ordenar: Ganancia anual</option>
+          <option value="potencial">Ordenar: Potencial anual</option>
           <option value="rent">Ordenar: Rentabilidad %</option>
           <option value="dias">Ordenar: Días rotación</option>
+          <option value="quiebre">Ordenar: Quiebre stock</option>
           <option value="nombre">Ordenar: Nombre</option>
         </select>
         <select class="sel" id="port_cat_filter" onchange="portRender()">
@@ -814,7 +817,11 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <option value="150000">Capital: USD 150k</option>
           <option value="200000">Capital: USD 200k</option>
         </select>
-        <button class="btn-g btn-sm" onclick="portImportarML()" style="font-size:11px">📊 Importar desde ventas ML</button>
+        <div style="display:flex;align-items:center;gap:4px">
+          <label style="font-size:11px;color:var(--t3)">TC:</label>
+          <input class="inp" id="port_tc" type="number" value="1200" style="width:80px;font-size:11px" placeholder="ARS/USD" oninput="portRefrescar()">
+        </div>
+        <button class="btn btn-sm" onclick="portRefrescar()" style="font-size:11px">↻ Recalcular todo</button>
       </div>
 
       <!-- KPIs globales -->
@@ -838,6 +845,54 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <div style="flex:1"><label class="lbl">Producto B</label><select class="inp" id="port_cmp_b" onchange="portComparar()"></select></div>
         </div>
         <div id="port_comparador"></div>
+      </div>
+
+      <!-- Análisis de Producto Nuevo -->
+      <div class="card" style="margin-top:10px">
+        <div class="ch">
+          <span class="ct">🔍 Analizar producto nuevo</span>
+          <span style="font-size:10px;color:var(--t3)">Evaluá el potencial antes de importar</span>
+        </div>
+        <p style="font-size:11px;color:var(--t2);margin-bottom:12px">
+          Ingresá el nombre o categoría del producto que querés evaluar. El sistema analiza el mercado en ML, 
+          estima el potencial de ventas y compara con tu portafolio actual.
+        </p>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;align-items:end">
+          <div>
+            <label class="lbl">Nombre / descripción del producto</label>
+            <input class="inp" id="nuevo_nombre" placeholder="Ej: Silla ergonómica de oficina, Soporte TV giratorio...">
+          </div>
+          <div>
+            <label class="lbl">FOB estimado (USD)</label>
+            <input class="inp" id="nuevo_fob" type="number" placeholder="15000">
+          </div>
+          <div>
+            <label class="lbl">U por contenedor</label>
+            <input class="inp" id="nuevo_ucontenedor" type="number" placeholder="100">
+          </div>
+          <div>
+            <label class="lbl">Categoría ML</label>
+            <select class="inp" id="nuevo_categoria">
+              <option value="MLA1499">Muebles</option>
+              <option value="MLA1000">Electrónica</option>
+              <option value="MLA1648">Computación</option>
+              <option value="MLA1051">Hogar</option>
+              <option value="MLA1246">Deportes</option>
+              <option value="MLA1132">Herramientas</option>
+              <option value="MLA3937">Bebés</option>
+              <option value="MLA1430">Jardín</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="portAnalizarNuevo()" id="btn_analizar_nuevo">
+            🔍 Analizar mercado
+          </button>
+          <button class="btn-g btn-sm" onclick="portAnalizarNuevo(true)" style="font-size:11px">
+            Búsqueda avanzada
+          </button>
+        </div>
+        <div id="nuevo_resultado" style="margin-top:14px"></div>
       </div>
     </div>
 
@@ -1661,6 +1716,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div style="display:flex;gap:8px">
       <div style="flex:2"><label class="lbl">SKU</label><input class="inp" id="mp_sku" placeholder="NVK-XXX"></div>
       <div style="flex:1"><label class="lbl">IVA</label><select class="inp" id="mp_iva"><option value="21">21%</option><option value="10.5">10.5%</option></select></div>
+      <div style="flex:1"><label class="lbl" title="Unidades físicas por venta (ej: X2=2)">U/venta (pack)</label><input class="inp" id="mp_pack" type="number" value="1" min="1" placeholder="1" title="1 = unidad simple, 2 = pack de 2, etc."></div>
     </div>
     <label class="lbl">Descripción</label><input class="inp" id="mp_desc" placeholder="Nombre" style="margin-bottom:6px">
     <div style="display:flex;gap:8px">
@@ -2826,6 +2882,11 @@ function renderProds(){
       "<td class=\"mono\">$"+Math.round(x.ars).toLocaleString("es-AR")+"</td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.iva==21?"rgba(77,163,255,.1)":"rgba(255,138,77,.1)")+";color:"+(x.iva==21?"var(--blu)":"var(--org)")+"\">"+x.iva+"%</span></td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.pub===false?"rgba(255,77,77,.08)":"rgba(71,232,127,.1)")+";color:"+(x.pub===false?"var(--red)":"var(--grn)")+"\">"+(x.pub===false?"No":"Sí")+"</span></td>"+
+      "<td style=\"text-align:center\">"+
+        "<span style=\"font-size:11px;font-weight:600;color:"+((x.pack||packFromSku(x.sku))>1?"var(--acc)":"var(--t3)")+"\">"+
+          "x"+(x.pack||packFromSku(x.sku))+
+        "</span>"+
+      "</td>"+
       "<td>"+(um[x.sku]||0)+"</td>"+
       "<td class=\"mono "+gc+"\">"+fS(g)+"</td>"+
       "<td class=\""+pc+"\">"+(v>0?pct(g/v):"—")+"</td>"+
@@ -2836,6 +2897,14 @@ function renderProds(){
 }
 window.filterP=v=>{S.pFilter=v;renderProds();};
 window.calcARS=()=>{const u=parseFloat(document.getElementById("mp_usd").value)||0;if(u>0)document.getElementById("mp_ars").value=Math.round(u*S.cfg.dolar);};
+
+// Detecta automáticamente unidades por pack desde el SKU
+// NVK-222-R-X2 → 2, NVK-344-N-X4 → 4, NVK-3000-N → 1
+function packFromSku(sku){
+  if(!sku) return 1;
+  const m = sku.match(/-X(\d+)(?:-|$)/i);
+  return m ? parseInt(m[1]) : 1;
+}
 window.editProd=sku=>{
   const p=S.products.find(x=>x.sku===sku);if(!p)return;
   document.getElementById("mpTitle").textContent="Editar producto";
@@ -2845,6 +2914,7 @@ window.editProd=sku=>{
   document.getElementById("mp_ars").value=p.ars;
   document.getElementById("mp_iva").value=p.iva;
   document.getElementById("mp_pub").value=p.pub===false?"no":"si";
+  document.getElementById("mp_pack").value=p.pack||packFromSku(p.sku);
   openModal("mProd");
 };
 window.delProd=async sku=>{
@@ -2861,7 +2931,7 @@ window.saveProd=async()=>{
   if(!sku){toast("SKU requerido","err");return;}
   if(!desc){toast("Descripción requerida","err");return;}
   if(ars<=0){toast("Ingresá el costo ARS","err");return;}
-  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no"};
+  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku)};
   S.prodEdits[sku]=prod;
   const idx=S.products.findIndex(x=>x.sku===sku);
   if(idx>=0)S.products[idx]={...S.products[idx],...prod};else S.products.push(prod);
@@ -4977,28 +5047,30 @@ let _portChart = null;
 async function renderPortafolio(){
   const saved = await fb.get('portafolio_db').catch(()=>null);
   _portData = saved?.items || [];
+  portConstruirAnalisis();
   portRender();
 }
 
 window.portGuardar = async function(editIdx){
   const nombre = document.getElementById('port_nombre')?.value?.trim();
   if(!nombre){ toast('Ingresá un nombre','err'); return; }
-  const fob   = parseFloat(document.getElementById('port_fob')?.value)||0;
-  const rent  = parseFloat(document.getElementById('port_rent')?.value)||0;
-  const dias  = parseFloat(document.getElementById('port_dias')?.value)||30;
-  const diasMax = parseFloat(document.getElementById('port_dias_max')?.value)||dias*1.5;
-  const cat   = document.getElementById('port_cat')?.value||'otro';
-  const canal = document.getElementById('port_canal')?.value||'ml';
-  const estado= document.getElementById('port_estado')?.value||'activo';
-  const notas = document.getElementById('port_notas')?.value||'';
-  const item  = {nombre,fob,rent,dias,diasMax,cat,canal,estado,notas,updated:new Date().toISOString().split('T')[0]};
+  const fob        = parseFloat(document.getElementById('port_fob')?.value)||0;
+  const ucontenedor= parseFloat(document.getElementById('port_ucontenedor')?.value)||0;
+  const rent       = parseFloat(document.getElementById('port_rent')?.value)||0;
+  const dias       = parseFloat(document.getElementById('port_dias')?.value)||30;
+  const diasMax    = parseFloat(document.getElementById('port_dias_max')?.value)||dias*1.5;
+  const cat        = document.getElementById('port_cat')?.value||'otro';
+  const canal      = document.getElementById('port_canal')?.value||'ml';
+  const estado     = document.getElementById('port_estado')?.value||'activo';
+  const notas      = document.getElementById('port_notas')?.value||'';
+  const item = {nombre,fob,ucontenedor,rent,dias,diasMax,cat,canal,estado,notas,updated:new Date().toISOString().split('T')[0]};
   if(editIdx!=null) _portData[editIdx]=item;
   else _portData.push(item);
   await fb.set('portafolio_db',{items:_portData});
-  // Limpiar form
-  ['port_nombre','port_fob','port_rent','port_dias','port_dias_max','port_notas'].forEach(id=>{
+  ['port_nombre','port_fob','port_ucontenedor','port_rent','port_dias','port_dias_max','port_notas'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
+  portConstruirAnalisis();
   portRender();
   toast('Producto guardado en portafolio','ok');
 };
@@ -5022,6 +5094,221 @@ window.portEditar = function(idx){
   const btn=document.querySelector('[onclick="portGuardar()"]');
   if(btn){btn.onclick=function(){portGuardar(idx);btn.textContent='Guardar';btn.onclick=function(){portGuardar();};};btn.textContent='Actualizar';}
 };
+
+
+// Construir análisis automático cruzando S.products + S.orders + _mayPedidos
+function portConstruirAnalisis(){
+  if(!S.products?.length && !S.orders?.length) return;
+
+  const ahora = new Date();
+  const hace2anos = new Date(ahora);
+  hace2anos.setFullYear(hace2anos.getFullYear()-2);
+  const dateFrom = hace2anos.toISOString().split('T')[0];
+
+  // Tipo de cambio estimado (ARS→USD) usando costo del producto
+  // Para convertir costo ARS a USD necesitamos el TCambio
+  const tcambio = parseFloat(S.cfg?.tcambio || S.cfg?.tc || 1200) || 1200;
+
+  // ── PASO 1: Construir índice de ventas por SKU (ML + Mayorista) ──────────
+  const skuData = {};
+
+  // ML orders
+  const ordersML = S.orders.filter(o=>
+    o.sku && o.sku!=='—' && o.estado!=='cancelled' && o.fecha>=dateFrom
+  );
+  ordersML.forEach(o=>{
+    if(!skuData[o.sku]) skuData[o.sku] = {
+      sku:o.sku, desc:o.desc||o.sku,
+      ml:{u:0,venta:0,gan:0,pub:0,ords:[]},
+      may:{u:0,venta:0,gan:0},
+      meses:{}
+    };
+    const s = skuData[o.sku];
+    s.ml.u      += o.unidades||1;
+    s.ml.venta  += o.venta||0;
+    s.ml.gan    += o.ganancia||0;
+    s.ml.pub    += o.pub||0;
+    s.ml.ords.push(o);
+    const mes = o.fecha.substring(0,7);
+    s.meses[mes] = (s.meses[mes]||0) + (o.unidades||1);
+  });
+
+  // Mayorista (usar items de pedidos si están cargados)
+  if(_mayPedidos?.length){
+    _mayPedidos.forEach(ped=>{
+      if(!ped.fecha || ped.fecha < dateFrom) return;
+      (ped.items||[]).forEach(it=>{
+        const sku = it.codigo || it.sku;
+        if(!sku) return;
+        if(!skuData[sku]) skuData[sku]={
+          sku, desc:it.descripcion||sku,
+          ml:{u:0,venta:0,gan:0,pub:0,ords:[]},
+          may:{u:0,venta:0,gan:0},
+          meses:{}
+        };
+        const qty = it.cantidad||0;
+        const total = it.precio_total_siva||0;
+        skuData[sku].may.u    += qty;
+        skuData[sku].may.venta+= total;
+        const mes = ped.fecha.substring(0,7);
+        skuData[sku].meses[mes] = (skuData[sku].meses[mes]||0) + qty;
+      });
+    });
+  }
+
+  // ── PASO 2: Para cada SKU construir análisis completo ────────────────────
+  Object.values(skuData).forEach(s=>{
+    // Buscar producto en S.products para obtener costo y pack
+    const prod = S.products.find(p=>p.sku===s.sku);
+    const costoARS = prod?.ars || 0;
+    const costoUSD = costoARS > 0 ? costoARS/tcambio : 0;
+    const ivaPct   = prod?.iva || 21;
+    // Pack: unidades físicas por venta (NVK-222-R-X2 = 2 unidades por orden)
+    const pack = prod?.pack || packFromSku(s.sku);
+    // Unidades físicas reales = unidades vendidas × pack
+    // Esto afecta la rotación y el stock, no la rentabilidad
+
+    // Período con datos
+    const todasOrdenes = s.ml.ords;
+    const fechas = todasOrdenes.map(o=>o.fecha).sort();
+    const primerVenta = fechas.length ? fechas[0] : null;
+    const ultimaVenta = fechas.length ? fechas[fechas.length-1] : null;
+    const diasConDatos = primerVenta && ultimaVenta
+      ? Math.max(1,(new Date(ultimaVenta)-new Date(primerVenta))/(864e5))
+      : 1;
+
+    // Meses activos y quiebre de stock
+    let mesesActivos = [];
+    if(primerVenta && ultimaVenta){
+      let cursor = new Date(primerVenta); cursor.setDate(1);
+      const fin = new Date(ultimaVenta);
+      while(cursor <= fin){
+        mesesActivos.push(cursor.toISOString().substring(0,7));
+        cursor.setMonth(cursor.getMonth()+1);
+      }
+    }
+    const mesesConVentas = Object.keys(s.meses).length;
+    const mesesSinVentas = mesesActivos.filter(m=>!s.meses[m]).length;
+    const pctQuiebre = mesesActivos.length > 0 ? mesesSinVentas/mesesActivos.length : 0;
+
+    // Unidades totales físicas (ML + Mayorista) × pack
+    const uTotal = (s.ml.u + s.may.u) * pack;
+    const uMes   = uTotal / Math.max(1, mesesActivos.length || diasConDatos/30);
+    const picoPorMes = Object.values(s.meses).length
+      ? Math.max(...Object.values(s.meses)) * pack
+      : 0;
+
+    // Potencial con stock constante (usando meses con ventas como base)
+    const uMesConStock = mesesConVentas > 0 ? uTotal/mesesConVentas : uMes;
+    const potencialAnual = Math.round(uMesConStock * 12);
+
+    // Días de rotación (días para vender las unidades de un pedido estándar)
+    // Asumimos pedido de 30 días de stock
+    const diasRot = uMes > 0 ? Math.round(30/uMes) : 60;
+
+    // Rentabilidad real ML
+    const rentML = s.ml.venta > 0 ? (s.ml.gan/s.ml.venta)*100 : 0;
+    const acosML = s.ml.venta > 0 ? (s.ml.pub/s.ml.venta)*100 : 0;
+
+    // Notas auto-generadas
+    const canal = s.ml.u>0 && s.may.u>0 ? 'ML+Mayorista' : s.ml.u>0 ? 'ML' : 'Mayorista';
+    const notas = [
+      `${uTotal} u vendidas · ${canal}`,
+      s.ml.u>0 ? `ML: ${s.ml.u}u` : '',
+      s.may.u>0 ? `May: ${s.may.u}u` : '',
+      pctQuiebre>0.2 ? `⚠ ${Math.round(pctQuiebre*100)}% sin stock` : '',
+      `Pico ${picoPorMes}u/mes`,
+      costoARS>0 ? `Costo ARS: ${fS(costoARS)}` : '⚠ Sin costo cargado',
+    ].filter(Boolean).join(' · ');
+
+    // ── PLAN DE COMPRAS ──────────────────────────────────────────────────────
+    // Unidades por contenedor (manual o estimado)
+    const ucontenedor = base.ucontenedor || 0;
+
+    // Escenario base: venta histórica real
+    const uAnualBase = Math.round(uMes * 12);
+
+    // Escenario optimista: potencial con stock constante
+    const uAnualOpt = potencialAnual;
+
+    // Escenario pesimista: -30% por caídas de mercado, estacionalidad, etc.
+    const uAnualPes = Math.round(uAnualBase * 0.70);
+
+    // Escenario crecimiento: +20% si se invierte en publicidad/expansión
+    const uAnualCre = Math.round(uAnualBase * 1.20);
+
+    // Contenedores necesarios por escenario (si hay unidades por contenedor cargadas)
+    const contBase = ucontenedor > 0 ? Math.ceil(uAnualBase / ucontenedor) : null;
+    const contOpt  = ucontenedor > 0 ? Math.ceil(uAnualOpt  / ucontenedor) : null;
+    const contPes  = ucontenedor > 0 ? Math.ceil(uAnualPes  / ucontenedor) : null;
+    const contCre  = ucontenedor > 0 ? Math.ceil(uAnualCre  / ucontenedor) : null;
+
+    // Frecuencia de reposición óptima (días entre pedidos para no quebrar stock)
+    // Si vendo X u/mes y tengo Y u por contenedor → cada Z días necesito reponer
+    const diasEntreReposiciones = ucontenedor > 0 && uMes > 0
+      ? Math.round(ucontenedor / uMes * 30)
+      : null;
+
+    // Stock de seguridad (buffer para cubrir tiempo de tránsito ~45 días desde China)
+    const diasTransito = 45;
+    const stockSeguridad = Math.round(uMes * (diasTransito/30) * 1.2); // +20% buffer
+
+    // FOB por unidad
+    const fobTotal = base.fob || costoUSD || 0;
+    const fobXunit = ucontenedor > 0 && fobTotal > 0 ? fobTotal/ucontenedor : costoUSD;
+
+    // Inversión anual necesaria por escenario
+    const invBase = fobTotal > 0 && contBase ? contBase * fobTotal : 0;
+    const invOpt  = fobTotal > 0 && contOpt  ? contOpt  * fobTotal : 0;
+    const invPes  = fobTotal > 0 && contPes  ? contPes  * fobTotal : 0;
+
+    // Plan trimestral (cuánto comprar cada trimestre para no quebrar)
+    const uTrimestre = Math.round(uMes * 3 * 1.15); // +15% de buffer
+    const contTrimestre = ucontenedor > 0 ? Math.ceil(uTrimestre/ucontenedor) : null;
+    const base = existIdx>=0 ? _portData[existIdx] : {};
+
+    // Buscar en _portData si ya existe este SKU
+    const existIdx = _portData.findIndex(d=>d.nombre===s.sku);
+      desc:     s.desc,
+      fob:      costoUSD > 0 ? +costoUSD.toFixed(2) : (base.fob||0),
+      rent:     +(rentML.toFixed(1)),
+      dias:     diasRot,
+      diasMax:  Math.round(diasRot*1.5),
+      cat:      base.cat||'otro',
+      canal:    canal==='ML+Mayorista'?'ambos':canal==='ML'?'ml':'mayorista',
+      estado:   rentML>=15&&pctQuiebre<0.3?'activo':pctQuiebre>=0.5?'evaluar':'activo',
+      notas,
+      _historico:{
+        unidades:      uTotal,  // unidades físicas (x pack)
+        unidadesOrdenes: s.ml.u + s.may.u, // órdenes/ventas sin multiplicar
+        pack,          // multiplicador del pack
+        unidadesML:    s.ml.u * pack,
+        unidadesMay:   s.may.u * pack,
+        diasDatos:     Math.round(diasConDatos),
+        mesesConVentas,
+        mesesSinVentas,
+        pctQuiebre:    +pctQuiebre.toFixed(2),
+        unidadesPorMes:+uMes.toFixed(1),
+        picoPorMes,
+        potencialAnual,
+        rentReal:      +rentML.toFixed(1),
+        acosReal:      +acosML.toFixed(1),
+        costoARS,
+        costoUSD:      +costoUSD.toFixed(2),
+        tcambio,
+        primerVenta,
+        ultimaVenta,
+        ventaML:       Math.round(s.ml.venta),
+        ganML:         Math.round(s.ml.gan),
+        ventaMay:      Math.round(s.may.venta),
+      },
+      updated: ahora.toISOString().split('T')[0]
+    };
+
+    if(existIdx>=0) _portData[existIdx] = item;
+    else _portData.push(item);
+  });
+}
 
 function portCalc(d){
   if(!d.fob||!d.rent||!d.dias) return null;
@@ -5054,10 +5341,12 @@ function portRender(){
 
   // Sort
   items.sort((a,b)=>{
-    if(sortBy==='roi')     return (b.calc?.roiAnual||0)-(a.calc?.roiAnual||0);
+    if(sortBy==='roi')      return (b.calc?.roiAnual||0)-(a.calc?.roiAnual||0);
     if(sortBy==='ganancia') return (b.calc?.ganAnual||0)-(a.calc?.ganAnual||0);
-    if(sortBy==='rent')    return (b.rent||0)-(a.rent||0);
-    if(sortBy==='dias')    return (a.dias||999)-(b.dias||999);
+    if(sortBy==='potencial') return (b._historico?.potencialAnual||0)-(a._historico?.potencialAnual||0);
+    if(sortBy==='rent')     return (b.rent||0)-(a.rent||0);
+    if(sortBy==='dias')     return (a.dias||999)-(b.dias||999);
+    if(sortBy==='quiebre')  return (b._historico?.pctQuiebre||0)-(a._historico?.pctQuiebre||0);
     return (a.nombre||'').localeCompare(b.nombre||'');
   });
 
@@ -5218,177 +5507,212 @@ window.portComparar = function(){
     </div>`;
 };
 
-window.portImportarML = function(){
-  if(!S.orders?.length){ toast('Actualizá las ventas primero','err'); return; }
+window.portAnalizarNuevo = async function(avanzado){
+  const nombre    = document.getElementById('nuevo_nombre')?.value?.trim();
+  const fob       = parseFloat(document.getElementById('nuevo_fob')?.value)||0;
+  const uc        = parseFloat(document.getElementById('nuevo_ucontenedor')?.value)||0;
+  const categoria = document.getElementById('nuevo_categoria')?.value||'';
+  const tc        = parseFloat(document.getElementById('port_tc')?.value)||1200;
+  const elRes     = document.getElementById('nuevo_resultado');
+  const btn       = document.getElementById('btn_analizar_nuevo');
 
-  const ahora = new Date();
-  const hace2anos = new Date(ahora);
-  hace2anos.setFullYear(hace2anos.getFullYear()-2);
-  const dateFrom = hace2anos.toISOString().split('T')[0];
+  if(!nombre){ toast('Ingresá el nombre del producto','err'); return; }
+  btn.disabled=true; btn.textContent='⏳ Analizando mercado...';
+  elRes.innerHTML='<div style="text-align:center;padding:20px;color:var(--t3)">🔍 Buscando en MercadoLibre Argentina...</div>';
 
-  const ords = S.orders.filter(o=>o.sku&&o.sku!=='—'&&o.estado!=='cancelled'&&o.fecha>=dateFrom);
-  if(!ords.length){ toast('Sin órdenes en los últimos 2 años','err'); return; }
+  try{
+    const r=await fetch(PROXY+'/mercado/analisis_nuevo?query='+encodeURIComponent(nombre)+'&categoria='+categoria);
+    const d=await r.json();
+    if(!d.ok){ elRes.innerHTML='<div class="card"><p style="color:var(--red)">'+(d.msg||'Error al analizar')+'</p></div>'; return; }
 
-  // Agrupar por SKU con análisis completo
-  const porSku = {};
-  ords.forEach(o=>{
-    if(!porSku[o.sku]) porSku[o.sku]={
-      sku:o.sku, desc:o.desc||o.sku,
-      venta:0, gan:0, pub:0, unidades:0, ords:[],
-      meses:{} // ventas por mes para detectar quiebres
-    };
-    const s = porSku[o.sku];
-    s.venta   += o.venta||0;
-    s.gan     += o.ganancia||0;
-    s.pub     += o.pub||0;
-    s.unidades+= o.unidades||1;
-    s.ords.push(o);
-    // Agrupar por mes
-    const mes = o.fecha.substring(0,7); // YYYY-MM
-    s.meses[mes] = (s.meses[mes]||0) + (o.unidades||1);
-  });
+    const precioRef=d.precios.mediana;
+    const fobXunit=uc>0&&fob>0?fob/uc:0;
+    const fobXunitARS=fobXunit*tc;
+    const costosFijos=0.14+(1-1/1.21)+0.05+0.04+0.012;
+    const ganPorU=precioRef>0&&fobXunitARS>0?precioRef*(1-costosFijos)-fobXunitARS:0;
+    const rentPct=precioRef>0?(ganPorU/precioRef)*100:0;
+    const ventasMercadoMes=Math.round(d.ventas.maximo/12);
+    const uMesEst=Math.round(ventasMercadoMes*0.15);
+    const uMesOpt=Math.round(ventasMercadoMes*0.30);
+    const diasRotEst=uMesEst>0?Math.round(uc>0?uc/uMesEst*30:30/uMesEst):60;
+    const roiAnual=diasRotEst>0?(rentPct/100)*(365/diasRotEst)*100:0;
+    const avgROI=_portData.length>0?_portData.reduce((s,p)=>{const c=portCalc(p);return s+(c?.roiAnual||0);},0)/_portData.length:0;
+    const vsPortafolio=roiAnual-avgROI;
+    const cRent=rentPct>=15?'var(--grn)':rentPct>=8?'var(--org)':'var(--red)';
+    const cROI=roiAnual>=80?'var(--grn)':roiAnual>=40?'var(--org)':'var(--red)';
 
-  let added=0, updated=0;
-  Object.values(porSku).forEach(s=>{
-    if(!s.venta) return;
+    elRes.innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+      +'<div><div style="font-size:14px;font-weight:600">'+esc(nombre)+'</div>'
+      +(d.categoriaDetectada?'<div style="font-size:11px;color:var(--t3)">'+esc(d.categoriaDetectada)+'</div>':'')+'</div>'
+      +'<span style="font-size:11px;padding:4px 10px;border-radius:6px;background:'+(roiAnual>=80?'rgba(71,232,127,.15)':roiAnual>=40?'rgba(255,165,0,.15)':'rgba(255,71,87,.15)')+';color:'+cROI+';font-weight:600">'
+      +(roiAnual>=80?'✅ Oportunidad interesante':roiAnual>=40?'🟡 Analizar con cuidado':'🔴 Riesgo alto')+'</span></div>'
 
-    // Calcular período real de datos
-    const fechas = s.ords.map(o=>o.fecha).sort();
-    const primerVenta = new Date(fechas[0]);
-    const ultimaVenta = new Date(fechas[fechas.length-1]);
-    const diasConDatos = Math.max(1,(ultimaVenta-primerVenta)/(864e5));
+      +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">'
+      +'<div class="kpi" style="border-left:3px solid var(--blu)"><div class="kl">Resultados ML</div><div class="kv">'+d.totalResultados.toLocaleString('es-AR')+'</div><div class="ks">'+d.vendedores+' vendedores</div></div>'
+      +'<div class="kpi"><div class="kl">Precio mediana</div><div class="kv">'+fS(d.precios.mediana)+'</div><div class="ks">'+fS(d.precios.min)+' — '+fS(d.precios.max)+'</div></div>'
+      +'<div class="kpi"><div class="kl">Top vendedor total</div><div class="kv">'+d.ventas.maximo.toLocaleString('es-AR')+' u</div><div class="ks">prom: '+d.ventas.promedio+' u</div></div>'
+      +'<div class="kpi"><div class="kl">Envío gratis</div><div class="kv">'+d.envio.pctGratis+'%</div><div class="ks">Full: '+d.envio.pctFull+'%</div></div>'
+      +'</div>'
 
-    // Detectar quiebres de stock (meses sin ventas dentro del período activo)
-    const mesesActivos = [];
-    let cursor = new Date(primerVenta);
-    cursor.setDate(1);
-    while(cursor <= ultimaVenta){
-      mesesActivos.push(cursor.toISOString().substring(0,7));
-      cursor.setMonth(cursor.getMonth()+1);
-    }
-    const mesesConVentas = Object.keys(s.meses).length;
-    const mesesSinVentas = mesesActivos.filter(m=>!s.meses[m]).length;
-    const pctQuiebre = mesesActivos.length>0 ? mesesSinVentas/mesesActivos.length : 0;
+      +'<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:8px">Proyección financiera estimada</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">'
+      +'<div class="kpi" style="border-left:3px solid '+cRent+'"><div class="kl">Rentabilidad est.</div><div class="kv" style="color:'+cRent+'">'+rentPct.toFixed(1)+'%</div><div class="ks">'+(fobXunitARS>0?'FOB unit: '+fS(Math.round(fobXunitARS)):'Cargá FOB')+'</div></div>'
+      +'<div class="kpi" style="border-left:3px solid '+cROI+'"><div class="kl">ROI anual est.</div><div class="kv" style="color:'+cROI+'">'+roiAnual.toFixed(0)+'%</div><div class="ks">rot. ~'+diasRotEst+'d</div></div>'
+      +'<div class="kpi"><div class="kl">u/mes estimadas</div><div class="kv">'+uMesEst+'</div><div class="ks">optimista: '+uMesOpt+'</div></div>'
+      +'<div class="kpi" style="border-left:3px solid '+(vsPortafolio>=0?'var(--grn)':'var(--red)')+'"><div class="kl">vs Portafolio</div><div class="kv" style="color:'+(vsPortafolio>=0?'var(--grn)':'var(--red)')+'">'+( vsPortafolio>=0?'+':'')+vsPortafolio.toFixed(0)+'%</div><div class="ks">prom: '+avgROI.toFixed(0)+'%</div></div>'
+      +'</div>'
 
-    // Velocidad de venta real (unidades/día promedio en meses activos)
-    const unidadesPorDia = s.unidades / Math.max(1,diasConDatos);
-    const unidadesPorMes = unidadesPorDia * 30;
+      +(d.top5.length?'<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:8px">Top competidores</div>'
+      +'<table class="tbl" style="font-size:11px;margin-bottom:12px"><thead><tr><th>Producto</th><th>Precio</th><th>Vendidos</th><th>Logística</th></tr></thead><tbody>'
+      +d.top5.map(function(p){return '<tr>'
+        +'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="'+p.link+'" target="_blank" style="color:var(--t1);text-decoration:none">'+esc(p.titulo)+'</a></td>'
+        +'<td class="mono">'+fS(p.precio)+'</td>'
+        +'<td class="mono" style="font-weight:600">'+p.vendidos.toLocaleString('es-AR')+'</td>'
+        +'<td style="font-size:10px">'+(p.full?'<span style="color:var(--grn)">Full</span>':p.envioGratis?'<span style="color:var(--blu)">Gratis</span>':'Correo')+'</td>'
+        +'</tr>';}).join('')
+      +'</tbody></table>':'')
 
-    // Pico de ventas (mejor mes)
-    const picoPorMes = Math.max(...Object.values(s.meses));
+      +'<div style="background:var(--s2);border-radius:var(--r);padding:12px;font-size:12px;line-height:1.7;border-left:3px solid '+cROI+';margin-bottom:12px">'
+      +'<strong>Análisis:</strong> El mercado de <em>'+esc(nombre)+'</em> tiene '
+      +'<strong>'+d.totalResultados.toLocaleString('es-AR')+' publicaciones</strong> de <strong>'+d.vendedores+' vendedores</strong>. '
+      +'Precio de referencia <strong>'+fS(d.precios.mediana)+'</strong>. '
+      +(d.ventas.maximo>0?'El top vendedor acumula <strong>'+d.ventas.maximo.toLocaleString('es-AR')+' unidades</strong>. ':'')
+      +(fob>0?'Con FOB USD '+fob.toLocaleString('en-US')+', rentabilidad estimada <strong style="color:'+cRent+'">'+rentPct.toFixed(1)+'%</strong> y ROI <strong style="color:'+cROI+'">'+roiAnual.toFixed(0)+'%</strong>. ':'Cargá el FOB para ver rentabilidad. ')
+      +(d.envio.pctFull>40?'Mercado con alta adopción de Full — considerar esa logística. ':'')
+      +(roiAnual>=avgROI?'<strong style="color:var(--grn)">Supera el ROI promedio de tu portafolio.</strong>':'<strong style="color:var(--org)">Por debajo del ROI promedio de tu portafolio.</strong>')
+      +'</div>'
 
-    // Días de rotación real de un lote (tiempo para vender X unidades)
-    // Asumimos un lote estándar para estimar
-    const diasRotReal = unidadesPorDia > 0 ? Math.round(30/unidadesPorDia) : 90;
+      +'<button class="btn btn-sm" onclick="portAgregarNuevo(\''+esc(nombre)+'\','+fob+','+uc+','+rentPct.toFixed(1)+','+diasRotEst+','+uMesEst+')">'
+      +'➕ Agregar al portafolio como producto nuevo</button>';
 
-    // Rentabilidad real
-    const rentPct = s.venta>0 ? Math.max(0,(s.gan/s.venta)*100) : 0;
-    const acosReal = s.venta>0 ? (s.pub/s.venta)*100 : 0;
-
-    // Potencial si no hubiera quiebres (proyección en meses con stock)
-    const ventasMesConStock = mesesConVentas>0 ? s.unidades/mesesConVentas : 0;
-    const potencialAnual = Math.round(ventasMesConStock * 12);
-
-    // Nota auto-generada
-    const notas = [
-      `${s.unidades} unid. vendidas en ${Math.round(diasConDatos/30)} meses`,
-      pctQuiebre>0.2 ? `⚠ ${Math.round(pctQuiebre*100)}% meses sin stock` : '',
-      `Pico: ${picoPorMes} u/mes`,
-      `Potencial anual: ~${potencialAnual} u si hay stock constante`,
-      `ACOS real: ${acosReal.toFixed(1)}%`,
-    ].filter(Boolean).join(' · ');
-
-    const item = {
-      nombre: s.sku,
-      desc: s.desc,
-      fob: 0, // completar manualmente
-      rent: +rentPct.toFixed(1),
-      dias: diasRotReal,
-      diasMax: Math.round(diasRotReal*1.5),
-      cat: 'otro',
-      canal: 'ml',
-      estado: rentPct>=15&&pctQuiebre<0.3 ? 'activo' : pctQuiebre>=0.5 ? 'evaluar' : 'activo',
-      notas,
-      // Datos históricos para análisis
-      _historico: {
-        unidades: s.unidades,
-        diasDatos: Math.round(diasConDatos),
-        mesesConVentas,
-        mesesSinVentas,
-        pctQuiebre: +pctQuiebre.toFixed(2),
-        unidadesPorMes: +unidadesPorMes.toFixed(1),
-        picoPorMes,
-        potencialAnual,
-        rentReal: +rentPct.toFixed(1),
-        acosReal: +acosReal.toFixed(1),
-        primerVenta: fechas[0],
-        ultimaVenta: fechas[fechas.length-1],
-        ventaTotal: Math.round(s.venta),
-        ganTotal: Math.round(s.gan),
-      },
-      updated: ahora.toISOString().split('T')[0]
-    };
-
-    const existente = _portData.findIndex(d=>d.nombre===s.sku);
-    if(existente>=0){
-      // Actualizar datos históricos sin pisar FOB manual
-      _portData[existente] = {..._portData[existente], ...item, fob:_portData[existente].fob||0};
-      updated++;
-    } else {
-      _portData.push(item);
-      added++;
-    }
-  });
-
-  fb.set('portafolio_db',{items:_portData});
-  portRender();
-  toast(`${added} productos nuevos · ${updated} actualizados con historial 2 años`,'ok');
+  }catch(e){
+    elRes.innerHTML='<div class="card"><p style="color:var(--red)">Error: '+e.message+'</p></div>';
+  }finally{
+    btn.disabled=false; btn.textContent='🔍 Analizar mercado';
+  }
 };
+
+window.portAgregarNuevo = function(nombre,fob,uc,rentPct,diasRot,uMesEst){
+  _portData.push({
+    nombre,fob:fob||0,ucontenedor:uc||0,
+    rent:+parseFloat(rentPct).toFixed(1),
+    dias:diasRot||60,diasMax:Math.round((diasRot||60)*1.5),
+    cat:'otro',canal:'ml',estado:'nuevo',
+    notas:'Producto nuevo · est. '+uMesEst+'u/mes · '+new Date().toLocaleDateString('es-AR'),
+    updated:new Date().toISOString().split('T')[0]
+  });
+  fb.set('portafolio_db',{items:_portData});
+  portConstruirAnalisis(); portRender();
+  toast('Producto nuevo agregado al portafolio','ok');
+  document.getElementById('nuevo_resultado').innerHTML='';
+  document.getElementById('nuevo_nombre').value='';
+};
+
+
+window.portRefrescar = function(){
+  const tc = parseFloat(document.getElementById('port_tc')?.value)||1200;
+  if(!S.cfg) S.cfg={};
+  S.cfg.tcambio = tc;
+  portConstruirAnalisis();
+  portRender();
+  toast('Portafolio recalculado con TC '+tc,'ok');
+};
+
+
 
 // Análisis detallado de un SKU del portafolio
 window.portVerHistorico = function(idx){
   const d = _portData[idx];
-  if(!d?._historico) { toast('Sin datos históricos — importá desde ML primero','err'); return; }
+  if(!d?._historico){ toast('Sin datos históricos aún','err'); return; }
   const h = d._historico;
+  const fobUnit = h.costoUSD || (d.fob&&d.ucontenedor ? d.fob/d.ucontenedor : 0);
+  const fobTotal = d.fob || 0;
+  const uc = d.ucontenedor || 0;
 
-  // Proyección con stock constante
-  const proyAnual = h.potencialAnual;
-  const ventaActual = h.unidades;
-  const diferencia = proyAnual - ventaActual;
+  // Escenarios
+  const uBase = Math.round(h.unidadesPorMes*12);
+  const uOpt  = h.potencialAnual;
+  const uPes  = Math.round(uBase*0.70);
+  const uCre  = Math.round(uBase*1.20);
 
-  const modal = `<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;display:flex;align-items:center;justify-content:center" onclick="this.remove()">
-    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:20px;max-width:520px;width:90%;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <span style="font-size:14px;font-weight:600">${esc(d.nombre)}</span>
-        <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">×</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-        <div class="kpi"><div class="kl">Unidades vendidas</div><div class="kv">${h.unidades}</div><div class="ks">en ${Math.round(h.diasDatos/30)} meses</div></div>
-        <div class="kpi"><div class="kl">Velocidad promedio</div><div class="kv">${h.unidadesPorMes.toFixed(1)} u/mes</div><div class="ks">pico: ${h.picoPorMes} u/mes</div></div>
-        <div class="kpi" style="border-left:3px solid ${h.pctQuiebre>0.3?'var(--red)':'var(--grn)'}">
-          <div class="kl">Meses sin stock</div>
-          <div class="kv" style="color:${h.pctQuiebre>0.3?'var(--red)':'var(--grn)'}">${h.mesesSinVentas} de ${h.mesesConVentas+h.mesesSinVentas}</div>
-          <div class="ks">${Math.round(h.pctQuiebre*100)}% del tiempo sin stock</div>
-        </div>
-        <div class="kpi" style="border-left:3px solid var(--acc)">
-          <div class="kl">Potencial anual con stock</div>
-          <div class="kv" style="color:var(--acc)">${proyAnual} u</div>
-          <div class="ks">+${diferencia} u vs real (${Math.round(diferencia/Math.max(1,ventaActual)*100)}% más)</div>
-        </div>
-        <div class="kpi"><div class="kl">Rentabilidad real ML</div><div class="kv" style="color:${h.rentReal>=15?'var(--grn)':h.rentReal>=8?'var(--org)':'var(--red)'}">${h.rentReal}%</div></div>
-        <div class="kpi"><div class="kl">ACOS real</div><div class="kv" style="color:${h.acosReal<=10?'var(--grn)':h.acosReal<=20?'var(--org)':'var(--red)'}">${h.acosReal}%</div></div>
-        <div class="kpi"><div class="kl">Venta total</div><div class="kv">${fS(h.ventaTotal)}</div></div>
-        <div class="kpi"><div class="kl">Ganancia total</div><div class="kv" style="color:var(--grn)">${fS(h.ganTotal)}</div></div>
-      </div>
-      ${h.pctQuiebre>0.2?`<div style="background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);border-radius:var(--r);padding:10px;margin-bottom:10px;font-size:12px;color:var(--red)">
-        ⚠ Este producto tuvo quiebres de stock en el ${Math.round(h.pctQuiebre*100)}% del período analizado.<br>
-        Con stock constante podría vender <strong>${proyAnual} unidades/año</strong> en lugar de las ${Math.round(h.unidades/Math.max(1,h.diasDatos/365))} reales.
-        <br>Impacto estimado de quiebres: <strong>${fS(Math.round(diferencia*(h.ventaTotal/Math.max(1,h.unidades))))} ARS/año perdidos</strong>.
-      </div>`:''}
-      <div style="font-size:11px;color:var(--t3)">Período: ${h.primerVenta} → ${h.ultimaVenta}</div>
-    </div>
-  </div>`;
-  document.body.insertAdjacentHTML('beforeend',modal);
+  // Contenedores por escenario
+  const cBase = uc>0?Math.ceil(uBase/uc):'—';
+  const cOpt  = uc>0?Math.ceil(uOpt/uc):'—';
+  const cPes  = uc>0?Math.ceil(uPes/uc):'—';
+  const cCre  = uc>0?Math.ceil(uCre/uc):'—';
+
+  // Inversión por escenario
+  const invBase = uc>0&&fobTotal>0?Math.ceil(uBase/uc)*fobTotal:0;
+  const invOpt  = uc>0&&fobTotal>0?Math.ceil(uOpt/uc)*fobTotal:0;
+  const invPes  = uc>0&&fobTotal>0?Math.ceil(uPes/uc)*fobTotal:0;
+
+  // Frecuencia de reposición
+  const diasReponer = uc>0&&h.unidadesPorMes>0?Math.round(uc/h.unidadesPorMes*30):0;
+  const stockSeg = Math.round(h.unidadesPorMes*1.5); // 45 días buffer
+
+  // Impacto económico quiebres
+  const ganPorU = h.unidades>0?h.ganML/h.unidades:0;
+  const uPerdidas = Math.round((uOpt-uBase));
+  const ganPerdida = Math.round(uPerdidas*ganPorU);
+
+  const modal = '<div style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px" onclick="this.remove()">'
+    +'<div style="background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:20px;max-width:640px;width:100%;max-height:85vh;overflow-y:auto" onclick="event.stopPropagation()">'
+    // Header
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
+    +'<div><span style="font-size:15px;font-weight:600">'+esc(d.nombre)+'</span>'
+    +(d.desc&&d.desc!==d.nombre?'<div style="font-size:11px;color:var(--t3)">'+esc(d.desc)+'</div>':'')
+    +'</div>'
+    +'<button onclick="this.closest(\'[style*=fixed]\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px;line-height:1">×</button></div>'
+
+    // KPIs históricos
+    +'<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:8px">📊 Historial '+h.primerVenta?.substring(0,7)+' → '+h.ultimaVenta?.substring(0,7)+'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">'
+    +'<div class="kpi"><div class="kl">Unidades vendidas</div><div class="kv">'+h.unidades+'</div>'
+    +(h.unidadesML?'<div class="ks">ML: '+h.unidadesML+' · May: '+(h.unidadesMay||0)+'</div>':'')+'</div>'
+    +'<div class="kpi"><div class="kl">Velocidad promedio</div><div class="kv">'+h.unidadesPorMes.toFixed(1)+' u/mes</div><div class="ks">pico: '+h.picoPorMes+' u/mes</div></div>'
+    +'<div class="kpi" style="border-left:3px solid '+(h.pctQuiebre>0.3?'var(--red)':h.pctQuiebre>0.1?'var(--org)':'var(--grn)')+'"><div class="kl">Quiebre de stock</div>'
+    +'<div class="kv" style="color:'+(h.pctQuiebre>0.3?'var(--red)':h.pctQuiebre>0.1?'var(--org)':'var(--grn)')+'">'+Math.round(h.pctQuiebre*100)+'%</div>'
+    +'<div class="ks">'+h.mesesSinVentas+' meses sin ventas</div></div>'
+    +'<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Ganancia perdida por quiebres</div>'
+    +'<div class="kv" style="color:var(--red)">'+fS(ganPerdida)+'</div><div class="ks">'+uPerdidas+' u no vendidas</div></div>'
+    +'<div class="kpi"><div class="kl">Rent. real ML</div><div class="kv" style="color:'+(h.rentReal>=15?'var(--grn)':h.rentReal>=8?'var(--org)':'var(--red)')+'">'+h.rentReal+'%</div></div>'
+    +'<div class="kpi"><div class="kl">ACOS real</div><div class="kv" style="color:'+(h.acosReal<=10?'var(--grn)':h.acosReal<=20?'var(--org)':'var(--red)')+'">'+h.acosReal+'%</div></div>'
+    +'</div>'
+
+    // Escenarios
+    +'<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:8px">🎯 Escenarios anuales</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">'
+    +'<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Pesimista -30%</div><div class="kv">'+uPes+' u</div><div class="ks">'+(cPes!=='—'?cPes+' cont.':'sin cont.')+'</div>'+(invPes>0?'<div class="ks">USD '+Math.round(invPes/1000)+'k/año</div>':'')+'</div>'
+    +'<div class="kpi" style="border-left:3px solid var(--org)"><div class="kl">Base histórico</div><div class="kv">'+uBase+' u</div><div class="ks">'+(cBase!=='—'?cBase+' cont.':'sin cont.')+'</div>'+(invBase>0?'<div class="ks">USD '+Math.round(invBase/1000)+'k/año</div>':'')+'</div>'
+    +'<div class="kpi" style="border-left:3px solid var(--acc)"><div class="kl">Optimista c/stock</div><div class="kv" style="color:var(--acc)">'+uOpt+' u</div><div class="ks">'+(cOpt!=='—'?cOpt+' cont.':'sin cont.')+'</div>'+(invOpt>0?'<div class="ks">USD '+Math.round(invOpt/1000)+'k/año</div>':'')+'</div>'
+    +'<div class="kpi" style="border-left:3px solid var(--grn)"><div class="kl">Crecimiento +20%</div><div class="kv" style="color:var(--grn)">'+uCre+' u</div><div class="ks">'+(cCre!=='—'?cCre+' cont.':'sin cont.')+'</div></div>'
+    +'</div>'
+
+    // Plan de reposición
+    +(uc>0?'<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:8px">📦 Plan de reposición</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
+    +'<div class="kpi" style="border-left:3px solid var(--acc)"><div class="kl">Frecuencia de compra</div><div class="kv">cada '+diasReponer+' días</div><div class="ks">'+uc+' u por contenedor</div></div>'
+    +'<div class="kpi"><div class="kl">Stock de seguridad</div><div class="kv">'+stockSeg+' u</div><div class="ks">45 días de tránsito + 20% buffer</div></div>'
+    +'<div class="kpi"><div class="kl">FOB por unidad</div><div class="kv">USD '+fobUnit.toFixed(0)+'</div></div>'
+    +'<div class="kpi"><div class="kl">FOB por contenedor</div><div class="kv">USD '+fobTotal.toLocaleString('en-US')+'</div></div>'
+    +'</div>':'<div style="background:rgba(255,165,0,.1);border:1px solid rgba(255,165,0,.3);border-radius:var(--r);padding:10px;font-size:12px;color:var(--org);margin-bottom:14px">⚠ Cargá las unidades por contenedor en el formulario para ver el plan de reposición detallado.</div>')
+
+    // Trimestral
+    +(uc>0?'<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:8px">📅 Plan trimestral (escenario base)</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">'
+    +['Q1','Q2','Q3','Q4'].map((q,i)=>{
+      const uQ=Math.round(h.unidadesPorMes*3*1.15);
+      const cQ=Math.ceil(uQ/uc);
+      const invQ=cQ*fobTotal;
+      return '<div class="kpi"><div class="kl">'+q+'</div><div class="kv">'+uQ+' u</div><div class="ks">'+cQ+' cont. · USD '+Math.round(invQ/1000)+'k</div></div>';
+    }).join('')+'</div>':'')
+
+    // Período
+    +'<div style="font-size:10px;color:var(--t3)">Datos: '+h.primerVenta+' → '+h.ultimaVenta+' · TC: $'+(h.tcambio||1200).toLocaleString('es-AR')+'/USD</div>'
+    +'</div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', modal);
 };
 
 // ── MAYORISTA ─────────────────────────────────────────────────────────────────
