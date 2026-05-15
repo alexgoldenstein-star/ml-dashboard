@@ -5082,32 +5082,35 @@ function portRender(){
   }
 
   let html='<div class="card"><div class="tbl-wrap"><table class="tbl" style="font-size:11px"><thead><tr>'
-    +'<th>#</th><th>Producto</th><th>FOB</th><th>Rent%</th><th>Días opt/máx</th>'
-    +'<th>Rotaciones/año</th><th>Gan/lote</th><th>ROI anual</th><th>ROI pesimista</th>'
-    +'<th>Gan anual</th><th>Decisión</th><th>Canal</th><th></th>'
+    +'<th>#</th><th>Producto</th><th>FOB</th><th>Rent%</th><th>Días rot.</th>'
+    +'<th>ROI anual</th><th>ROI pesim.</th><th>u/mes hist.</th><th>Potencial anual</th><th>Quiebre stock</th>'
+    +'<th>Decisión</th><th></th>'
     +'</tr></thead><tbody>';
 
   items.forEach((d,rank)=>{
     const c=d.calc;
+    const h=d._historico;
     const dec=portDecision(c,d);
     const catColor={muebles:'var(--blu)',electronica:'var(--org)',hogar:'var(--grn)',exterior:'var(--acc)',otro:'var(--t3)'}[d.cat]||'var(--t3)';
+    const quiebreColor=h?.pctQuiebre>0.3?'var(--red)':h?.pctQuiebre>0.1?'var(--org)':'var(--grn)';
     html+=`<tr>
       <td style="font-weight:700;color:${rank<3?'var(--acc)':'var(--t3)'}">${rank+1}</td>
       <td>
         <div style="font-weight:500;font-size:12px">${esc(d.nombre)}</div>
         <div style="font-size:10px;color:${catColor}">${d.cat||''}</div>
+        ${h?`<div style="font-size:10px;color:var(--t3)">${h.primerVenta?.substring(0,7)||''} → ${h.ultimaVenta?.substring(0,7)||''}</div>`:''}
       </td>
-      <td class="mono">$${(d.fob||0).toLocaleString('es-AR')}</td>
-      <td class="mono" style="font-weight:600">${d.rent||0}%</td>
-      <td class="mono">${d.dias||'—'}/${d.diasMax||'—'}d</td>
-      <td class="mono">${c?c.rotaciones.toFixed(1)+'x':'—'}</td>
-      <td class="mono">${c?'$'+Math.round(c.ganLote).toLocaleString('es-AR'):'—'}</td>
-      <td class="mono" style="font-weight:700;color:${c?c.roiAnual>=80?'var(--grn)':c.roiAnual>=40?'var(--org)':'var(--red)':'var(--t3)'}">${c?c.roiAnual.toFixed(0)+'%':'—'}</td>
-      <td class="mono" style="color:var(--t3)">${c?c.roiPes.toFixed(0)+'%':'—'}</td>
-      <td class="mono">${c?'$'+Math.round(c.ganAnual).toLocaleString('es-AR'):'—'}</td>
+      <td class="mono">${d.fob>0?'$'+d.fob.toLocaleString('es-AR'):'<span style="color:var(--org)">Cargar</span>'}</td>
+      <td class="mono" style="font-weight:600;color:${(d.rent||0)>=15?'var(--grn)':(d.rent||0)>=8?'var(--org)':'var(--red)'}">${d.rent||0}%</td>
+      <td class="mono">${d.dias||'—'}d</td>
+      <td class="mono" style="font-weight:700;color:${c?c.roiAnual>=80?'var(--grn)':c.roiAnual>=40?'var(--org)':'var(--red)':'var(--t3)'}">${c&&d.fob>0?c.roiAnual.toFixed(0)+'%':'sin FOB'}</td>
+      <td class="mono" style="color:var(--t3)">${c&&d.fob>0?c.roiPes.toFixed(0)+'%':'—'}</td>
+      <td class="mono" style="color:var(--acc)">${h?.unidadesPorMes?.toFixed(1)||'—'}</td>
+      <td class="mono" style="color:var(--grn)">${h?.potencialAnual||'—'}</td>
+      <td style="color:${quiebreColor};font-weight:600">${h?Math.round((h.pctQuiebre||0)*100)+'%':'—'}</td>
       <td><span style="font-size:11px;font-weight:600;color:${dec.color}">${dec.label}</span></td>
-      <td><span class="sku" style="font-size:10px">${d.canal||'—'}</span></td>
       <td style="white-space:nowrap">
+        ${h?`<button class="btn-g btn-sm" onclick="portVerHistorico(${d.idx})" title="Ver análisis histórico">📊</button>`:''}
         <button class="btn-g btn-sm" onclick="portEditar(${d.idx})" title="Editar">✏</button>
         <button class="btn-g btn-sm" onclick="portEliminar(${d.idx})" style="color:var(--red)" title="Eliminar">×</button>
       </td>
@@ -5217,8 +5220,176 @@ window.portComparar = function(){
 
 window.portImportarML = function(){
   if(!S.orders?.length){ toast('Actualizá las ventas primero','err'); return; }
-  const dias30=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
-  const porSku={};
+
+  const ahora = new Date();
+  const hace2anos = new Date(ahora);
+  hace2anos.setFullYear(hace2anos.getFullYear()-2);
+  const dateFrom = hace2anos.toISOString().split('T')[0];
+
+  const ords = S.orders.filter(o=>o.sku&&o.sku!=='—'&&o.estado!=='cancelled'&&o.fecha>=dateFrom);
+  if(!ords.length){ toast('Sin órdenes en los últimos 2 años','err'); return; }
+
+  // Agrupar por SKU con análisis completo
+  const porSku = {};
+  ords.forEach(o=>{
+    if(!porSku[o.sku]) porSku[o.sku]={
+      sku:o.sku, desc:o.desc||o.sku,
+      venta:0, gan:0, pub:0, unidades:0, ords:[],
+      meses:{} // ventas por mes para detectar quiebres
+    };
+    const s = porSku[o.sku];
+    s.venta   += o.venta||0;
+    s.gan     += o.ganancia||0;
+    s.pub     += o.pub||0;
+    s.unidades+= o.unidades||1;
+    s.ords.push(o);
+    // Agrupar por mes
+    const mes = o.fecha.substring(0,7); // YYYY-MM
+    s.meses[mes] = (s.meses[mes]||0) + (o.unidades||1);
+  });
+
+  let added=0, updated=0;
+  Object.values(porSku).forEach(s=>{
+    if(!s.venta) return;
+
+    // Calcular período real de datos
+    const fechas = s.ords.map(o=>o.fecha).sort();
+    const primerVenta = new Date(fechas[0]);
+    const ultimaVenta = new Date(fechas[fechas.length-1]);
+    const diasConDatos = Math.max(1,(ultimaVenta-primerVenta)/(864e5));
+
+    // Detectar quiebres de stock (meses sin ventas dentro del período activo)
+    const mesesActivos = [];
+    let cursor = new Date(primerVenta);
+    cursor.setDate(1);
+    while(cursor <= ultimaVenta){
+      mesesActivos.push(cursor.toISOString().substring(0,7));
+      cursor.setMonth(cursor.getMonth()+1);
+    }
+    const mesesConVentas = Object.keys(s.meses).length;
+    const mesesSinVentas = mesesActivos.filter(m=>!s.meses[m]).length;
+    const pctQuiebre = mesesActivos.length>0 ? mesesSinVentas/mesesActivos.length : 0;
+
+    // Velocidad de venta real (unidades/día promedio en meses activos)
+    const unidadesPorDia = s.unidades / Math.max(1,diasConDatos);
+    const unidadesPorMes = unidadesPorDia * 30;
+
+    // Pico de ventas (mejor mes)
+    const picoPorMes = Math.max(...Object.values(s.meses));
+
+    // Días de rotación real de un lote (tiempo para vender X unidades)
+    // Asumimos un lote estándar para estimar
+    const diasRotReal = unidadesPorDia > 0 ? Math.round(30/unidadesPorDia) : 90;
+
+    // Rentabilidad real
+    const rentPct = s.venta>0 ? Math.max(0,(s.gan/s.venta)*100) : 0;
+    const acosReal = s.venta>0 ? (s.pub/s.venta)*100 : 0;
+
+    // Potencial si no hubiera quiebres (proyección en meses con stock)
+    const ventasMesConStock = mesesConVentas>0 ? s.unidades/mesesConVentas : 0;
+    const potencialAnual = Math.round(ventasMesConStock * 12);
+
+    // Nota auto-generada
+    const notas = [
+      `${s.unidades} unid. vendidas en ${Math.round(diasConDatos/30)} meses`,
+      pctQuiebre>0.2 ? `⚠ ${Math.round(pctQuiebre*100)}% meses sin stock` : '',
+      `Pico: ${picoPorMes} u/mes`,
+      `Potencial anual: ~${potencialAnual} u si hay stock constante`,
+      `ACOS real: ${acosReal.toFixed(1)}%`,
+    ].filter(Boolean).join(' · ');
+
+    const item = {
+      nombre: s.sku,
+      desc: s.desc,
+      fob: 0, // completar manualmente
+      rent: +rentPct.toFixed(1),
+      dias: diasRotReal,
+      diasMax: Math.round(diasRotReal*1.5),
+      cat: 'otro',
+      canal: 'ml',
+      estado: rentPct>=15&&pctQuiebre<0.3 ? 'activo' : pctQuiebre>=0.5 ? 'evaluar' : 'activo',
+      notas,
+      // Datos históricos para análisis
+      _historico: {
+        unidades: s.unidades,
+        diasDatos: Math.round(diasConDatos),
+        mesesConVentas,
+        mesesSinVentas,
+        pctQuiebre: +pctQuiebre.toFixed(2),
+        unidadesPorMes: +unidadesPorMes.toFixed(1),
+        picoPorMes,
+        potencialAnual,
+        rentReal: +rentPct.toFixed(1),
+        acosReal: +acosReal.toFixed(1),
+        primerVenta: fechas[0],
+        ultimaVenta: fechas[fechas.length-1],
+        ventaTotal: Math.round(s.venta),
+        ganTotal: Math.round(s.gan),
+      },
+      updated: ahora.toISOString().split('T')[0]
+    };
+
+    const existente = _portData.findIndex(d=>d.nombre===s.sku);
+    if(existente>=0){
+      // Actualizar datos históricos sin pisar FOB manual
+      _portData[existente] = {..._portData[existente], ...item, fob:_portData[existente].fob||0};
+      updated++;
+    } else {
+      _portData.push(item);
+      added++;
+    }
+  });
+
+  fb.set('portafolio_db',{items:_portData});
+  portRender();
+  toast(`${added} productos nuevos · ${updated} actualizados con historial 2 años`,'ok');
+};
+
+// Análisis detallado de un SKU del portafolio
+window.portVerHistorico = function(idx){
+  const d = _portData[idx];
+  if(!d?._historico) { toast('Sin datos históricos — importá desde ML primero','err'); return; }
+  const h = d._historico;
+
+  // Proyección con stock constante
+  const proyAnual = h.potencialAnual;
+  const ventaActual = h.unidades;
+  const diferencia = proyAnual - ventaActual;
+
+  const modal = `<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;display:flex;align-items:center;justify-content:center" onclick="this.remove()">
+    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:20px;max-width:520px;width:90%;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span style="font-size:14px;font-weight:600">${esc(d.nombre)}</span>
+        <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <div class="kpi"><div class="kl">Unidades vendidas</div><div class="kv">${h.unidades}</div><div class="ks">en ${Math.round(h.diasDatos/30)} meses</div></div>
+        <div class="kpi"><div class="kl">Velocidad promedio</div><div class="kv">${h.unidadesPorMes.toFixed(1)} u/mes</div><div class="ks">pico: ${h.picoPorMes} u/mes</div></div>
+        <div class="kpi" style="border-left:3px solid ${h.pctQuiebre>0.3?'var(--red)':'var(--grn)'}">
+          <div class="kl">Meses sin stock</div>
+          <div class="kv" style="color:${h.pctQuiebre>0.3?'var(--red)':'var(--grn)'}">${h.mesesSinVentas} de ${h.mesesConVentas+h.mesesSinVentas}</div>
+          <div class="ks">${Math.round(h.pctQuiebre*100)}% del tiempo sin stock</div>
+        </div>
+        <div class="kpi" style="border-left:3px solid var(--acc)">
+          <div class="kl">Potencial anual con stock</div>
+          <div class="kv" style="color:var(--acc)">${proyAnual} u</div>
+          <div class="ks">+${diferencia} u vs real (${Math.round(diferencia/Math.max(1,ventaActual)*100)}% más)</div>
+        </div>
+        <div class="kpi"><div class="kl">Rentabilidad real ML</div><div class="kv" style="color:${h.rentReal>=15?'var(--grn)':h.rentReal>=8?'var(--org)':'var(--red)'}">${h.rentReal}%</div></div>
+        <div class="kpi"><div class="kl">ACOS real</div><div class="kv" style="color:${h.acosReal<=10?'var(--grn)':h.acosReal<=20?'var(--org)':'var(--red)'}">${h.acosReal}%</div></div>
+        <div class="kpi"><div class="kl">Venta total</div><div class="kv">${fS(h.ventaTotal)}</div></div>
+        <div class="kpi"><div class="kl">Ganancia total</div><div class="kv" style="color:var(--grn)">${fS(h.ganTotal)}</div></div>
+      </div>
+      ${h.pctQuiebre>0.2?`<div style="background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);border-radius:var(--r);padding:10px;margin-bottom:10px;font-size:12px;color:var(--red)">
+        ⚠ Este producto tuvo quiebres de stock en el ${Math.round(h.pctQuiebre*100)}% del período analizado.<br>
+        Con stock constante podría vender <strong>${proyAnual} unidades/año</strong> en lugar de las ${Math.round(h.unidades/Math.max(1,h.diasDatos/365))} reales.
+        <br>Impacto estimado de quiebres: <strong>${fS(Math.round(diferencia*(h.ventaTotal/Math.max(1,h.unidades))))} ARS/año perdidos</strong>.
+      </div>`:''}
+      <div style="font-size:11px;color:var(--t3)">Período: ${h.primerVenta} → ${h.ultimaVenta}</div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',modal);
+};
   S.orders.filter(o=>o.fecha>=dias30&&o.sku&&o.sku!=='—').forEach(o=>{
     if(!porSku[o.sku]) porSku[o.sku]={sku:o.sku,desc:o.desc||o.sku,venta:0,gan:0,ords:0,pub:0};
     porSku[o.sku].venta+=o.venta||0;
