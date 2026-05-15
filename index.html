@@ -5390,34 +5390,6 @@ window.portVerHistorico = function(idx){
   </div>`;
   document.body.insertAdjacentHTML('beforeend',modal);
 };
-  S.orders.filter(o=>o.fecha>=dias30&&o.sku&&o.sku!=='—').forEach(o=>{
-    if(!porSku[o.sku]) porSku[o.sku]={sku:o.sku,desc:o.desc||o.sku,venta:0,gan:0,ords:0,pub:0};
-    porSku[o.sku].venta+=o.venta||0;
-    porSku[o.sku].gan+=o.ganancia||0;
-    porSku[o.sku].ords+=1;
-    porSku[o.sku].pub+=o.pub||0;
-  });
-  // Estimar días de rotación: si vendió N unidades en 30 días → 30/N días por unidad
-  let added=0;
-  Object.values(porSku).forEach(s=>{
-    const existente=_portData.find(d=>d.nombre===s.sku||d.nombre===s.desc);
-    if(existente) return; // no duplicar
-    if(!s.venta) return;
-    const rentPct=s.venta>0?Math.max(0,(s.gan/s.venta)*100):0;
-    const diasRot=s.ords>0?Math.round(30/s.ords*1.2):30;
-    _portData.push({
-      nombre:s.sku,desc:s.desc,fob:0,rent:+rentPct.toFixed(1),
-      dias:diasRot,diasMax:Math.round(diasRot*1.5),
-      cat:'otro',canal:'ml',estado:'activo',
-      notas:'Importado desde ML 30d · '+s.ords+' órdenes',
-      updated:new Date().toISOString().split('T')[0]
-    });
-    added++;
-  });
-  fb.set('portafolio_db',{items:_portData});
-  portRender();
-  toast(added+' productos importados desde ML (sin FOB — completá manualmente)','ok');
-};
 
 // ── MAYORISTA ─────────────────────────────────────────────────────────────────
 
