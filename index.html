@@ -5100,180 +5100,155 @@ window.portEditar = function(idx){
 // Construir análisis automático cruzando S.products + S.orders + _mayPedidos
 function portConstruirAnalisis(){
   if(!S.products?.length && !S.orders?.length) return;
+  const ahora=new Date();
+  const hace2anos=new Date(ahora); hace2anos.setFullYear(hace2anos.getFullYear()-2);
+  const dateFrom=hace2anos.toISOString().split('T')[0];
+  const tcambio=parseFloat(document.getElementById('port_tc')?.value)||parseFloat(S.cfg?.tcambio||1200)||1200;
 
-  const ahora = new Date();
-  const hace2anos = new Date(ahora);
-  hace2anos.setFullYear(hace2anos.getFullYear()-2);
-  const dateFrom = hace2anos.toISOString().split('T')[0];
-
-  // Tipo de cambio estimado (ARS→USD) usando costo del producto
-  // Para convertir costo ARS a USD necesitamos el TCambio
-  const tcambio = parseFloat(S.cfg?.tcambio || S.cfg?.tc || 1200) || 1200;
-
-  // ── PASO 1: Construir índice de ventas por SKU (ML + Mayorista) ──────────
-  const skuData = {};
-
-  // ML orders
-  const ordersML = S.orders.filter(o=>
-    o.sku && o.sku!=='—' && o.estado!=='cancelled' && o.fecha>=dateFrom
-  );
-  ordersML.forEach(o=>{
-    if(!skuData[o.sku]) skuData[o.sku] = {
-      sku:o.sku, desc:o.desc||o.sku,
-      ml:{u:0,venta:0,gan:0,pub:0,ords:[]},
-      may:{u:0,venta:0,gan:0},
-      meses:{}
-    };
-    const s = skuData[o.sku];
-    s.ml.u      += o.unidades||1;
-    s.ml.venta  += o.venta||0;
-    s.ml.gan    += o.ganancia||0;
-    s.ml.pub    += o.pub||0;
+  // Construir índice por SKU (ML + Mayorista)
+  const skuData={};
+  S.orders.filter(o=>o.sku&&o.sku!=='—'&&o.estado!=='cancelled'&&o.fecha>=dateFrom).forEach(o=>{
+    if(!skuData[o.sku]) skuData[o.sku]={sku:o.sku,desc:o.desc||o.sku,ml:{u:0,venta:0,gan:0,pub:0,ords:[]},may:{u:0,venta:0,gan:0},meses:{}};
+    const s=skuData[o.sku];
+    s.ml.u+=(o.unidades||1); s.ml.venta+=(o.venta||0); s.ml.gan+=(o.ganancia||0); s.ml.pub+=(o.pub||0);
     s.ml.ords.push(o);
-    const mes = o.fecha.substring(0,7);
-    s.meses[mes] = (s.meses[mes]||0) + (o.unidades||1);
+    const mes=o.fecha.substring(0,7);
+    s.meses[mes]=(s.meses[mes]||0)+(o.unidades||1);
   });
-
-  // Mayorista (usar items de pedidos si están cargados)
   if(_mayPedidos?.length){
     _mayPedidos.forEach(ped=>{
-      if(!ped.fecha || ped.fecha < dateFrom) return;
+      if(!ped.fecha||ped.fecha<dateFrom) return;
       (ped.items||[]).forEach(it=>{
-        const sku = it.codigo || it.sku;
-        if(!sku) return;
-        if(!skuData[sku]) skuData[sku]={
-          sku, desc:it.descripcion||sku,
-          ml:{u:0,venta:0,gan:0,pub:0,ords:[]},
-          may:{u:0,venta:0,gan:0},
-          meses:{}
-        };
-        const qty = it.cantidad||0;
-        const total = it.precio_total_siva||0;
-        skuData[sku].may.u    += qty;
-        skuData[sku].may.venta+= total;
-        const mes = ped.fecha.substring(0,7);
-        skuData[sku].meses[mes] = (skuData[sku].meses[mes]||0) + qty;
+        const sku=it.codigo||it.sku; if(!sku) return;
+        if(!skuData[sku]) skuData[sku]={sku,desc:it.descripcion||sku,ml:{u:0,venta:0,gan:0,pub:0,ords:[]},may:{u:0,venta:0,gan:0},meses:{}};
+        skuData[sku].may.u+=(it.cantidad||0);
+        skuData[sku].may.venta+=(it.precio_total_siva||0);
+        const mes=ped.fecha.substring(0,7);
+        skuData[sku].meses[mes]=(skuData[sku].meses[mes]||0)+(it.cantidad||0);
       });
     });
   }
 
-  // ── PASO 2: Para cada SKU construir análisis completo ────────────────────
   Object.values(skuData).forEach(s=>{
-    // Buscar producto en S.products para obtener costo y pack
-    const prod = S.products.find(p=>p.sku===s.sku);
-    const costoARS = prod?.ars || 0;
-    const costoUSD = costoARS > 0 ? costoARS/tcambio : 0;
-    const ivaPct   = prod?.iva || 21;
-    // Pack: unidades físicas por venta (NVK-222-R-X2 = 2 unidades por orden)
-    const pack = prod?.pack || packFromSku(s.sku);
-    // Unidades físicas reales = unidades vendidas × pack
-    // Esto afecta la rotación y el stock, no la rentabilidad
+    const prod=S.products.find(p=>p.sku===s.sku);
+    const costoARS=prod?.ars||0;
+    const costoUSD=costoARS>0?costoARS/tcambio:0;
+    const pack=prod?.pack||packFromSku(s.sku);
 
-    // Período con datos
-    const todasOrdenes = s.ml.ords;
-    const fechas = todasOrdenes.map(o=>o.fecha).sort();
-    const primerVenta = fechas.length ? fechas[0] : null;
-    const ultimaVenta = fechas.length ? fechas[fechas.length-1] : null;
-    const diasConDatos = primerVenta && ultimaVenta
-      ? Math.max(1,(new Date(ultimaVenta)-new Date(primerVenta))/(864e5))
-      : 1;
-
-    // Meses activos y quiebre de stock
-    let mesesActivos = [];
-    if(primerVenta && ultimaVenta){
-      let cursor = new Date(primerVenta); cursor.setDate(1);
-      const fin = new Date(ultimaVenta);
-      while(cursor <= fin){
-        mesesActivos.push(cursor.toISOString().substring(0,7));
-        cursor.setMonth(cursor.getMonth()+1);
-      }
+    // Período y quiebres
+    const fechas=s.ml.ords.map(o=>o.fecha).sort();
+    const primerVenta=fechas.length?fechas[0]:null;
+    const ultimaVenta=fechas.length?fechas[fechas.length-1]:null;
+    const diasConDatos=primerVenta&&ultimaVenta?Math.max(1,(new Date(ultimaVenta)-new Date(primerVenta))/(864e5)):1;
+    let mesesActivos=[];
+    if(primerVenta&&ultimaVenta){
+      let cursor=new Date(primerVenta); cursor.setDate(1);
+      const fin=new Date(ultimaVenta);
+      while(cursor<=fin){ mesesActivos.push(cursor.toISOString().substring(0,7)); cursor.setMonth(cursor.getMonth()+1); }
     }
-    const mesesConVentas = Object.keys(s.meses).length;
-    const mesesSinVentas = mesesActivos.filter(m=>!s.meses[m]).length;
-    const pctQuiebre = mesesActivos.length > 0 ? mesesSinVentas/mesesActivos.length : 0;
+    const mesesConVentas=Object.keys(s.meses).length;
+    const mesesSinVentas=mesesActivos.filter(m=>!s.meses[m]).length;
+    const pctQuiebre=mesesActivos.length>0?mesesSinVentas/mesesActivos.length:0;
 
-    // Unidades totales físicas (ML + Mayorista) × pack
-    const uTotal = (s.ml.u + s.may.u) * pack;
-    const uMes   = uTotal / Math.max(1, mesesActivos.length || diasConDatos/30);
-    const picoPorMes = Object.values(s.meses).length
-      ? Math.max(...Object.values(s.meses)) * pack
-      : 0;
+    // Unidades físicas × pack
+    const uTotal=(s.ml.u+s.may.u)*pack;
+    const uMes=uTotal/Math.max(1,mesesActivos.length||diasConDatos/30);
+    const picoPorMes=Object.values(s.meses).length?Math.max(...Object.values(s.meses))*pack:0;
+    const uMesConStock=mesesConVentas>0?uTotal/mesesConVentas:uMes;
+    const potencialAnual=Math.round(uMesConStock*12);
+    const diasRot=uMes>0?Math.round(30/uMes):60;
 
-    // Potencial con stock constante (usando meses con ventas como base)
-    const uMesConStock = mesesConVentas > 0 ? uTotal/mesesConVentas : uMes;
-    const potencialAnual = Math.round(uMesConStock * 12);
+    // Rentabilidad ML
+    const rentML=s.ml.venta>0?(s.ml.gan/s.ml.venta)*100:0;
+    const acosML=s.ml.venta>0?(s.ml.pub/s.ml.venta)*100:0;
 
-    // Días de rotación (días para vender las unidades de un pedido estándar)
-    // Asumimos pedido de 30 días de stock
-    const diasRot = uMes > 0 ? Math.round(30/uMes) : 60;
-
-    // Rentabilidad real ML
-    const rentML = s.ml.venta > 0 ? (s.ml.gan/s.ml.venta)*100 : 0;
-    const acosML = s.ml.venta > 0 ? (s.ml.pub/s.ml.venta)*100 : 0;
-
-    // Notas auto-generadas
-    const canal = s.ml.u>0 && s.may.u>0 ? 'ML+Mayorista' : s.ml.u>0 ? 'ML' : 'Mayorista';
-    const notas = [
-      `${uTotal} u vendidas · ${canal}`,
-      s.ml.u>0 ? `ML: ${s.ml.u}u` : '',
-      s.may.u>0 ? `May: ${s.may.u}u` : '',
-      pctQuiebre>0.2 ? `⚠ ${Math.round(pctQuiebre*100)}% sin stock` : '',
-      `Pico ${picoPorMes}u/mes`,
-      costoARS>0 ? `Costo ARS: ${fS(costoARS)}` : '⚠ Sin costo cargado',
+    const canal=s.ml.u>0&&s.may.u>0?'ML+Mayorista':s.ml.u>0?'ML':'Mayorista';
+    const notas=[
+      uTotal+' u · '+canal,
+      s.ml.u>0?'ML: '+s.ml.u+'u':'',
+      s.may.u>0?'May: '+s.may.u+'u':'',
+      pctQuiebre>0.2?'⚠ '+Math.round(pctQuiebre*100)+'% sin stock':'',
+      'Pico '+picoPorMes+'u/mes',
+      pack>1?'Pack x'+pack:'',
+      costoARS>0?'Costo: '+fS(costoARS):'⚠ Sin costo',
     ].filter(Boolean).join(' · ');
 
-    // Buscar en _portData si ya existe este SKU (necesario para base y ucontenedor)
-    const existIdx = _portData.findIndex(d=>d.nombre===s.sku);
-    const base = existIdx>=0 ? _portData[existIdx] : {};
+    // Buscar existente para preservar datos manuales (FOB, ucontenedor, cat, etc.)
+    const existIdx=_portData.findIndex(d=>d.nombre===s.sku);
+    const base=existIdx>=0?_portData[existIdx]:{};
 
-    // ── PLAN DE COMPRAS ──────────────────────────────────────────────────────
-    const ucontenedor = base.ucontenedor || 0;
+    // Plan de compras
+    const ucontenedor=base.ucontenedor||0;
+    const uAnualBase=Math.round(uMes*12);
+    const uAnualOpt=potencialAnual;
+    const uAnualPes=Math.round(uAnualBase*0.70);
+    const uAnualCre=Math.round(uAnualBase*1.20);
+    const fobTotal=base.fob||0;
+    const contBase=ucontenedor>0?Math.ceil(uAnualBase/ucontenedor):null;
+    const contOpt=ucontenedor>0?Math.ceil(uAnualOpt/ucontenedor):null;
+    const contPes=ucontenedor>0?Math.ceil(uAnualPes/ucontenedor):null;
+    const contCre=ucontenedor>0?Math.ceil(uAnualCre/ucontenedor):null;
+    const diasEntreRep=ucontenedor>0&&uMes>0?Math.round(ucontenedor/uMes*30):null;
+    const stockSeg=Math.round(uMes*1.5);
+    const invBase=fobTotal>0&&contBase?contBase*fobTotal:0;
+    const invOpt=fobTotal>0&&contOpt?contOpt*fobTotal:0;
+    const invPes=fobTotal>0&&contPes?contPes*fobTotal:0;
+    const uTrimestre=Math.round(uMes*3*1.15);
+    const contTrimestre=ucontenedor>0?Math.ceil(uTrimestre/ucontenedor):null;
 
-    // Escenario base: venta histórica real
-    const uAnualBase = Math.round(uMes * 12);
+    const item={
+      ...base,
+      nombre:   s.sku,
+      desc:     s.desc,
+      fob:      base.fob||(costoUSD>0?+costoUSD.toFixed(2):0),
+      ucontenedor: base.ucontenedor||0,
+      rent:     +(rentML.toFixed(1)),
+      dias:     diasRot,
+      diasMax:  Math.round(diasRot*1.5),
+      cat:      base.cat||'otro',
+      canal:    canal==='ML+Mayorista'?'ambos':canal==='ML'?'ml':'mayorista',
+      estado:   rentML>=15&&pctQuiebre<0.3?'activo':pctQuiebre>=0.5?'evaluar':'activo',
+      notas,
+      _historico:{
+        unidades:      uTotal,
+        unidadesOrdenes: s.ml.u+s.may.u,
+        pack,
+        unidadesML:    s.ml.u*pack,
+        unidadesMay:   s.may.u*pack,
+        diasDatos:     Math.round(diasConDatos),
+        mesesConVentas,
+        mesesSinVentas,
+        pctQuiebre:    +pctQuiebre.toFixed(2),
+        unidadesPorMes:+uMes.toFixed(1),
+        picoPorMes,
+        potencialAnual,
+        rentReal:      +rentML.toFixed(1),
+        acosReal:      +acosML.toFixed(1),
+        costoARS,
+        costoUSD:      +costoUSD.toFixed(2),
+        tcambio,
+        primerVenta,
+        ultimaVenta,
+        ventaML:       Math.round(s.ml.venta),
+        ganML:         Math.round(s.ml.gan),
+        ventaMay:      Math.round(s.may.venta),
+        // Plan de compras
+        plan:{
+          uAnualBase, uAnualOpt, uAnualPes, uAnualCre,
+          contBase, contOpt, contPes, contCre,
+          diasEntreRep, stockSeg,
+          invBase, invOpt, invPes,
+          uTrimestre, contTrimestre,
+        },
+      },
+      updated: ahora.toISOString().split('T')[0],
+    };
 
-    // Escenario optimista: potencial con stock constante
-    const uAnualOpt = potencialAnual;
-
-    // Escenario pesimista: -30% por caídas de mercado, estacionalidad, etc.
-    const uAnualPes = Math.round(uAnualBase * 0.70);
-
-    // Escenario crecimiento: +20% si se invierte en publicidad/expansión
-    const uAnualCre = Math.round(uAnualBase * 1.20);
-
-    // Contenedores necesarios por escenario (si hay unidades por contenedor cargadas)
-    const contBase = ucontenedor > 0 ? Math.ceil(uAnualBase / ucontenedor) : null;
-    const contOpt  = ucontenedor > 0 ? Math.ceil(uAnualOpt  / ucontenedor) : null;
-    const contPes  = ucontenedor > 0 ? Math.ceil(uAnualPes  / ucontenedor) : null;
-    const contCre  = ucontenedor > 0 ? Math.ceil(uAnualCre  / ucontenedor) : null;
-
-    // Frecuencia de reposición óptima (días entre pedidos para no quebrar stock)
-    // Si vendo X u/mes y tengo Y u por contenedor → cada Z días necesito reponer
-    const diasEntreReposiciones = ucontenedor > 0 && uMes > 0
-      ? Math.round(ucontenedor / uMes * 30)
-      : null;
-
-    // Stock de seguridad (buffer para cubrir tiempo de tránsito ~45 días desde China)
-    const diasTransito = 45;
-    const stockSeguridad = Math.round(uMes * (diasTransito/30) * 1.2); // +20% buffer
-
-    // FOB por unidad
-    const fobTotal = base.fob || costoUSD || 0;
-    const fobXunit = ucontenedor > 0 && fobTotal > 0 ? fobTotal/ucontenedor : costoUSD;
-
-    // Inversión anual necesaria por escenario
-    const invBase = fobTotal > 0 && contBase ? contBase * fobTotal : 0;
-    const invOpt  = fobTotal > 0 && contOpt  ? contOpt  * fobTotal : 0;
-    const invPes  = fobTotal > 0 && contPes  ? contPes  * fobTotal : 0;
-
-    // Plan trimestral (cuánto comprar cada trimestre para no quebrar)
-    const uTrimestre = Math.round(uMes * 3 * 1.15); // +15% de buffer
-    const contTrimestre = ucontenedor > 0 ? Math.ceil(uTrimestre/ucontenedor) : null;
-
-    if(existIdx>=0) _portData[existIdx] = item;
+    if(existIdx>=0) _portData[existIdx]=item;
     else _portData.push(item);
   });
 }
+
 
 function portCalc(d){
   if(!d.fob||!d.rent||!d.dias) return null;
