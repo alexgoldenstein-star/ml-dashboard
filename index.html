@@ -2906,6 +2906,19 @@ function packFromSku(sku){
   const m = sku.match(/-X(\d+)(?:-|$)/i);
   return m ? parseInt(m[1]) : 1;
 }
+
+// Normaliza SKU quitando color y variante para agrupar productos similares
+// NVK-3000-N → NVK-3000, NVK-222-R-X2 → NVK-222-X2, NVK-MP180-N → NVK-MP180
+function skuBase(sku){
+  if(!sku) return sku;
+  // Quitar sufijos de color: -N, -B, -R, -G, -W, -A, -BL, -GR, -NE, -BK, -WH
+  // Pero preservar -X2, -X4 (pack) y números de modelo
+  return sku
+    .replace(/-(?:N|B|R|G|W|A|BL|GR|NE|BK|WH|NG|RJ|AZ|AM|VE|NR|BC)(?=-X\d|$)/gi, '')
+    .replace(/-(?:NEGRO|BLANCO|ROJO|GRIS|AZUL|VERDE|AMARILLO|NARANJA)(?=-X\d|$)/gi, '')
+    .trim()
+    .replace(/-+$/, '');
+}
 window.editProd=sku=>{
   const p=S.products.find(x=>x.sku===sku);if(!p)return;
   document.getElementById("mpTitle").textContent="Editar producto";
@@ -3065,9 +3078,17 @@ window.sMTab = function(t, el){
 window.renderMercado = function(){
   const el = document.getElementById('mercCont');
   if(!el) return;
-  const token = S.accounts[0]?.token;
+  // Buscar cualquier cuenta con token
+  const acct = S.accounts.find(a=>a.token);
+  const token = acct?.token;
   if(!token){
-    el.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">⚠ Conectá una cuenta ML para usar Inteligencia de Mercado.</p></div>';
+    el.innerHTML=`<div class="card" style="border-left:3px solid var(--org)">
+      <p style="color:var(--t2);margin-bottom:8px">⚠ ${S.accounts.length?'Las cuentas están conectadas pero los tokens están vencidos.':'No hay cuentas conectadas.'}</p>
+      <p style="font-size:12px;color:var(--t3)">Ir a <strong>Sistema → Get Token</strong> para conectar/reconectar las cuentas ML.</p>
+      ${S.accounts.length?`<p style="font-size:11px;color:var(--t3);margin-top:6px">${S.accounts.length} cuenta(s) encontradas: ${S.accounts.map(a=>a.id).join(', ')}</p>`:''}
+    </div>`;
+    // Reintentar en 2 segundos por si las cuentas están cargando
+    setTimeout(()=>{ if((S.accounts||[]).find(a=>a.token)) renderMercado(); }, 2000);
     return;
   }
   if(_mTab==='mis_cats')   renderMisCats(el, token);
@@ -4165,18 +4186,23 @@ window.loadPublicaciones = async function(){
   const acctId=sel?.value;
   const acct=S.accounts.find(a=>a.id===acctId);
   const token=acct?.token;
-  if(!acctId||!token){toast('Sin token para esta cuenta','err');return;}
-  
   const listEl=document.getElementById('pubList');
+
+  if(!acctId||!token){
+    listEl.innerHTML=`<div class="card" style="border-left:3px solid var(--red)">
+      <p style="color:var(--red)">⚠ Sin token para ${acctId||'esta cuenta'}. 
+      Ir a <strong>Sistema → Get Token</strong> para reconectar.</p></div>`;
+    return;
+  }
+
   listEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando publicaciones...</div>';
-  
+
   try{
-    const sellerId = UID[acctId]||acctId;
-    console.log('[pub] Fetching seller:', sellerId, 'acct:', acctId);
+    const sellerId=UID[acctId]||acctId;
     const r=await fetch(`${PROXY}/plataforma/publicaciones?seller_id=${sellerId}&limit=50`,{headers:{'x-ml-token':token}});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const d=await r.json();
-    console.log('[pub] Response:', {items:d.items?.length, total:d.total, raw:d.raw, error:d.error});
-    if(d.error)throw new Error(d.error);
+    if(d.error) throw new Error(d.error);
     
     const filter=document.getElementById('pubFilter')?.value||'all';
     let items=d.items||[];
@@ -4760,11 +4786,26 @@ let _adsHistory=[], _adsContexto='', _adsInited=false, _adsData=null;
 async function renderAdsAgente(){
   if(!_adsInited){
     _adsInited=true;
-    adsMsg('agent','📊 Cargando métricas de publicidad desde tus ventas reales...');
+    const apiOk = false; // Sin ANTHROPIC_API_KEY configurada aún
+    adsMsg('agent',
+      '📊 **Agente de MercadoAds — NIVIKO**\n\n'+
+      'Analizando tus métricas de publicidad desde el historial de ventas.\n\n'+
+      (apiOk
+        ? '✅ IA conectada — análisis completo disponible.'
+        : '⚠️ **Análisis IA:** Para activar el chat inteligente configurá la `ANTHROPIC_API_KEY` en Vercel → Settings → Environment Variables.\n\n'+
+          'Mientras tanto analizá tus datos en el panel de arriba.')
+    );
   }
   const accounts=(S.accounts||[]).filter(a=>a.token);
-  if(accounts.length>0) await adsCargar(accounts);
-  else adsMsg('agent','Sin cuentas conectadas. Conectá tus cuentas ML primero.');
+  if(!accounts.length){
+    adsMsg('agent','❌ Sin cuentas conectadas. Ir a **Sistema → Get Token** para conectar.');
+    return;
+  }
+  if(!S.orders?.length){
+    adsMsg('agent','⚠️ Sin órdenes cargadas. Hacer click en **Actualizar ventas** para cargar el historial.');
+    return;
+  }
+  await adsCargar(accounts);
 }
 
 async function adsCargar(accounts){
@@ -5076,6 +5117,15 @@ window.portGuardar = async function(editIdx){
   toast('Producto guardado en portafolio','ok');
 };
 
+window.portInactivar = async function(idx){
+  const d=_portData[idx]; if(!d) return;
+  const activar=d.estado==='inactivo';
+  _portData[idx].estado=activar?'activo':'inactivo';
+  await fb.set('portafolio_db',{items:_portData});
+  portRender();
+  toast((activar?'Activado: ':'Inhabilitado: ')+d.nombre, activar?'ok':'ok');
+};
+
 window.portEliminar = async function(idx){
   if(!confirm('Eliminar "'+_portData[idx]?.nombre+'" del portafolio?')) return;
   _portData.splice(idx,1);
@@ -5099,47 +5149,74 @@ window.portEditar = function(idx){
 
 // Construir análisis automático cruzando S.products + S.orders + _mayPedidos
 function portConstruirAnalisis(){
-  if(!S.products?.length && !S.orders?.length) return;
+  if(!S.orders?.length) return;
   const ahora=new Date();
   const hace2anos=new Date(ahora); hace2anos.setFullYear(hace2anos.getFullYear()-2);
   const dateFrom=hace2anos.toISOString().split('T')[0];
   const tcambio=parseFloat(document.getElementById('port_tc')?.value)||parseFloat(S.cfg?.tcambio||1200)||1200;
 
-  // Construir índice por SKU (ML + Mayorista)
+  // Agrupar órdenes por SKU BASE (sin variante de color)
+  // NVK-3000-N + NVK-3000-B + NVK-3000-R → NVK-3000
   const skuData={};
+
   S.orders.filter(o=>o.sku&&o.sku!=='—'&&o.estado!=='cancelled'&&o.fecha>=dateFrom).forEach(o=>{
-    if(!skuData[o.sku]) skuData[o.sku]={sku:o.sku,desc:o.desc||o.sku,ml:{u:0,venta:0,gan:0,pub:0,ords:[]},may:{u:0,venta:0,gan:0},meses:{}};
-    const s=skuData[o.sku];
-    s.ml.u+=(o.unidades||1); s.ml.venta+=(o.venta||0); s.ml.gan+=(o.ganancia||0); s.ml.pub+=(o.pub||0);
+    const base=skuBase(o.sku);
+    if(!skuData[base]) skuData[base]={
+      skuBase:base,
+      variantes:new Set(),
+      desc:o.desc||base,
+      ml:{u:0,venta:0,gan:0,pub:0,ords:[]},
+      may:{u:0,venta:0,gan:0},
+      meses:{}
+    };
+    const s=skuData[base];
+    s.variantes.add(o.sku);
+    s.ml.u+=(o.unidades||1);
+    s.ml.venta+=(o.venta||0);
+    s.ml.gan+=(o.ganancia||0);
+    s.ml.pub+=(o.pub||0);
     s.ml.ords.push(o);
     const mes=o.fecha.substring(0,7);
     s.meses[mes]=(s.meses[mes]||0)+(o.unidades||1);
+    // Preferir desc del SKU más vendido
+    if((o.unidades||1)>0 && o.desc) s.desc=o.desc;
   });
+
+  // Mayorista
   if(_mayPedidos?.length){
     _mayPedidos.forEach(ped=>{
       if(!ped.fecha||ped.fecha<dateFrom) return;
       (ped.items||[]).forEach(it=>{
         const sku=it.codigo||it.sku; if(!sku) return;
-        if(!skuData[sku]) skuData[sku]={sku,desc:it.descripcion||sku,ml:{u:0,venta:0,gan:0,pub:0,ords:[]},may:{u:0,venta:0,gan:0},meses:{}};
-        skuData[sku].may.u+=(it.cantidad||0);
-        skuData[sku].may.venta+=(it.precio_total_siva||0);
+        const base=skuBase(sku);
+        if(!skuData[base]) skuData[base]={skuBase:base,variantes:new Set(),desc:it.descripcion||base,ml:{u:0,venta:0,gan:0,pub:0,ords:[]},may:{u:0,venta:0,gan:0},meses:{}};
+        skuData[base].variantes.add(sku);
+        skuData[base].may.u+=(it.cantidad||0);
+        skuData[base].may.venta+=(it.precio_total_siva||0);
         const mes=ped.fecha.substring(0,7);
-        skuData[sku].meses[mes]=(skuData[sku].meses[mes]||0)+(it.cantidad||0);
+        skuData[base].meses[mes]=(skuData[base].meses[mes]||0)+(it.cantidad||0);
       });
     });
   }
 
   Object.values(skuData).forEach(s=>{
-    const prod=S.products.find(p=>p.sku===s.sku);
-    const costoARS=prod?.ars||0;
-    const costoUSD=costoARS>0?costoARS/tcambio:0;
-    const pack=prod?.pack||packFromSku(s.sku);
+    // Buscar costo: usar cualquier variante del producto
+    let prod=null;
+    for(const v of s.variantes){
+      prod=S.products.find(p=>p.sku===v);
+      if(prod) break;
+    }
+    if(!prod) prod=S.products.find(p=>skuBase(p.sku)===s.skuBase);
+
+    const costoUnitARS=prod?.ars||0;  // costo unitario ARS (landed cost)
+    const costoUnitUSD=costoUnitARS>0?costoUnitARS/tcambio:0;
+    const pack=prod?.pack||packFromSku(s.skuBase);
 
     // Período y quiebres
     const fechas=s.ml.ords.map(o=>o.fecha).sort();
     const primerVenta=fechas.length?fechas[0]:null;
     const ultimaVenta=fechas.length?fechas[fechas.length-1]:null;
-    const diasConDatos=primerVenta&&ultimaVenta?Math.max(1,(new Date(ultimaVenta)-new Date(primerVenta))/(864e5)):1;
+    const diasConDatos=primerVenta&&ultimaVenta?Math.max(1,(new Date(ultimaVenta)-new Date(primerVenta))/(864e5)):30;
     let mesesActivos=[];
     if(primerVenta&&ultimaVenta){
       let cursor=new Date(primerVenta); cursor.setDate(1);
@@ -5150,69 +5227,79 @@ function portConstruirAnalisis(){
     const mesesSinVentas=mesesActivos.filter(m=>!s.meses[m]).length;
     const pctQuiebre=mesesActivos.length>0?mesesSinVentas/mesesActivos.length:0;
 
-    // Unidades físicas × pack
+    // Unidades físicas totales × pack
     const uTotal=(s.ml.u+s.may.u)*pack;
-    const uMes=uTotal/Math.max(1,mesesActivos.length||diasConDatos/30);
-    const picoPorMes=Object.values(s.meses).length?Math.max(...Object.values(s.meses))*pack:0;
-    const uMesConStock=mesesConVentas>0?uTotal/mesesConVentas:uMes;
-    const potencialAnual=Math.round(uMesConStock*12);
-    const diasRot=uMes>0?Math.round(30/uMes):60;
+    // u/mes: usar solo meses con ventas para no distorsionar por quiebres
+    const uMes=mesesConVentas>0?uTotal/mesesConVentas:uTotal/Math.max(1,diasConDatos/30);
+    const picoPorMes=Math.max(...Object.values(s.meses))*pack;
+    // Potencial: lo que hubiera sido con stock constante
+    const potencialAnual=Math.round(uMes*12);
+    // Días de rotación REAL desde historial: días para vender el lote
+    // Si vendo X u/mes, un lote de 30 días se vende en 30/X días
+    const diasRotReal=uMes>0?Math.round(30/uMes):90;
 
-    // Rentabilidad ML
+    // Rentabilidad ML real
     const rentML=s.ml.venta>0?(s.ml.gan/s.ml.venta)*100:0;
     const acosML=s.ml.venta>0?(s.ml.pub/s.ml.venta)*100:0;
 
     const canal=s.ml.u>0&&s.may.u>0?'ML+Mayorista':s.ml.u>0?'ML':'Mayorista';
+    const variantes=[...s.variantes];
     const notas=[
       uTotal+' u · '+canal,
-      s.ml.u>0?'ML: '+s.ml.u+'u':'',
-      s.may.u>0?'May: '+s.may.u+'u':'',
-      pctQuiebre>0.2?'⚠ '+Math.round(pctQuiebre*100)+'% sin stock':'',
-      'Pico '+picoPorMes+'u/mes',
+      variantes.length>1?variantes.length+' colores':'',
+      pctQuiebre>0.2?'⚠ '+Math.round(pctQuiebre*100)+'% quiebre':'',
+      'Rot. real: '+diasRotReal+'d',
       pack>1?'Pack x'+pack:'',
-      costoARS>0?'Costo: '+fS(costoARS):'⚠ Sin costo',
+      costoUnitARS>0?'Costo: '+fS(costoUnitARS):''
     ].filter(Boolean).join(' · ');
 
-    // Buscar existente para preservar datos manuales (FOB, ucontenedor, cat, etc.)
-    const existIdx=_portData.findIndex(d=>d.nombre===s.sku);
+    // Buscar existente para preservar datos manuales
+    const existIdx=_portData.findIndex(d=>d.nombre===s.skuBase);
     const base=existIdx>=0?_portData[existIdx]:{};
 
-    // Plan de compras
+    // Si está inhabilitado, no actualizar
+    if(base.estado==='inactivo') return;
+
+    // FOB del contenedor = costo unitario USD × u por contenedor
     const ucontenedor=base.ucontenedor||0;
+    const fobContenedor=ucontenedor>0&&costoUnitUSD>0?+(costoUnitUSD*ucontenedor).toFixed(0):(base.fob||0);
+
+    // Plan de compras
     const uAnualBase=Math.round(uMes*12);
     const uAnualOpt=potencialAnual;
     const uAnualPes=Math.round(uAnualBase*0.70);
     const uAnualCre=Math.round(uAnualBase*1.20);
-    const fobTotal=base.fob||0;
     const contBase=ucontenedor>0?Math.ceil(uAnualBase/ucontenedor):null;
     const contOpt=ucontenedor>0?Math.ceil(uAnualOpt/ucontenedor):null;
     const contPes=ucontenedor>0?Math.ceil(uAnualPes/ucontenedor):null;
     const contCre=ucontenedor>0?Math.ceil(uAnualCre/ucontenedor):null;
     const diasEntreRep=ucontenedor>0&&uMes>0?Math.round(ucontenedor/uMes*30):null;
     const stockSeg=Math.round(uMes*1.5);
-    const invBase=fobTotal>0&&contBase?contBase*fobTotal:0;
-    const invOpt=fobTotal>0&&contOpt?contOpt*fobTotal:0;
-    const invPes=fobTotal>0&&contPes?contPes*fobTotal:0;
+    const invBase=fobContenedor>0&&contBase?contBase*fobContenedor:0;
+    const invOpt=fobContenedor>0&&contOpt?contOpt*fobContenedor:0;
     const uTrimestre=Math.round(uMes*3*1.15);
     const contTrimestre=ucontenedor>0?Math.ceil(uTrimestre/ucontenedor):null;
 
     const item={
       ...base,
-      nombre:   s.sku,
-      desc:     s.desc,
-      fob:      base.fob||(costoUSD>0?+costoUSD.toFixed(2):0),
-      ucontenedor: base.ucontenedor||0,
-      rent:     +(rentML.toFixed(1)),
-      dias:     diasRot,
-      diasMax:  Math.round(diasRot*1.5),
-      cat:      base.cat||'otro',
-      canal:    canal==='ML+Mayorista'?'ambos':canal==='ML'?'ml':'mayorista',
-      estado:   rentML>=15&&pctQuiebre<0.3?'activo':pctQuiebre>=0.5?'evaluar':'activo',
+      nombre:       s.skuBase,
+      desc:         s.desc,
+      fob:          fobContenedor,
+      costoUnitUSD: +costoUnitUSD.toFixed(2),
+      costoUnitARS,
+      ucontenedor,
+      rent:         +(rentML.toFixed(1)),
+      dias:         diasRotReal,
+      diasMax:      Math.round(diasRotReal*1.5),
+      cat:          base.cat||'otro',
+      canal:        canal==='ML+Mayorista'?'ambos':canal==='ML'?'ml':'mayorista',
+      estado:       base.estado||'activo',
       notas,
       _historico:{
         unidades:      uTotal,
-        unidadesOrdenes: s.ml.u+s.may.u,
+        unidadesOrdenes:s.ml.u+s.may.u,
         pack,
+        variantes,
         unidadesML:    s.ml.u*pack,
         unidadesMay:   s.may.u*pack,
         diasDatos:     Math.round(diasConDatos),
@@ -5222,32 +5309,28 @@ function portConstruirAnalisis(){
         unidadesPorMes:+uMes.toFixed(1),
         picoPorMes,
         potencialAnual,
+        diasRotReal,
         rentReal:      +rentML.toFixed(1),
         acosReal:      +acosML.toFixed(1),
-        costoARS,
-        costoUSD:      +costoUSD.toFixed(2),
+        costoUnitARS,
+        costoUnitUSD:  +costoUnitUSD.toFixed(2),
+        fobContenedor,
         tcambio,
         primerVenta,
         ultimaVenta,
         ventaML:       Math.round(s.ml.venta),
         ganML:         Math.round(s.ml.gan),
         ventaMay:      Math.round(s.may.venta),
-        // Plan de compras
-        plan:{
-          uAnualBase, uAnualOpt, uAnualPes, uAnualCre,
-          contBase, contOpt, contPes, contCre,
-          diasEntreRep, stockSeg,
-          invBase, invOpt, invPes,
-          uTrimestre, contTrimestre,
-        },
+        plan:{uAnualBase,uAnualOpt,uAnualPes,uAnualCre,contBase,contOpt,contPes,contCre,diasEntreRep,stockSeg,invBase,invOpt,uTrimestre,contTrimestre},
       },
-      updated: ahora.toISOString().split('T')[0],
+      updated:ahora.toISOString().split('T')[0],
     };
 
     if(existIdx>=0) _portData[existIdx]=item;
     else _portData.push(item);
   });
 }
+
 
 
 function portCalc(d){
@@ -5329,19 +5412,27 @@ function portRender(){
         <div style="font-size:10px;color:${catColor}">${d.cat||''}</div>
         ${h?`<div style="font-size:10px;color:var(--t3)">${h.primerVenta?.substring(0,7)||''} → ${h.ultimaVenta?.substring(0,7)||''}</div>`:''}
       </td>
-      <td class="mono">${d.fob>0?'$'+d.fob.toLocaleString('es-AR'):'<span style="color:var(--org)">Cargar</span>'}</td>
+      <td class="mono">${d.costoUnitUSD>0?'USD '+d.costoUnitUSD.toFixed(2)+'/u':d.fob>0?'USD '+d.fob.toLocaleString('en-US'):'<span style=\"color:var(--org)\">Sin costo</span>'}</td>
       <td class="mono" style="font-weight:600;color:${(d.rent||0)>=15?'var(--grn)':(d.rent||0)>=8?'var(--org)':'var(--red)'}">${d.rent||0}%</td>
-      <td class="mono">${d.dias||'—'}d</td>
-      <td class="mono" style="font-weight:700;color:${c?c.roiAnual>=80?'var(--grn)':c.roiAnual>=40?'var(--org)':'var(--red)':'var(--t3)'}">${c&&d.fob>0?c.roiAnual.toFixed(0)+'%':'sin FOB'}</td>
+      <td class="mono">${h?.diasRotReal||d.dias||'—'}d</td>
+      <td class="mono" style="font-weight:700;color:${c&&d.fob>0?c.roiAnual>=80?'var(--grn)':c.roiAnual>=40?'var(--org)':'var(--red)':'var(--t3)'}">
+        ${c&&d.fob>0?c.roiAnual.toFixed(0)+'%':'—'}</td>
       <td class="mono" style="color:var(--t3)">${c&&d.fob>0?c.roiPes.toFixed(0)+'%':'—'}</td>
       <td class="mono" style="color:var(--acc)">${h?.unidadesPorMes?.toFixed(1)||'—'}</td>
       <td class="mono" style="color:var(--grn)">${h?.potencialAnual||'—'}</td>
       <td style="color:${quiebreColor};font-weight:600">${h?Math.round((h.pctQuiebre||0)*100)+'%':'—'}</td>
-      <td><span style="font-size:11px;font-weight:600;color:${dec.color}">${dec.label}</span></td>
+      <td>
+        ${h?.variantes?.length>1?`<span style="font-size:10px;color:var(--t3)">${h.variantes.length} col.</span> `:''}
+        <span style="font-size:11px;font-weight:600;color:${dec.color}">${dec.label}</span>
+      </td>
       <td style="white-space:nowrap">
-        ${h?`<button class="btn-g btn-sm" onclick="portVerHistorico(${d.idx})" title="Ver análisis histórico">📊</button>`:''}
+        ${h?`<button class="btn-g btn-sm" onclick="portVerHistorico(${d.idx})" title="Plan de compras">📊</button> `:''}
         <button class="btn-g btn-sm" onclick="portEditar(${d.idx})" title="Editar">✏</button>
-        <button class="btn-g btn-sm" onclick="portEliminar(${d.idx})" style="color:var(--red)" title="Eliminar">×</button>
+        <button class="btn-g btn-sm" onclick="portInactivar(${d.idx})" 
+          title="${d.estado==='inactivo'?'Activar':'Inhabilitar'}"
+          style="color:${d.estado==='inactivo'?'var(--grn)':'var(--t3)'}">
+          ${d.estado==='inactivo'?'▶':'⏸'}
+        </button>
       </td>
     </tr>`;
   });
