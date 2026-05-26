@@ -1560,6 +1560,9 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           </div>
         </div>
 
+        <!-- KPIs reales ML Product Ads v2 (se llena automáticamente) -->
+        <div id="ads_kpi_extra" class="g4" style="margin-bottom:10px;display:none"></div>
+
         <!-- Tabla por cuenta (se llena automáticamente) -->
         <div class="card" style="margin-bottom:10px;padding:12px">
           <div class="ch" style="margin-bottom:8px"><span class="ct">Por cuenta</span></div>
@@ -4198,11 +4201,21 @@ window.loadPublicaciones = async function(){
   listEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando publicaciones...</div>';
 
   try{
-    const sellerId=UID[acctId]||acctId;
+    const acctObj=S.accounts.find(a=>a.id===acctId);
+    const sellerId=UID[acctId]||acctObj?.userId||acctId;
+    if(!sellerId||sellerId===acctId) console.warn('[pub] seller_id no resuelto para',acctId,'- usando ID literal');
     const r=await fetch(`${PROXY}/plataforma/publicaciones?seller_id=${sellerId}&limit=50`,{headers:{'x-ml-token':token}});
+    if(r.status===401||r.status===403){
+      listEl.innerHTML=`<div class="card" style="border-left:3px solid var(--red)"><p style="color:var(--red)">⚠ Token expirado o sin permisos para ${acctId}. Ir a <strong>Sistema → Get Token</strong> para reconectar.</p></div>`;
+      return;
+    }
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const d=await r.json();
     if(d.error) throw new Error(d.error);
+    if(d.raw&&!d.items?.length){
+      listEl.innerHTML=`<div class="card"><p style="color:var(--org);font-size:12px">⚠ ML devolvió respuesta vacía para ${acctId}. <br>Raw: <code style="font-size:10px">${JSON.stringify(d.raw).substring(0,200)}</code></p></div>`;
+      return;
+    }
     
     const filter=document.getElementById('pubFilter')?.value||'all';
     let items=d.items||[];
@@ -4786,14 +4799,10 @@ let _adsHistory=[], _adsContexto='', _adsInited=false, _adsData=null;
 async function renderAdsAgente(){
   if(!_adsInited){
     _adsInited=true;
-    const apiOk = false; // Sin ANTHROPIC_API_KEY configurada aún
     adsMsg('agent',
       '📊 **Agente de MercadoAds — NIVIKO**\n\n'+
-      'Analizando tus métricas de publicidad desde el historial de ventas.\n\n'+
-      (apiOk
-        ? '✅ IA conectada — análisis completo disponible.'
-        : '⚠️ **Análisis IA:** Para activar el chat inteligente configurá la `ANTHROPIC_API_KEY` en Vercel → Settings → Environment Variables.\n\n'+
-          'Mientras tanto analizá tus datos en el panel de arriba.')
+      'Cargando métricas reales de ML Product Ads y cruzando con historial de órdenes...\n\n'+
+      '✅ IA conectada — análisis completo disponible. Preguntame lo que necesites.'
     );
   }
   const accounts=(S.accounts||[]).filter(a=>a.token);
@@ -4813,195 +4822,171 @@ async function adsCargar(accounts){
   const dias=parseInt(document.getElementById('ads_periodo_sel')?.value)||30;
   const dateFrom=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
   const dateTo=new Date().toISOString().split('T')[0];
-  if(stEl) stEl.textContent='⏳ Calculando métricas desde órdenes reales...';
-  adsDesdeOrdenes(dias,dateFrom,dateTo);
+  if(stEl) stEl.textContent='⏳ Consultando ML Product Ads...';
+
+  // Intentar datos reales de ML Product Ads v2
+  let adsReales=null, adsItemsReales=[];
+  const acctConToken=accounts.find(a=>a.token);
+  if(acctConToken){
+    try{
+      const sellerId=UID[acctConToken.id]||acctConToken.userId||acctConToken.id;
+      const [mR,iR]=await Promise.all([
+        fetch(`${PROXY}/ads/metricas?seller_id=${sellerId}&date_from=${dateFrom}&date_to=${dateTo}`,
+          {headers:{'x-ml-token':acctConToken.token}}).then(r=>r.json()).catch(()=>({})),
+        fetch(`${PROXY}/ads/items?seller_id=${sellerId}&date_from=${dateFrom}&date_to=${dateTo}&limit=15`,
+          {headers:{'x-ml-token':acctConToken.token}}).then(r=>r.json()).catch(()=>({}))
+      ]);
+      if(mR.ok&&mR.metricas) adsReales=mR.metricas;
+      if(iR.ok&&iR.items?.length) adsItemsReales=iR.items;
+    }catch(e){console.warn('[ads] ML Product Ads no disponible:',e.message);}
+  }
+  if(stEl) stEl.textContent='⏳ Calculando desde órdenes...';
+  adsDesdeOrdenes(dias,dateFrom,dateTo,adsReales,adsItemsReales);
 }
 
-function adsDesdeOrdenes(dias,dateFrom,dateTo){
+function adsDesdeOrdenes(dias,dateFrom,dateTo,adsReales,adsItemsReales){
   const stEl=document.getElementById('ads_status');
   const ords=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
-
   if(!ords.length){
     if(stEl) stEl.textContent='⚠ Sin órdenes. Actualizá las ventas primero.';
     adsMsg('agent','No encontré órdenes en el período. Actualizá las ventas primero.');
     return;
   }
 
-  // Métricas globales
   const totPub=ords.reduce((s,o)=>s+(o.pub||0),0);
   const totV=ords.reduce((s,o)=>s+(o.venta||0),0);
   const totG=ords.reduce((s,o)=>s+(o.ganancia||0),0);
   const totU=ords.reduce((s,o)=>s+(o.unidades||0),0);
-  const acosR=totV>0?totPub/totV:null;
-  const roasR=totPub>0?totV/totPub:null;
-  const mgR=totV>0?totG/totV:0;
-  const mgSinPub=totV>0?(totG+totPub)/totV:0;
-  const pubXorden=ords.length>0?totPub/ords.length:0;
 
-  // Por cuenta
+  // Usar datos reales de ML Ads si están disponibles
+  const adsSpent   = adsReales?.spent   || totPub;
+  const adsClicks  = adsReales?.clicks  || 0;
+  const adsPrints  = adsReales?.prints  || 0;
+  const adsCtr     = adsReales?.ctr     || 0;
+  const adsCpc     = adsReales?.cpc     || 0;
+  const adsDirectSales = adsReales?.direct_amount || 0;
+  const adsTotalSales  = adsReales?.total_amount  || 0;
+  const fuenteAds  = adsReales ? 'ML Product Ads v2' : 'Estimado desde órdenes';
+
+  const acosR=totV>0?adsSpent/totV:null;
+  const roasR=adsSpent>0?totV/adsSpent:null;
+  const mgR=totV>0?totG/totV:0;
+  const mgSinPub=totV>0?(totG+adsSpent)/totV:0;
+  const pubXorden=ords.length>0?adsSpent/ords.length:0;
+
   const porCuenta={};
   ords.forEach(o=>{
     const a=o.acct||'?';
     if(!porCuenta[a]) porCuenta[a]={pub:0,venta:0,gan:0,ords:0,unids:0};
-    porCuenta[a].pub+=o.pub||0;
-    porCuenta[a].venta+=o.venta||0;
-    porCuenta[a].gan+=o.ganancia||0;
-    porCuenta[a].ords++;
-    porCuenta[a].unids+=o.unidades||0;
+    porCuenta[a].pub+=o.pub||0; porCuenta[a].venta+=o.venta||0;
+    porCuenta[a].gan+=o.ganancia||0; porCuenta[a].ords++; porCuenta[a].unids+=o.unidades||0;
   });
 
-  // Por SKU — top 10 por gasto en pub
   const porSku={};
   ords.forEach(o=>{
     if(!o.sku) return;
     if(!porSku[o.sku]) porSku[o.sku]={pub:0,venta:0,gan:0,ords:0,unids:0,desc:o.desc||o.sku};
-    porSku[o.sku].pub+=o.pub||0;
-    porSku[o.sku].venta+=o.venta||0;
-    porSku[o.sku].gan+=o.ganancia||0;
-    porSku[o.sku].ords++;
-    porSku[o.sku].unids+=o.unidades||0;
+    porSku[o.sku].pub+=o.pub||0; porSku[o.sku].venta+=o.venta||0;
+    porSku[o.sku].gan+=o.ganancia||0; porSku[o.sku].ords++; porSku[o.sku].unids+=o.unidades||0;
   });
   const topSkus=Object.entries(porSku).sort((a,b)=>b[1].pub-a[1].pub).slice(0,10);
 
-  // Por modalidad — cómo impacta el envío en la rentabilidad
   const porModal={};
   ords.forEach(o=>{
     const m=o.modal||'?';
     if(!porModal[m]) porModal[m]={pub:0,venta:0,gan:0,ords:0};
-    porModal[m].pub+=o.pub||0;
-    porModal[m].venta+=o.venta||0;
-    porModal[m].gan+=o.ganancia||0;
-    porModal[m].ords++;
+    porModal[m].pub+=o.pub||0; porModal[m].venta+=o.venta||0;
+    porModal[m].gan+=o.ganancia||0; porModal[m].ords++;
   });
 
-  // SKUs problemáticos: alto gasto pub + bajo margen
   const skusBajoMargen=topSkus.filter(([,d])=>d.venta>0&&d.gan/d.venta<0.05&&d.pub>5000);
   const skusAltoAcos=topSkus.filter(([,d])=>d.venta>0&&d.pub/d.venta>0.20&&d.pub>5000);
 
-  // Actualizar KPIs
   const setK=(id,text,color)=>{const el=document.getElementById(id);if(el){el.textContent=text;el.style.color=color;}};
-  setK('ads_k_acos',acosR!==null?(acosR*100).toFixed(1)+'%':'—',
-    acosR===null?'var(--t3)':acosR<=0.12?'var(--grn)':acosR<=0.20?'var(--org)':'var(--red)');
-  setK('ads_k_roas',roasR!==null?roasR.toFixed(1)+'x':'—',
-    roasR===null?'var(--t3)':roasR>=6?'var(--grn)':roasR>=3?'var(--org)':'var(--red)');
-  setK('ads_k_pct',(mgR*100).toFixed(1)+'%',
-    mgR>=0.15?'var(--grn)':mgR>=0.08?'var(--org)':'var(--red)');
-  setK('ads_k_inv',fS(Math.round(totPub)),'var(--red)');
+  setK('ads_k_acos',acosR!==null?(acosR*100).toFixed(1)+'%':'—',acosR===null?'var(--t3)':acosR<=0.12?'var(--grn)':acosR<=0.20?'var(--org)':'var(--red)');
+  setK('ads_k_roas',roasR!==null?roasR.toFixed(1)+'x':'—',roasR===null?'var(--t3)':roasR>=6?'var(--grn)':roasR>=3?'var(--org)':'var(--red)');
+  setK('ads_k_pct',(mgR*100).toFixed(1)+'%',mgR>=0.15?'var(--grn)':mgR>=0.08?'var(--org)':'var(--red)');
+  setK('ads_k_inv',fS(Math.round(adsSpent)),'var(--red)');
 
-  // Tabla por cuenta
+  // Panel de KPIs reales de ML Ads
+  const kpiExtra=document.getElementById('ads_kpi_extra');
+  if(kpiExtra){
+    if(adsReales){
+      kpiExtra.innerHTML=`
+        <div class="kpi blu"><div class="kl">Clicks reales</div><div class="kv">${adsClicks.toLocaleString('es-AR')}</div><div class="ks">CPC: ${fS(Math.round(adsCpc))}</div></div>
+        <div class="kpi"><div class="kl">Impresiones</div><div class="kv">${adsPrints.toLocaleString('es-AR')}</div><div class="ks">CTR: ${(adsCtr*100).toFixed(2)}%</div></div>
+        <div class="kpi grn"><div class="kl">Ventas directas ads</div><div class="kv">${fS(Math.round(adsDirectSales))}</div><div class="ks">Total atribuido: ${fS(Math.round(adsTotalSales))}</div></div>
+        <div class="kpi acc"><div class="kl">Fuente</div><div class="kv" style="font-size:11px">${fuenteAds}</div></div>`;
+    } else {
+      kpiExtra.innerHTML=`<div style="grid-column:1/-1;padding:8px 12px;background:rgba(255,138,77,.08);border:1px solid rgba(255,138,77,.2);border-radius:var(--r);font-size:11px;color:var(--org)">
+        ⚠ Sin acceso a ML Product Ads v2. Inversión estimada (5% ventas). Para datos reales verificá que haya campañas activas en ML Ads.</div>`;
+    }
+    kpiExtra.style.display='grid';
+  }
+
   const tablaEl=document.getElementById('ads_tabla');
   if(tablaEl){
-    let h='<table class="tbl" style="font-size:11px"><thead><tr>'
-      +'<th>Cuenta</th><th>Pub gastada</th><th>Ventas</th><th>ACOS</th><th>ROAS</th><th>Margen</th><th>Órdenes</th><th>Unidades</th>'
-      +'</tr></thead><tbody>';
+    let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Cuenta</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>ROAS</th><th>Margen</th><th>Órdenes</th><th>Uds</th></tr></thead><tbody>';
     Object.entries(porCuenta).sort((a,b)=>b[1].pub-a[1].pub).forEach(([acct,d])=>{
-      const ac=d.venta>0?d.pub/d.venta:null;
-      const ro=d.pub>0?d.venta/d.pub:null;
-      const mg=d.venta>0?d.gan/d.venta:null;
+      const ac=d.venta>0?d.pub/d.venta:null, ro=d.pub>0?d.venta/d.pub:null, mg=d.venta>0?d.gan/d.venta:null;
       const acC=ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)';
       const roC=ro===null?'var(--t3)':ro>=6?'var(--grn)':ro>=3?'var(--org)':'var(--red)';
       const mgC=mg===null?'var(--t3)':mg>=0.15?'var(--grn)':mg>=0.08?'var(--org)':'var(--red)';
-      h+=`<tr>
-        <td><span class="sku" style="background:var(--s3)">${esc(acct)}</span></td>
-        <td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td>
-        <td class="mono">${fS(Math.round(d.venta))}</td>
-        <td style="font-weight:600;color:${acC}">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td>
-        <td style="font-weight:600;color:${roC}">${ro!==null?ro.toFixed(1)+'x':'—'}</td>
-        <td style="font-weight:600;color:${mgC}">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td>
-        <td>${d.ords}</td>
-        <td>${d.unids}</td>
-      </tr>`;
+      h+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(acct)}</span></td><td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td><td class="mono">${fS(Math.round(d.venta))}</td><td style="font-weight:600;color:${acC}">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="font-weight:600;color:${roC}">${ro!==null?ro.toFixed(1)+'x':'—'}</td><td style="font-weight:600;color:${mgC}">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td><td>${d.unids}</td></tr>`;
     });
-    // Total row
-    const acT=totV>0?totPub/totV:null, roT=totPub>0?totV/totPub:null, mgT=totV>0?totG/totV:null;
-    h+=`<tr style="font-weight:700;border-top:2px solid var(--b1)">
-      <td>TOTAL</td>
-      <td class="mono" style="color:var(--red)">${fS(Math.round(totPub))}</td>
-      <td class="mono">${fS(Math.round(totV))}</td>
-      <td style="color:${acT!==null&&acT<=0.12?'var(--grn)':acT!==null&&acT<=0.20?'var(--org)':'var(--red)'}">${acT!==null?(acT*100).toFixed(1)+'%':'—'}</td>
-      <td>${roT!==null?roT.toFixed(1)+'x':'—'}</td>
-      <td style="color:${mgT!==null&&mgT>=0.15?'var(--grn)':mgT!==null&&mgT>=0.08?'var(--org)':'var(--red)'}">${mgT!==null?(mgT*100).toFixed(1)+'%':'—'}</td>
-      <td>${ords.length}</td>
-      <td>${totU}</td>
-    </tr>`;
+    const acT=totV>0?adsSpent/totV:null, roT=adsSpent>0?totV/adsSpent:null, mgT=totV>0?totG/totV:null;
+    h+=`<tr style="font-weight:700;border-top:2px solid var(--b1)"><td>TOTAL</td><td class="mono" style="color:var(--red)">${fS(Math.round(adsSpent))}</td><td class="mono">${fS(Math.round(totV))}</td><td style="color:${acT!==null&&acT<=0.12?'var(--grn)':acT!==null&&acT<=0.20?'var(--org)':'var(--red)'}">${acT!==null?(acT*100).toFixed(1)+'%':'—'}</td><td>${roT!==null?roT.toFixed(1)+'x':'—'}</td><td style="color:${mgT!==null&&mgT>=0.15?'var(--grn)':mgT!==null&&mgT>=0.08?'var(--org)':'var(--red)'}">${mgT!==null?(mgT*100).toFixed(1)+'%':'—'}</td><td>${ords.length}</td><td>${totU}</td></tr>`;
     h+='</tbody></table>';
-
-    // Top SKUs
     if(topSkus.length){
       h+='<div style="margin-top:14px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Top SKUs por gasto en publicidad</div>';
       h+='<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th><th>Alerta</th></tr></thead><tbody>';
       topSkus.forEach(([sku,d])=>{
-        const ac=d.venta>0?d.pub/d.venta:null;
-        const mg=d.venta>0?d.gan/d.venta:null;
+        const ac=d.venta>0?d.pub/d.venta:null, mg=d.venta>0?d.gan/d.venta:null;
         const acC=ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)';
         const mgC=mg===null?'var(--t3)':mg>=0.10?'var(--grn)':mg>=0.05?'var(--org)':'var(--red)';
-        let alerta='';
-        if(mg!==null&&mg<0.05&&d.pub>5000) alerta='🔴 Margen bajo';
-        else if(ac!==null&&ac>0.20&&d.pub>5000) alerta='🟡 ACOS alto';
-        else if(d.ords>5) alerta='✅ OK';
-        h+=`<tr>
-          <td><span class="sku">${esc(sku)}</span></td>
-          <td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td>
-          <td class="mono">${fS(Math.round(d.venta))}</td>
-          <td style="color:${acC};font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td>
-          <td style="color:${mgC};font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td>
-          <td>${d.ords}</td>
-          <td style="font-size:11px">${alerta}</td>
-        </tr>`;
+        let alerta=mg!==null&&mg<0.05&&d.pub>5000?'🔴 Margen bajo':ac!==null&&ac>0.20&&d.pub>5000?'🟡 ACOS alto':d.ords>5?'✅ OK':'';
+        h+=`<tr><td><span class="sku">${esc(sku)}</span></td><td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td><td class="mono">${fS(Math.round(d.venta))}</td><td style="color:${acC};font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="color:${mgC};font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td><td style="font-size:11px">${alerta}</td></tr>`;
       });
       h+='</tbody></table>';
     }
-
-    // Análisis por modalidad
     h+='<div style="margin-top:14px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Por modalidad de envío</div>';
-    h+='<table class="tbl" style="font-size:11px"><thead><tr><th>Modal</th><th>Pub gastada</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
+    h+='<table class="tbl" style="font-size:11px"><thead><tr><th>Modal</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
     Object.entries(porModal).sort((a,b)=>b[1].ords-a[1].ords).forEach(([modal,d])=>{
-      const ac=d.venta>0?d.pub/d.venta:null;
-      const mg=d.venta>0?d.gan/d.venta:null;
-      h+=`<tr>
-        <td><span class="sku" style="background:var(--s3)">${esc(modal)}</span></td>
-        <td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td>
-        <td class="mono">${fS(Math.round(d.venta))}</td>
-        <td style="font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td>
-        <td style="font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td>
-        <td>${d.ords}</td>
-      </tr>`;
+      const ac=d.venta>0?d.pub/d.venta:null, mg=d.venta>0?d.gan/d.venta:null;
+      h+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(modal)}</span></td><td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td><td class="mono">${fS(Math.round(d.venta))}</td><td style="font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td></tr>`;
     });
     h+='</tbody></table>';
     tablaEl.innerHTML=h;
   }
 
-  // Resumen en el chat
-  const resumen=`📊 Métricas de publicidad — últimos ${dias} días (${ords.length} órdenes)
-
-`
-    +`💰 Inversión total en pub: ${fS(Math.round(totPub))}
-`
-    +`📦 Ventas totales: ${fS(Math.round(totV))} (${totU} unidades)
-`
-    +`📈 ACOS: ${acosR!==null?(acosR*100).toFixed(1)+'%':'sin datos'} | ROAS: ${roasR!==null?roasR.toFixed(1)+'x':'sin datos'}
-`
-    +`💚 Margen neto: ${(mgR*100).toFixed(1)}% | Sin pub sería: ${(mgSinPub*100).toFixed(1)}%
-`
-    +`🔖 Pub promedio por orden: ${fS(Math.round(pubXorden))}
-`
-    +(skusBajoMargen.length?`
-⚠️ SKUs con bajo margen y alto gasto: ${skusBajoMargen.map(([s])=>s).join(', ')}`:'' )
-    +(skusAltoAcos.length?`
-⚠️ SKUs con ACOS alto (>20%): ${skusAltoAcos.map(([s])=>s).join(', ')}`:'')
-    +`
-
-💡 El análisis IA estará disponible cuando se configure la API key de Anthropic.`;
+  // Contexto rico para la IA
+  const resumen=`📊 Métricas de publicidad — últimos ${dias} días (${ords.length} órdenes)\nFuente: ${fuenteAds}\n\n`
+    +`💰 Inversión: ${fS(Math.round(adsSpent))} | Ventas: ${fS(Math.round(totV))} (${totU} uds)\n`
+    +`📈 ACOS: ${acosR!==null?(acosR*100).toFixed(1)+'%':'—'} | ROAS: ${roasR!==null?roasR.toFixed(1)+'x':'—'}\n`
+    +`💚 Margen neto: ${(mgR*100).toFixed(1)}% | Sin pub sería: ${(mgSinPub*100).toFixed(1)}%\n`
+    +`🔖 Pub por orden: ${fS(Math.round(pubXorden))}\n`
+    +(adsReales?`\n📡 ML Ads reales: Clicks ${adsClicks.toLocaleString()} | Impresiones ${adsPrints.toLocaleString()} | CTR ${(adsCtr*100).toFixed(2)}% | CPC ${fS(Math.round(adsCpc))}\n  Ventas directas: ${fS(Math.round(adsDirectSales))} | Total atribuido: ${fS(Math.round(adsTotalSales))}\n`:'')
+    +`\nTop 5 SKUs por inversión:\n`
+    +topSkus.slice(0,5).map(([sku,d])=>`  ${sku}: pub ${fS(Math.round(d.pub))} | ventas ${fS(Math.round(d.venta))} | ACOS ${d.venta>0?((d.pub/d.venta)*100).toFixed(1)+'%':'—'} | margen ${d.venta>0?((d.gan/d.venta)*100).toFixed(1)+'%':'—'}`).join('\n')
+    +(skusBajoMargen.length?`\n\n⚠️ SKUs margen bajo + alto gasto: ${skusBajoMargen.map(([s])=>s).join(', ')}`:'')
+    +(skusAltoAcos.length?`\n⚠️ SKUs ACOS alto (>20%): ${skusAltoAcos.map(([s])=>s).join(', ')}`:'')
+    +`\n\nPor cuenta:\n`+Object.entries(porCuenta).map(([a,d])=>`  ${a}: ${fS(Math.round(d.pub))} invertido / ${fS(Math.round(d.venta))} ventas / ${d.ords} órdenes`).join('\n');
 
   _adsContexto=resumen;
-  _adsData={totPub,totV,totG,acosR,roasR,mgR,topSkus,porCuenta};
+  _adsData={totPub:adsSpent,totV,totG,acosR,roasR,mgR,topSkus,porCuenta,adsReales,fuenteAds};
+  if(stEl) stEl.textContent=`✓ ${ords.length} órdenes · ${dias} días · ${Object.keys(porCuenta).length} cuentas · ${fuenteAds}`;
 
-  if(stEl) stEl.textContent=`✓ ${ords.length} órdenes · ${dias} días · ${Object.keys(porCuenta).length} cuentas`;
-
-  // Limpiar chat previo y mostrar resumen
   const msgEl=document.getElementById('ads_messages');
   if(msgEl) msgEl.innerHTML='';
-  adsMsg('agent',resumen);
+
+  let insight=`📊 **Análisis listo — ${dias} días**\n\n`;
+  insight+=`**Inversión:** ${fS(Math.round(adsSpent))} | **Ventas:** ${fS(Math.round(totV))} | **ACOS:** ${acosR!==null?(acosR*100).toFixed(1)+'%':'—'} | **Margen:** ${(mgR*100).toFixed(1)}%\n\n`;
+  if(adsReales) insight+=`✅ Datos reales de ML Product Ads conectados.\n\n`;
+  if(acosR!==null&&acosR>0.20) insight+=`🔴 **ACOS alto (${(acosR*100).toFixed(1)}%)** — Inversión publicitaria consumiendo demasiado margen. Revisá SKUs con ACOS >20%.\n\n`;
+  else if(acosR!==null&&acosR<=0.12) insight+=`✅ **ACOS saludable (${(acosR*100).toFixed(1)}%)** — Publicidad bien optimizada.\n\n`;
+  if(skusBajoMargen.length) insight+=`⚠️ **${skusBajoMargen.length} SKU(s) con margen bajo y alto gasto:** ${skusBajoMargen.slice(0,3).map(([s])=>s).join(', ')}\n\n`;
+  insight+=`💬 **Preguntame lo que necesites:** qué SKUs pausar, cómo bajar el ACOS, qué productos escalar, análisis por cuenta...`;
+  adsMsg('agent',insight);
 }
 
 function adsSetKpis(totPub,totV,totVT,res){
@@ -5050,15 +5035,29 @@ window.adsSend=async function(){
   if(!text)return;
   inp.value='';
   adsMsg('user',text);
-  // Sin API key — responder con datos locales
-  const respuesta=_adsContexto
-    ?`Tengo estos datos de tus ventas:
-
-${_adsContexto}
-
-⚠️ El análisis IA completo requiere configurar la API key de Anthropic en el proxy de Vercel.`
-    :'⚠️ Actualizá las ventas primero para ver los datos de publicidad. El análisis IA completo requiere configurar la API key de Anthropic.';
-  adsMsg('agent',respuesta);
+  if(!_adsContexto){
+    adsMsg('agent','⚠️ Actualizá las ventas primero para cargar los datos de publicidad.');
+    return;
+  }
+  const thinkId=adsThink();
+  try{
+    const r=await fetch(`${PROXY}/ai/chat`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:1000,
+        system:`Sos el analista de publicidad digital de NIVIKO, empresa argentina con MercadoLíder status. Tenés datos reales de ventas y ML Product Ads. Respondé en español, conciso y accionable. Usá **negrita** para destacar. Máximo 200 palabras salvo que pidan más.`,
+        messages:[..._adsHistory.slice(-6),{role:'user',content:_adsContexto+'\n\n---\nPregunta: '+text}]
+      })
+    });
+    const d=await r.json();
+    adsUnthink(thinkId);
+    const resp=d.content?.[0]?.text||d.error?.message||'Error al procesar.';
+    _adsHistory.push({role:'user',content:text},{role:'assistant',content:resp});
+    if(_adsHistory.length>20) _adsHistory=_adsHistory.slice(-20);
+    adsMsg('agent',resp);
+  }catch(e){adsUnthink(thinkId);adsMsg('agent','Error IA: '+e.message);}
 };
 
 function adsMsg(type,text){
