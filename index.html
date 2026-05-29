@@ -1946,8 +1946,11 @@ function getRange(){
 // Resuelve el problema de órdenes cacheadas con costo=0.
 function applyProductCosts(orders){
   // Leer porcentajes desde Config (con fallbacks a los valores default)
-  const pubPct = (S.cfg.pub ?? 5) / 100;
+  // pubPct: si hay gasto real de ML Ads guardado en S.cfg.adsRealPct, usarlo
+  // Si no, usar el % de Config (default 5%)
+  const pubPct = (S.cfg.adsRealPct ?? S.cfg.pub ?? 5) / 100;
   const iibbPct = (S.cfg.iibb ?? 4) / 100;
+  const fuentePub = S.cfg.adsRealPct ? 'ML Ads real' : 'estimado';
   return orders.map(o=>{
     const p = S.products.find(x=>x.sku===o.sku);
     if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
@@ -4822,172 +4825,339 @@ async function adsCargar(accounts){
   const dias=parseInt(document.getElementById('ads_periodo_sel')?.value)||30;
   const dateFrom=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
   const dateTo=new Date().toISOString().split('T')[0];
-  if(stEl) stEl.textContent='⏳ Consultando ML Product Ads...';
+  if(stEl) stEl.textContent='⏳ Consultando ML Product Ads API...';
 
-  // Intentar datos reales de ML Product Ads v2
-  let adsReales=null, adsItemsReales=[];
-  const acctConToken=accounts.find(a=>a.token);
-  if(acctConToken){
+  // Intentar obtener datos reales de TODAS las cuentas
+  const adsData = {};
+  for(const acct of accounts){
+    const sellerId = UID[acct.id]||acct.userId||acct.id;
     try{
-      const sellerId=UID[acctConToken.id]||acctConToken.userId||acctConToken.id;
-      const [mR,iR]=await Promise.all([
+      const [mR, iR] = await Promise.all([
         fetch(`${PROXY}/ads/metricas?seller_id=${sellerId}&date_from=${dateFrom}&date_to=${dateTo}`,
-          {headers:{'x-ml-token':acctConToken.token}}).then(r=>r.json()).catch(()=>({})),
-        fetch(`${PROXY}/ads/items?seller_id=${sellerId}&date_from=${dateFrom}&date_to=${dateTo}&limit=15`,
-          {headers:{'x-ml-token':acctConToken.token}}).then(r=>r.json()).catch(()=>({}))
+          {headers:{'x-ml-token':acct.token}}).then(r=>r.json()).catch(e=>({ok:false,error:e.message})),
+        fetch(`${PROXY}/ads/items?seller_id=${sellerId}&date_from=${dateFrom}&date_to=${dateTo}&limit=20`,
+          {headers:{'x-ml-token':acct.token}}).then(r=>r.json()).catch(e=>({ok:false,items:[],error:e.message}))
       ]);
-      if(mR.ok&&mR.metricas) adsReales=mR.metricas;
-      if(iR.ok&&iR.items?.length) adsItemsReales=iR.items;
-    }catch(e){console.warn('[ads] ML Product Ads no disponible:',e.message);}
+      adsData[acct.id] = {
+        sellerId,
+        metricas: mR.ok ? mR.metricas : null,
+        advertiser_id: mR.advertiser_id || null,
+        items: iR.ok ? (iR.items||[]) : [],
+        errorMetricas: mR.ok ? null : (mR.error||JSON.stringify(mR).substring(0,100)),
+        errorItems: iR.ok ? null : (iR.error||JSON.stringify(iR).substring(0,100)),
+      };
+    }catch(e){
+      adsData[acct.id] = {sellerId, metricas:null, items:[], errorMetricas:e.message, errorItems:e.message};
+    }
   }
-  if(stEl) stEl.textContent='⏳ Calculando desde órdenes...';
-  adsDesdeOrdenes(dias,dateFrom,dateTo,adsReales,adsItemsReales);
+
+  if(stEl) stEl.textContent='⏳ Cruzando con órdenes...';
+  adsDesdeOrdenes(dias, dateFrom, dateTo, adsData);
 }
 
-function adsDesdeOrdenes(dias,dateFrom,dateTo,adsReales,adsItemsReales){
+function adsDesdeOrdenes(dias, dateFrom, dateTo, adsData){
   const stEl=document.getElementById('ads_status');
   const ords=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
+
   if(!ords.length){
     if(stEl) stEl.textContent='⚠ Sin órdenes. Actualizá las ventas primero.';
-    adsMsg('agent','No encontré órdenes en el período. Actualizá las ventas primero.');
+    adsMsg('agent','No encontré órdenes en el período seleccionado. Hacé click en **Actualizar ventas** primero.');
     return;
   }
 
-  const totPub=ords.reduce((s,o)=>s+(o.pub||0),0);
-  const totV=ords.reduce((s,o)=>s+(o.venta||0),0);
-  const totG=ords.reduce((s,o)=>s+(o.ganancia||0),0);
-  const totU=ords.reduce((s,o)=>s+(o.unidades||0),0);
+  // ── Métricas globales desde órdenes ──
+  const totV  = ords.reduce((s,o)=>s+(o.venta||0),0);
+  const totG  = ords.reduce((s,o)=>s+(o.ganancia||0),0);
+  const totU  = ords.reduce((s,o)=>s+(o.unidades||0),0);
 
-  // Usar datos reales de ML Ads si están disponibles
-  const adsSpent   = adsReales?.spent   || totPub;
-  const adsClicks  = adsReales?.clicks  || 0;
-  const adsPrints  = adsReales?.prints  || 0;
-  const adsCtr     = adsReales?.ctr     || 0;
-  const adsCpc     = adsReales?.cpc     || 0;
-  const adsDirectSales = adsReales?.direct_amount || 0;
-  const adsTotalSales  = adsReales?.total_amount  || 0;
-  const fuenteAds  = adsReales ? 'ML Product Ads v2' : 'Estimado desde órdenes';
+  // ── Ventas con publicidad (denominador real del ACOS) ──
+  // = ventas sin canceladas Y donde el producto tiene pub activo (pub !== false)
+  const ordsConPub = ords.filter(o=>{
+    const p=S.products.find(x=>x.sku===o.sku);
+    return p ? p.pub!==false : true; // si no tiene producto asumimos que tiene pub
+  });
+  const ventasConPub = ordsConPub.reduce((s,o)=>s+(o.venta||0),0);
+  const pctOrdsConPub = totV>0 ? (ventasConPub/totV*100).toFixed(1) : 0;
 
-  const acosR=totV>0?adsSpent/totV:null;
-  const roasR=adsSpent>0?totV/adsSpent:null;
-  const mgR=totV>0?totG/totV:0;
-  const mgSinPub=totV>0?(totG+adsSpent)/totV:0;
-  const pubXorden=ords.length>0?adsSpent/ords.length:0;
+  // ── Consolidar datos reales de ML Ads ──
+  const cuentasConAds = Object.entries(adsData).filter(([,d])=>d.metricas!==null);
+  const cuentasSinAds = Object.entries(adsData).filter(([,d])=>d.metricas===null);
 
+  let adsSpent=0, adsClicks=0, adsPrints=0, adsCtr=0, adsCpc=0;
+  let adsDirectSales=0, adsTotalSales=0, adsDirectUnits=0, adsTotalUnits=0;
+  let allAdsItems=[];
+
+  if(cuentasConAds.length>0){
+    cuentasConAds.forEach(([,d])=>{
+      const m=d.metricas;
+      adsSpent       += m.spent||0;
+      adsClicks      += m.clicks||0;
+      adsPrints      += m.prints||0;
+      adsCtr         += m.ctr||0;
+      adsCpc         += m.cpc||0;
+      adsDirectSales += m.direct_amount||0;
+      adsTotalSales  += m.total_amount||0;
+      adsDirectUnits += m.direct_units||0;
+      adsTotalUnits  += m.total_units||0;
+      allAdsItems    = allAdsItems.concat(d.items||[]);
+    });
+    if(cuentasConAds.length>1){
+      adsCtr /= cuentasConAds.length;
+      adsCpc /= cuentasConAds.length;
+    }
+  }
+
+  const tieneAdsReales = cuentasConAds.length > 0;
+  const fuenteAds = tieneAdsReales
+    ? `ML Product Ads v2 (${cuentasConAds.length}/${Object.keys(adsData).length} cuentas)`
+    : 'Sin datos de ML Ads';
+
+  // ── ACOS REAL: gasto / ventas con pub (no sobre el total) ──
+  // ROAS: ventas directas atribuidas / gasto
+  const acosR = tieneAdsReales && ventasConPub>0 ? adsSpent/ventasConPub : null;
+  const roasR = tieneAdsReales && adsSpent>0 ? (adsDirectSales||ventasConPub)/adsSpent : null;
+  const mgR   = totV>0 ? totG/totV : 0;
+
+  // ── Guardar pubPct real en S.cfg para que applyProductCosts lo use ──
+  // Solo si hay datos reales y ventas con pub para calcular el %
+  if(tieneAdsReales && ventasConPub>0){
+    const adsRealPct = (adsSpent/ventasConPub)*100;
+    if(Math.abs(adsRealPct - (S.cfg.adsRealPct||0)) > 0.1){ // solo actualizar si cambia >0.1%
+      S.cfg.adsRealPct = Math.round(adsRealPct*100)/100; // redondear a 2 decimales
+      S.cfg.adsRealPctFecha = dateFrom+'→'+dateTo;
+      S.cfg.adsRealPctBase = Math.round(ventasConPub);
+      S.cfg.adsRealPctGasto = Math.round(adsSpent);
+      // Guardar en Firebase y re-aplicar costos con el nuevo %
+      fb.set('config', S.cfg).catch(()=>{});
+      // Re-calcular todas las órdenes con el % real
+      S.orders = applyProductCosts(S.orders);
+      console.log(`[ads] pubPct actualizado: ${adsRealPct.toFixed(2)}% (gasto ${Math.round(adsSpent)} / ventas con pub ${Math.round(ventasConPub)})`);
+    }
+  }
+
+  // ── Por cuenta desde órdenes ──
   const porCuenta={};
   ords.forEach(o=>{
     const a=o.acct||'?';
-    if(!porCuenta[a]) porCuenta[a]={pub:0,venta:0,gan:0,ords:0,unids:0};
-    porCuenta[a].pub+=o.pub||0; porCuenta[a].venta+=o.venta||0;
-    porCuenta[a].gan+=o.ganancia||0; porCuenta[a].ords++; porCuenta[a].unids+=o.unidades||0;
+    if(!porCuenta[a]) porCuenta[a]={venta:0,gan:0,ords:0,unids:0};
+    porCuenta[a].venta+=o.venta||0; porCuenta[a].gan+=o.ganancia||0;
+    porCuenta[a].ords++; porCuenta[a].unids+=o.unidades||0;
+  });
+  // Agregar datos reales de ads por cuenta
+  Object.entries(adsData).forEach(([id,d])=>{
+    if(!porCuenta[id]) porCuenta[id]={venta:0,gan:0,ords:0,unids:0};
+    porCuenta[id].adsSpent     = d.metricas?.spent||0;
+    porCuenta[id].adsClicks    = d.metricas?.clicks||0;
+    porCuenta[id].adsAcos      = d.metricas?.acos||null;
+    porCuenta[id].adsRoas      = d.metricas?.roas||null;
+    porCuenta[id].advertiser_id= d.advertiser_id;
+    porCuenta[id].errorAds     = d.errorMetricas;
   });
 
+  // ── Por SKU desde órdenes ──
   const porSku={};
   ords.forEach(o=>{
     if(!o.sku) return;
-    if(!porSku[o.sku]) porSku[o.sku]={pub:0,venta:0,gan:0,ords:0,unids:0,desc:o.desc||o.sku};
-    porSku[o.sku].pub+=o.pub||0; porSku[o.sku].venta+=o.venta||0;
-    porSku[o.sku].gan+=o.ganancia||0; porSku[o.sku].ords++; porSku[o.sku].unids+=o.unidades||0;
+    if(!porSku[o.sku]) porSku[o.sku]={venta:0,gan:0,ords:0,unids:0,desc:o.desc||o.sku};
+    porSku[o.sku].venta+=o.venta||0; porSku[o.sku].gan+=o.ganancia||0;
+    porSku[o.sku].ords++; porSku[o.sku].unids+=o.unidades||0;
   });
-  const topSkus=Object.entries(porSku).sort((a,b)=>b[1].pub-a[1].pub).slice(0,10);
-
-  const porModal={};
-  ords.forEach(o=>{
-    const m=o.modal||'?';
-    if(!porModal[m]) porModal[m]={pub:0,venta:0,gan:0,ords:0};
-    porModal[m].pub+=o.pub||0; porModal[m].venta+=o.venta||0;
-    porModal[m].gan+=o.ganancia||0; porModal[m].ords++;
+  // Cruzar con items reales de ads
+  allAdsItems.forEach(ai=>{
+    const match=Object.entries(porSku).find(([,d])=>d.mlItemId===ai.id);
+    if(match) match[1].adsSpent=ai.spent||0;
   });
+  const topSkus=Object.entries(porSku).sort((a,b)=>(b[1].adsSpent||b[1].venta||0)-(a[1].adsSpent||a[1].venta||0)).slice(0,15);
 
-  const skusBajoMargen=topSkus.filter(([,d])=>d.venta>0&&d.gan/d.venta<0.05&&d.pub>5000);
-  const skusAltoAcos=topSkus.filter(([,d])=>d.venta>0&&d.pub/d.venta>0.20&&d.pub>5000);
-
+  // ── Actualizar KPIs del panel ──
   const setK=(id,text,color)=>{const el=document.getElementById(id);if(el){el.textContent=text;el.style.color=color;}};
-  setK('ads_k_acos',acosR!==null?(acosR*100).toFixed(1)+'%':'—',acosR===null?'var(--t3)':acosR<=0.12?'var(--grn)':acosR<=0.20?'var(--org)':'var(--red)');
-  setK('ads_k_roas',roasR!==null?roasR.toFixed(1)+'x':'—',roasR===null?'var(--t3)':roasR>=6?'var(--grn)':roasR>=3?'var(--org)':'var(--red)');
+  if(tieneAdsReales){
+    setK('ads_k_acos',acosR!==null?(acosR*100).toFixed(1)+'%':'—',acosR===null?'var(--t3)':acosR<=0.12?'var(--grn)':acosR<=0.20?'var(--org)':'var(--red)');
+    setK('ads_k_roas',roasR!==null?roasR.toFixed(1)+'x':'—',roasR===null?'var(--t3)':roasR>=6?'var(--grn)':roasR>=3?'var(--org)':'var(--red)');
+    setK('ads_k_inv',fS(Math.round(adsSpent)),'var(--red)');
+  } else {
+    setK('ads_k_acos','N/D','var(--t3)');
+    setK('ads_k_roas','N/D','var(--t3)');
+    setK('ads_k_inv','N/D','var(--t3)');
+  }
   setK('ads_k_pct',(mgR*100).toFixed(1)+'%',mgR>=0.15?'var(--grn)':mgR>=0.08?'var(--org)':'var(--red)');
-  setK('ads_k_inv',fS(Math.round(adsSpent)),'var(--red)');
 
-  // Panel de KPIs reales de ML Ads
+  // ── Panel KPI extra (datos reales ML Ads) ──
   const kpiExtra=document.getElementById('ads_kpi_extra');
   if(kpiExtra){
-    if(adsReales){
+    if(tieneAdsReales){
+      kpiExtra.style.display='grid';
       kpiExtra.innerHTML=`
         <div class="kpi blu"><div class="kl">Clicks reales</div><div class="kv">${adsClicks.toLocaleString('es-AR')}</div><div class="ks">CPC: ${fS(Math.round(adsCpc))}</div></div>
         <div class="kpi"><div class="kl">Impresiones</div><div class="kv">${adsPrints.toLocaleString('es-AR')}</div><div class="ks">CTR: ${(adsCtr*100).toFixed(2)}%</div></div>
-        <div class="kpi grn"><div class="kl">Ventas directas ads</div><div class="kv">${fS(Math.round(adsDirectSales))}</div><div class="ks">Total atribuido: ${fS(Math.round(adsTotalSales))}</div></div>
-        <div class="kpi acc"><div class="kl">Fuente</div><div class="kv" style="font-size:11px">${fuenteAds}</div></div>`;
+        <div class="kpi grn"><div class="kl">Ventas directas ads</div><div class="kv">${fS(Math.round(adsDirectSales))}</div><div class="ks">Atribuidas: ${adsDirectUnits.toLocaleString()} uds</div></div>
+        <div class="kpi acc"><div class="kl">Base ACOS real</div><div class="kv" style="font-size:11px">${fS(Math.round(ventasConPub))}</div><div class="ks">${pctOrdsConPub}% del total · sin canceladas ni sin-pub</div></div>
+        <div class="kpi" style="grid-column:1/-1;background:rgba(232,255,71,.04);border:1px solid rgba(232,255,71,.15)">
+          <div style="font-size:11px;color:var(--acc)">
+            ✅ <strong>ACOS real:</strong> ${fS(Math.round(adsSpent))} ÷ ${fS(Math.round(ventasConPub))} = <strong>${acosR!==null?(acosR*100).toFixed(2)+'%':'-'}</strong>
+            &nbsp;·&nbsp; Este % se aplica automáticamente a todos los cálculos de rentabilidad
+            &nbsp;·&nbsp; <span style="color:var(--t3)">Período: ${dateFrom} → ${dateTo}</span>
+          </div>
+        </div>`;
     } else {
-      kpiExtra.innerHTML=`<div style="grid-column:1/-1;padding:8px 12px;background:rgba(255,138,77,.08);border:1px solid rgba(255,138,77,.2);border-radius:var(--r);font-size:11px;color:var(--org)">
-        ⚠ Sin acceso a ML Product Ads v2. Inversión estimada (5% ventas). Para datos reales verificá que haya campañas activas en ML Ads.</div>`;
+      kpiExtra.style.display='block';
+      // Mostrar diagnóstico detallado de por qué no hay datos
+      const diagRows=Object.entries(adsData).map(([id,d])=>{
+        const icon=d.metricas?'✅':d.advertiser_id?'⚠️':'❌';
+        const msg=d.metricas?'Datos OK'
+          :d.advertiser_id?'Advertiser encontrado pero sin métricas'
+          :d.errorMetricas?.includes('advertiser')?'Sin cuenta de ML Ads'
+          :d.errorMetricas||'Sin respuesta';
+        return `<tr><td><span class="sku" style="background:var(--s3)">${id}</span></td><td>${icon}</td><td style="font-size:10px;color:var(--t3)">${msg}</td><td style="font-size:10px;color:var(--t3)">${d.advertiser_id||'—'}</td></tr>`;
+      }).join('');
+      kpiExtra.innerHTML=`
+        <div class="card" style="border-left:3px solid var(--org);margin-bottom:0">
+          <div class="ch" style="margin-bottom:8px"><span class="ct">⚠ Sin datos de ML Product Ads</span></div>
+          <p style="font-size:11px;color:var(--t3);margin-bottom:10px">No se encontraron campañas activas en ninguna cuenta. Para que funcione necesitás tener activa la publicidad en ML Ads.</p>
+          <table class="tbl" style="font-size:11px"><thead><tr><th>Cuenta</th><th>Estado</th><th>Diagnóstico</th><th>Advertiser ID</th></tr></thead><tbody>${diagRows}</tbody></table>
+          <p style="font-size:10px;color:var(--t3);margin-top:8px">💡 Si tenés campañas activas en ML Ads, el token puede necesitar el scope <code>write:product-ads</code>. Re-autorizá la cuenta desde <strong>Get Token</strong>.</p>
+        </div>`;
     }
-    kpiExtra.style.display='grid';
   }
 
+  // ── Tabla por cuenta ──
   const tablaEl=document.getElementById('ads_tabla');
   if(tablaEl){
-    let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Cuenta</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>ROAS</th><th>Margen</th><th>Órdenes</th><th>Uds</th></tr></thead><tbody>';
-    Object.entries(porCuenta).sort((a,b)=>b[1].pub-a[1].pub).forEach(([acct,d])=>{
-      const ac=d.venta>0?d.pub/d.venta:null, ro=d.pub>0?d.venta/d.pub:null, mg=d.venta>0?d.gan/d.venta:null;
-      const acC=ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)';
-      const roC=ro===null?'var(--t3)':ro>=6?'var(--grn)':ro>=3?'var(--org)':'var(--red)';
+    let h='<table class="tbl" style="font-size:11px"><thead><tr>'
+      +'<th>Cuenta</th>'
+      +(tieneAdsReales?'<th>Gasto real ads</th><th>ACOS real</th><th>ROAS real</th>':'<th>Estado Ads</th>')
+      +'<th>Ventas totales</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
+
+    Object.entries(porCuenta).sort((a,b)=>b[1].venta-a[1].venta).forEach(([acct,d])=>{
+      const mg=d.venta>0?d.gan/d.venta:null;
       const mgC=mg===null?'var(--t3)':mg>=0.15?'var(--grn)':mg>=0.08?'var(--org)':'var(--red)';
-      h+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(acct)}</span></td><td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td><td class="mono">${fS(Math.round(d.venta))}</td><td style="font-weight:600;color:${acC}">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="font-weight:600;color:${roC}">${ro!==null?ro.toFixed(1)+'x':'—'}</td><td style="font-weight:600;color:${mgC}">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td><td>${d.unids}</td></tr>`;
+      const adsRow = tieneAdsReales
+        ? `<td class="mono" style="color:var(--red)">${d.adsSpent>0?fS(Math.round(d.adsSpent)):'—'}</td>
+           <td style="font-weight:600">${d.adsAcos!==null?((d.adsAcos||0)*100).toFixed(1)+'%':d.errorAds?'<span style="color:var(--t3);font-size:10px">sin datos</span>':'—'}</td>
+           <td style="font-weight:600">${d.adsRoas!==null?(d.adsRoas||0).toFixed(1)+'x':'—'}</td>`
+        : `<td style="font-size:10px;color:var(--t3)">${d.errorAds||'—'}</td>`;
+      h+=`<tr>
+        <td><span class="sku" style="background:var(--s3)">${esc(acct)}</span></td>
+        ${adsRow}
+        <td class="mono">${fS(Math.round(d.venta))}</td>
+        <td style="font-weight:600;color:${mgC}">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td>
+        <td>${d.ords}</td>
+      </tr>`;
     });
-    const acT=totV>0?adsSpent/totV:null, roT=adsSpent>0?totV/adsSpent:null, mgT=totV>0?totG/totV:null;
-    h+=`<tr style="font-weight:700;border-top:2px solid var(--b1)"><td>TOTAL</td><td class="mono" style="color:var(--red)">${fS(Math.round(adsSpent))}</td><td class="mono">${fS(Math.round(totV))}</td><td style="color:${acT!==null&&acT<=0.12?'var(--grn)':acT!==null&&acT<=0.20?'var(--org)':'var(--red)'}">${acT!==null?(acT*100).toFixed(1)+'%':'—'}</td><td>${roT!==null?roT.toFixed(1)+'x':'—'}</td><td style="color:${mgT!==null&&mgT>=0.15?'var(--grn)':mgT!==null&&mgT>=0.08?'var(--org)':'var(--red)'}">${mgT!==null?(mgT*100).toFixed(1)+'%':'—'}</td><td>${ords.length}</td><td>${totU}</td></tr>`;
+
+    // Total
+    if(tieneAdsReales){
+      h+=`<tr style="font-weight:700;border-top:2px solid var(--b1)">
+        <td>TOTAL</td>
+        <td class="mono" style="color:var(--red)">${fS(Math.round(adsSpent))}</td>
+        <td>${acosR!==null?(acosR*100).toFixed(1)+'%':'—'}</td>
+        <td>${roasR!==null?roasR.toFixed(1)+'x':'—'}</td>
+        <td class="mono">${fS(Math.round(totV))}</td>
+        <td>${(mgR*100).toFixed(1)+'%'}</td>
+        <td>${ords.length}</td>
+      </tr>`;
+    }
     h+='</tbody></table>';
-    if(topSkus.length){
-      h+='<div style="margin-top:14px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Top SKUs por gasto en publicidad</div>';
-      h+='<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th><th>Alerta</th></tr></thead><tbody>';
-      topSkus.forEach(([sku,d])=>{
-        const ac=d.venta>0?d.pub/d.venta:null, mg=d.venta>0?d.gan/d.venta:null;
-        const acC=ac===null?'var(--t3)':ac<=0.12?'var(--grn)':ac<=0.20?'var(--org)':'var(--red)';
+
+    // Top items por gasto en ads (solo si tenemos datos reales)
+    if(tieneAdsReales && allAdsItems.length){
+      // Enriquecer items con descripción desde órdenes
+      const enriched=allAdsItems.slice(0,15).map(ai=>{
+        const ordMatch=S.orders.find(o=>o.mlItemId===ai.id||o.sku===ai.id);
+        return {...ai, titulo:ordMatch?.desc||ai.id};
+      });
+      h+=`<div style="margin-top:14px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Top publicaciones por gasto real en ML Ads</div>`;
+      h+=`<table class="tbl" style="font-size:11px"><thead><tr><th>Publicación</th><th>Gasto</th><th>Clicks</th><th>ACOS</th><th>ROAS</th><th>Ventas directas</th></tr></thead><tbody>`;
+      enriched.forEach(ai=>{
+        const acosC=(ai.acos||0)<=0.12?'var(--grn)':(ai.acos||0)<=0.20?'var(--org)':'var(--red)';
+        h+=`<tr>
+          <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;font-size:10px">${esc(ai.titulo)}</td>
+          <td class="mono" style="color:var(--red)">${fS(Math.round(ai.spent||0))}</td>
+          <td class="mono">${(ai.clicks||0).toLocaleString()}</td>
+          <td style="font-weight:600;color:${acosC}">${ai.acos!==null?((ai.acos||0)*100).toFixed(1)+'%':'—'}</td>
+          <td>${ai.roas!==null?(ai.roas||0).toFixed(1)+'x':'—'}</td>
+          <td class="mono">${fS(Math.round(ai.sales||0))}</td>
+        </tr>`;
+      });
+      h+='</tbody></table>';
+    } else if(!tieneAdsReales){
+      // Mostrar top SKUs por ventas cuando no hay datos de ads
+      h+=`<div style="margin-top:14px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Top SKUs por ventas (sin datos de ads)</div>`;
+      h+=`<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Ventas</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>`;
+      topSkus.slice(0,10).forEach(([sku,d])=>{
+        const mg=d.venta>0?d.gan/d.venta:null;
         const mgC=mg===null?'var(--t3)':mg>=0.10?'var(--grn)':mg>=0.05?'var(--org)':'var(--red)';
-        let alerta=mg!==null&&mg<0.05&&d.pub>5000?'🔴 Margen bajo':ac!==null&&ac>0.20&&d.pub>5000?'🟡 ACOS alto':d.ords>5?'✅ OK':'';
-        h+=`<tr><td><span class="sku">${esc(sku)}</span></td><td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td><td class="mono">${fS(Math.round(d.venta))}</td><td style="color:${acC};font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="color:${mgC};font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td><td style="font-size:11px">${alerta}</td></tr>`;
+        h+=`<tr>
+          <td><span class="sku">${esc(sku)}</span></td>
+          <td class="mono">${fS(Math.round(d.venta))}</td>
+          <td style="color:${mgC};font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td>
+          <td>${d.ords}</td>
+        </tr>`;
       });
       h+='</tbody></table>';
     }
-    h+='<div style="margin-top:14px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Por modalidad de envío</div>';
-    h+='<table class="tbl" style="font-size:11px"><thead><tr><th>Modal</th><th>Pub</th><th>Ventas</th><th>ACOS</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
-    Object.entries(porModal).sort((a,b)=>b[1].ords-a[1].ords).forEach(([modal,d])=>{
-      const ac=d.venta>0?d.pub/d.venta:null, mg=d.venta>0?d.gan/d.venta:null;
-      h+=`<tr><td><span class="sku" style="background:var(--s3)">${esc(modal)}</span></td><td class="mono" style="color:var(--red)">${fS(Math.round(d.pub))}</td><td class="mono">${fS(Math.round(d.venta))}</td><td style="font-weight:600">${ac!==null?(ac*100).toFixed(1)+'%':'—'}</td><td style="font-weight:600">${mg!==null?(mg*100).toFixed(1)+'%':'—'}</td><td>${d.ords}</td></tr>`;
-    });
-    h+='</tbody></table>';
+
     tablaEl.innerHTML=h;
   }
 
-  // Contexto rico para la IA
-  const resumen=`📊 Métricas de publicidad — últimos ${dias} días (${ords.length} órdenes)\nFuente: ${fuenteAds}\n\n`
-    +`💰 Inversión: ${fS(Math.round(adsSpent))} | Ventas: ${fS(Math.round(totV))} (${totU} uds)\n`
-    +`📈 ACOS: ${acosR!==null?(acosR*100).toFixed(1)+'%':'—'} | ROAS: ${roasR!==null?roasR.toFixed(1)+'x':'—'}\n`
-    +`💚 Margen neto: ${(mgR*100).toFixed(1)}% | Sin pub sería: ${(mgSinPub*100).toFixed(1)}%\n`
-    +`🔖 Pub por orden: ${fS(Math.round(pubXorden))}\n`
-    +(adsReales?`\n📡 ML Ads reales: Clicks ${adsClicks.toLocaleString()} | Impresiones ${adsPrints.toLocaleString()} | CTR ${(adsCtr*100).toFixed(2)}% | CPC ${fS(Math.round(adsCpc))}\n  Ventas directas: ${fS(Math.round(adsDirectSales))} | Total atribuido: ${fS(Math.round(adsTotalSales))}\n`:'')
-    +`\nTop 5 SKUs por inversión:\n`
-    +topSkus.slice(0,5).map(([sku,d])=>`  ${sku}: pub ${fS(Math.round(d.pub))} | ventas ${fS(Math.round(d.venta))} | ACOS ${d.venta>0?((d.pub/d.venta)*100).toFixed(1)+'%':'—'} | margen ${d.venta>0?((d.gan/d.venta)*100).toFixed(1)+'%':'—'}`).join('\n')
-    +(skusBajoMargen.length?`\n\n⚠️ SKUs margen bajo + alto gasto: ${skusBajoMargen.map(([s])=>s).join(', ')}`:'')
-    +(skusAltoAcos.length?`\n⚠️ SKUs ACOS alto (>20%): ${skusAltoAcos.map(([s])=>s).join(', ')}`:'')
-    +`\n\nPor cuenta:\n`+Object.entries(porCuenta).map(([a,d])=>`  ${a}: ${fS(Math.round(d.pub))} invertido / ${fS(Math.round(d.venta))} ventas / ${d.ords} órdenes`).join('\n');
+  // ── Contexto para la IA (rico, transparente sobre la fuente) ──
+  const ctx=`DATOS REALES DE NIVIKO — MERCADOLIBRE
+Período: últimos ${dias} días (${dateFrom} a ${dateTo})
+Órdenes analizadas: ${ords.length} totales | ${ordsConPub.length} con publicidad activa
+Ventas totales: ${fS(Math.round(totV))} ARS | ${totU} unidades
+Ventas con publicidad (base ACOS): ${fS(Math.round(ventasConPub))} ARS (${pctOrdsConPub}% del total)
+Ventas sin publicidad (excluidas del ACOS): ${fS(Math.round(totV-ventasConPub))} ARS
+Margen neto promedio: ${(mgR*100).toFixed(1)}%
+pubPct real aplicado en rentabilidad: ${acosR!==null?(acosR*100).toFixed(2)+'%':'no disponible'}
 
-  _adsContexto=resumen;
-  _adsData={totPub:adsSpent,totV,totG,acosR,roasR,mgR,topSkus,porCuenta,adsReales,fuenteAds};
-  if(stEl) stEl.textContent=`✓ ${ords.length} órdenes · ${dias} días · ${Object.keys(porCuenta).length} cuentas · ${fuenteAds}`;
+FUENTE DATOS ADS: ${fuenteAds}
+${tieneAdsReales
+  ? `DATOS REALES ML PRODUCT ADS:
+  Gasto total: ${fS(Math.round(adsSpent))} ARS
+  ACOS: ${acosR!==null?(acosR*100).toFixed(1)+'%':'N/D'} | ROAS: ${roasR!==null?roasR.toFixed(1)+'x':'N/D'}
+  Clicks: ${adsClicks.toLocaleString()} | Impresiones: ${adsPrints.toLocaleString()} | CTR: ${(adsCtr*100).toFixed(2)}%
+  CPC promedio: ${fS(Math.round(adsCpc))} ARS
+  Ventas directas atribuidas: ${fS(Math.round(adsDirectSales))} (${adsDirectUnits} uds)
+  Ventas total atribuidas: ${fS(Math.round(adsTotalSales))}
+  Cuentas con ads activos: ${cuentasConAds.map(([id])=>id).join(', ')}`
+  : `SIN DATOS DE ML PRODUCT ADS. Razón por cuenta:
+${Object.entries(adsData).map(([id,d])=>`  ${id}: ${d.errorMetricas||'sin advertiser_id'}`).join('\n')}
+  NOTA: los datos de ACOS/ROAS no están disponibles porque no se encontraron campañas en ML Product Ads.`
+}
 
+POR CUENTA:
+${Object.entries(porCuenta).map(([a,d])=>`  ${a}: ventas ${fS(Math.round(d.venta))} | margen ${d.venta>0?((d.gan/d.venta)*100).toFixed(1)+'%':'—'} | ${d.ords} órdenes${d.adsSpent>0?' | gasto ads '+fS(Math.round(d.adsSpent)):''}`).join('\n')}
+
+TOP 10 SKUs POR VENTAS:
+${topSkus.slice(0,10).map(([sku,d])=>`  ${sku}: ventas ${fS(Math.round(d.venta))} | margen ${d.venta>0?((d.gan/d.venta)*100).toFixed(1)+'%':'—'} | ${d.ords} órdenes${d.adsSpent>0?' | gasto ads '+fS(Math.round(d.adsSpent)):''}`).join('\n')}`;
+
+  _adsContexto=ctx;
+  _adsData={tieneAdsReales,adsSpent,totV,totG,acosR,roasR,mgR,topSkus,porCuenta,adsData,fuenteAds};
+  if(stEl) stEl.textContent=`✓ ${ords.length} órdenes (${ordsConPub.length} con pub) · ${dias} días · ${tieneAdsReales?'ACOS real: '+(acosR*100).toFixed(1)+'% — pub aplicado al '+pctOrdsConPub+'% ventas':'Sin datos ML Ads'}`;
+
+  // Limpiar y mostrar mensaje inicial
   const msgEl=document.getElementById('ads_messages');
   if(msgEl) msgEl.innerHTML='';
 
-  let insight=`📊 **Análisis listo — ${dias} días**\n\n`;
-  insight+=`**Inversión:** ${fS(Math.round(adsSpent))} | **Ventas:** ${fS(Math.round(totV))} | **ACOS:** ${acosR!==null?(acosR*100).toFixed(1)+'%':'—'} | **Margen:** ${(mgR*100).toFixed(1)}%\n\n`;
-  if(adsReales) insight+=`✅ Datos reales de ML Product Ads conectados.\n\n`;
-  if(acosR!==null&&acosR>0.20) insight+=`🔴 **ACOS alto (${(acosR*100).toFixed(1)}%)** — Inversión publicitaria consumiendo demasiado margen. Revisá SKUs con ACOS >20%.\n\n`;
-  else if(acosR!==null&&acosR<=0.12) insight+=`✅ **ACOS saludable (${(acosR*100).toFixed(1)}%)** — Publicidad bien optimizada.\n\n`;
-  if(skusBajoMargen.length) insight+=`⚠️ **${skusBajoMargen.length} SKU(s) con margen bajo y alto gasto:** ${skusBajoMargen.slice(0,3).map(([s])=>s).join(', ')}\n\n`;
-  insight+=`💬 **Preguntame lo que necesites:** qué SKUs pausar, cómo bajar el ACOS, qué productos escalar, análisis por cuenta...`;
-  adsMsg('agent',insight);
+  let opening;
+  if(tieneAdsReales){
+    opening=`📊 **Datos reales de ML Product Ads cargados**\n\n`;
+    opening+=`**Inversión:** ${fS(Math.round(adsSpent))} | **ACOS real:** ${acosR!==null?(acosR*100).toFixed(2)+'%':'—'} | **ROAS:** ${roasR!==null?roasR.toFixed(1)+'x':'—'} | **Margen:** ${(mgR*100).toFixed(1)}%\n\n`;
+    opening+=`📐 **Base del ACOS:** ${fS(Math.round(ventasConPub))} facturado con publicidad (${pctOrdsConPub}% del total) — excluye canceladas y productos sin ads\n`;
+    opening+=`💡 **pubPct real ${acosR!==null?(acosR*100).toFixed(2)+'%':'—'}** guardado y aplicado automáticamente en rentabilidad\n\n`;
+    if(acosR!==null&&acosR>0.20) opening+=`🔴 **ACOS alto (${(acosR*100).toFixed(1)}%)** — la publicidad está consumiendo margen. Te recomiendo analizar qué SKUs pausar.\n\n`;
+    else if(acosR!==null&&acosR<=0.12) opening+=`✅ **ACOS saludable (${(acosR*100).toFixed(1)}%)** — la publicidad está bien optimizada.\n\n`;
+    opening+=`Cuentas con ads: **${cuentasConAds.map(([id])=>id).join(', ')}**\n\n💬 Preguntame lo que necesites sobre la estrategia de ads.`;
+  } else {
+    opening=`⚠️ **No encontré campañas activas en ML Product Ads**\n\n`;
+    opening+=`Revisé ${Object.keys(adsData).length} cuenta(s) y ninguna devolvió datos de ads.\n\n`;
+    const primerError=Object.values(adsData)[0]?.errorMetricas||'';
+    if(primerError.toLowerCase().includes('advertiser')) opening+=`Posible causa: las cuentas no tienen el scope de ML Ads activado. Re-autorizá desde **Sistema → Get Token**.\n\n`;
+    opening+=`Mientras tanto puedo analizar tu rentabilidad y estrategia basándome en las **${ords.length} órdenes** del período.\n\n💬 Preguntame lo que necesites.`;
+  }
+  adsMsg('agent',opening);
 }
+
 
 function adsSetKpis(totPub,totV,totVT,res){
   const ac=totV>0?totPub/totV:null,ro=totPub>0?totV/totPub:null;
@@ -5047,7 +5217,10 @@ window.adsSend=async function(){
       body:JSON.stringify({
         model:'claude-sonnet-4-5',
         max_tokens:1000,
-        system:`Sos el analista de publicidad digital de NIVIKO, empresa argentina con MercadoLíder status. Tenés datos reales de ventas y ML Product Ads. Respondé en español, conciso y accionable. Usá **negrita** para destacar. Máximo 200 palabras salvo que pidan más.`,
+        system:`Sos el analista de publicidad digital de NIVIKO, empresa argentina con MercadoLíder status en MercadoLibre.
+El contexto que recibís puede incluir datos REALES de ML Product Ads (gasto, ACOS, ROAS, clicks) o puede indicar que NO hay datos de ads disponibles.
+REGLA CRÍTICA: si el contexto dice "SIN DATOS DE ML PRODUCT ADS" o "sin advertiser_id", NO inventes métricas ni supongas valores — decí explícitamente que no tenés ese dato y qué podría ser la causa.
+Respondé en español, conciso y accionable. Usá **negrita** para destacar números y recomendaciones clave. Máximo 250 palabras salvo que pidan más.`,
         messages:[..._adsHistory.slice(-6),{role:'user',content:_adsContexto+'\n\n---\nPregunta: '+text}]
       })
     });
