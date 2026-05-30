@@ -166,6 +166,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="calc"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>Calculadora</div>
     <div class="ni" data-p="container"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="14" height="8" rx="1.5"/><path d="M4 5V3a1 1 0 011-1h6a1 1 0 011 1v2M6 9h4"/></svg>Contenedor</div>
     <div class="ni" data-p="importacion"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 7l4 4 4-4"/><path d="M1 13h14"/></svg>Importación</div>
+    <div class="ni" data-p="inteligencia"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>Inteligencia</div>
     <div class="ni" data-p="portafolio"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Portafolio</div>
     <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
@@ -743,6 +744,132 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <div style="display:flex;gap:8px">
             <button class="btn btn-sm" onclick="impGuardarMulti()" style="flex:1">💾 Guardar todos en Productos</button>
             <button class="btn-g btn-sm" onclick="impResetMulti()" style="color:var(--red)">✕ Limpiar</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- INTELIGENCIA NIVIKO -->
+    <div class="page" id="page-inteligencia">
+      <div style="max-width:1200px;margin:0 auto">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800">Centro de Inteligencia</div>
+            <div style="font-size:11px;color:var(--t3)">Análisis cruzado ML + Mayorista · Datos reales · IA integrada</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <span id="intel_status" style="font-size:11px;color:var(--t3)">—</span>
+            <button class="btn-g btn-sm" onclick="intelCargar()" style="font-size:11px">⟳ Actualizar</button>
+          </div>
+        </div>
+
+        <!-- Sub-tabs -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+          <button class="btn-g" id="itab_rent" onclick="intelTab('rent')" style="font-size:11px;font-weight:600">📊 Rentabilidad</button>
+          <button class="btn-g" id="itab_skus" onclick="intelTab('skus')" style="font-size:11px">🏆 SKUs</button>
+          <button class="btn-g" id="itab_canales" onclick="intelTab('canales')" style="font-size:11px">⚖️ ML vs Mayorista</button>
+          <button class="btn-g" id="itab_riesgo" onclick="intelTab('riesgo')" style="font-size:11px">🚨 Alertas</button>
+          <button class="btn-g" id="itab_chat" onclick="intelTab('chat')" style="font-size:11px">💬 Analista IA</button>
+        </div>
+
+        <!-- KPIs globales siempre visibles -->
+        <div class="g4" id="intel_kpis" style="margin-bottom:14px">
+          <div class="kpi"><div class="kl">Ventas ML</div><div class="kv" id="ik_vml">—</div><div class="ks" id="ik_vml_s"></div></div>
+          <div class="kpi"><div class="kl">Ventas Mayorista</div><div class="kv" id="ik_vmay">—</div><div class="ks" id="ik_vmay_s"></div></div>
+          <div class="kpi"><div class="kl">Margen ML</div><div class="kv" id="ik_mml">—</div><div class="ks" id="ik_mml_s"></div></div>
+          <div class="kpi"><div class="kl">Margen Mayorista</div><div class="kv" id="ik_mmay">—</div><div class="ks" id="ik_mmay_s"></div></div>
+          <div class="kpi"><div class="kl">Margen Ponderado</div><div class="kv" id="ik_mpond">—</div><div class="ks" id="ik_mpond_s">ML + Mayorista</div></div>
+          <div class="kpi"><div class="kl">Ganancia Total</div><div class="kv" id="ik_gtot">—</div><div class="ks" id="ik_gtot_s"></div></div>
+          <div class="kpi"><div class="kl">SKUs activos</div><div class="kv" id="ik_skus">—</div><div class="ks" id="ik_skus_s"></div></div>
+          <div class="kpi"><div class="kl">SKUs en rojo</div><div class="kv" id="ik_rojo" style="color:var(--red)">—</div><div class="ks" id="ik_rojo_s"></div></div>
+        </div>
+
+        <!-- PANEL RENTABILIDAD -->
+        <div id="ipanel_rent">
+          <div class="card" style="margin-bottom:10px;padding:12px">
+            <div class="ch" style="margin-bottom:10px">
+              <span class="ct">Distribución de márgenes</span>
+              <div style="display:flex;gap:6px;align-items:center">
+                <label style="font-size:10px;color:var(--t3)">Período:</label>
+                <select id="intel_dias" onchange="intelCargar()" class="inp" style="padding:3px 6px;font-size:11px;width:100px">
+                  <option value="7">7 días</option>
+                  <option value="30" selected>30 días</option>
+                  <option value="60">60 días</option>
+                  <option value="90">90 días</option>
+                </select>
+              </div>
+            </div>
+            <div id="intel_rent_chart" style="min-height:80px;color:var(--t3);font-size:12px">Cargando...</div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:8px"><span class="ct">Canal Mix por período</span></div>
+            <div id="intel_mix_chart" style="min-height:60px"></div>
+          </div>
+        </div>
+
+        <!-- PANEL SKUs -->
+        <div id="ipanel_skus" style="display:none">
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:8px">
+              <span class="ct">Rentabilidad real por SKU (ML + Mayorista)</span>
+              <div style="display:flex;gap:6px">
+                <input id="intel_sku_search" oninput="intelFiltrarSkus()" placeholder="Buscar SKU..." class="inp" style="padding:3px 8px;font-size:11px;width:140px">
+                <select id="intel_sku_sort" onchange="intelFiltrarSkus()" class="inp" style="padding:3px 6px;font-size:11px">
+                  <option value="ganancia">Mayor ganancia</option>
+                  <option value="margen">Mayor margen</option>
+                  <option value="rojo">En rojo primero</option>
+                  <option value="volumen">Mayor volumen</option>
+                </select>
+              </div>
+            </div>
+            <div id="intel_sku_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- PANEL ML vs MAYORISTA -->
+        <div id="ipanel_canales" style="display:none">
+          <div class="g2" style="margin-bottom:10px">
+            <div class="card" style="padding:12px">
+              <div class="ch" style="margin-bottom:8px"><span class="ct">📦 MercadoLibre</span></div>
+              <div id="intel_canal_ml" style="font-size:11px"></div>
+            </div>
+            <div class="card" style="padding:12px">
+              <div class="ch" style="margin-bottom:8px"><span class="ct">🏪 Mayorista</span></div>
+              <div id="intel_canal_may" style="font-size:11px"></div>
+            </div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:8px"><span class="ct">Comparación por SKU: mismo producto, dos canales</span></div>
+            <div id="intel_canal_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- PANEL ALERTAS -->
+        <div id="ipanel_riesgo" style="display:none">
+          <div id="intel_alertas_cont" style="display:flex;flex-direction:column;gap:8px">
+            <div class="card"><p style="color:var(--t3);font-size:12px">Cargando alertas...</p></div>
+          </div>
+        </div>
+
+        <!-- PANEL CHAT IA -->
+        <div id="ipanel_chat" style="display:none">
+          <div class="card" style="padding:0;overflow:hidden">
+            <div id="intel_messages" style="min-height:320px;max-height:480px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px"></div>
+            <div style="border-top:1px solid var(--b1);padding:10px;display:flex;gap:8px">
+              <input id="intel_input" class="inp" placeholder="Preguntale al analista... (ej: ¿qué productos debería escalar?)" style="flex:1;padding:8px 12px;font-size:13px" onkeydown="if(event.key==='Enter')intelSend()">
+              <button class="btn-g" onclick="intelSend()" style="padding:8px 16px">Enviar</button>
+            </div>
+            <div style="padding:6px 10px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--b1)">
+              <button class="btn-g btn-sm" onclick="intelQuick('¿Qué 3 SKUs debería escalar este mes y por qué?')" style="font-size:10px">Escalar</button>
+              <button class="btn-g btn-sm" onclick="intelQuick('¿Qué productos tienen margen negativo o muy bajo que debería revisar?')" style="font-size:10px">En riesgo</button>
+              <button class="btn-g btn-sm" onclick="intelQuick('¿Qué canal es más rentable para mis productos top?')" style="font-size:10px">ML vs May</button>
+              <button class="btn-g btn-sm" onclick="intelQuick('¿Dónde estoy perdiendo plata sin darme cuenta?')" style="font-size:10px">Pérdidas ocultas</button>
+              <button class="btn-g btn-sm" onclick="intelQuick('Dame un resumen ejecutivo del negocio este mes')" style="font-size:10px">Resumen</button>
+              <button class="btn-g btn-sm" onclick="intelQuick('¿Qué debería importar en el próximo contenedor?')" style="font-size:10px">Próximo contenedor</button>
+            </div>
           </div>
         </div>
 
@@ -1903,7 +2030,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -8610,6 +8737,578 @@ window.exportarPDF=async()=>{
   doc.save(fname);
   toast('PDF descargado: '+fname,'ok');
 };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CENTRO DE INTELIGENCIA NIVIKO
+// Cruza datos de ML (S.orders) + Mayorista (_mayPedidos) + Productos (S.products)
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _intelData = null;       // datos calculados
+let _intelHistory = [];      // historial chat IA
+let _intelContexto = '';     // contexto para la IA
+let _intelTab = 'rent';      // tab activo
+let _intelInited = false;
+
+// ── RENDER PRINCIPAL ─────────────────────────────────────────────────────────
+async function renderInteligencia(){
+  if(!_intelInited){ _intelInited=true; }
+  await intelCargar();
+}
+
+// ── CAMBIO DE TAB ─────────────────────────────────────────────────────────────
+window.intelTab = function(tab){
+  _intelTab = tab;
+  ['rent','skus','canales','riesgo','chat'].forEach(t=>{
+    const panel=document.getElementById('ipanel_'+t);
+    const btn=document.getElementById('itab_'+t);
+    if(panel) panel.style.display = t===tab ? '' : 'none';
+    if(btn){
+      btn.style.background = t===tab ? 'var(--acc)' : '';
+      btn.style.color = t===tab ? '#000' : '';
+    }
+  });
+  if(tab==='chat' && _intelContexto && !document.getElementById('intel_messages')?.children.length){
+    intelMsg('agent', '💡 Estoy listo para analizar tu negocio. ¿Qué querés saber?');
+  }
+};
+
+// ── CARGA Y CÁLCULO PRINCIPAL ─────────────────────────────────────────────────
+window.intelCargar = async function(){
+  const stEl = document.getElementById('intel_status');
+  if(stEl) stEl.textContent = '⏳ Calculando...';
+
+  const dias = parseInt(document.getElementById('intel_dias')?.value)||30;
+  const dateFrom = new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
+  const dateTo   = new Date().toISOString().split('T')[0];
+
+  // ── Cargar mayorista desde Firebase si no está en memoria ──
+  let mayPedidos = (typeof _mayPedidos !== 'undefined' && _mayPedidos?.length) ? _mayPedidos : [];
+  if(!mayPedidos.length){
+    const mayData = await fb.get('mayorista').catch(()=>null);
+    mayPedidos = mayData?.pedidos || [];
+  }
+
+  // ── Órdenes ML del período (sin canceladas) ──
+  const ordsML = (S.orders||[]).filter(o=>
+    o.fecha>=dateFrom && o.fecha<=dateTo && o.estado!=='cancelled'
+  );
+
+  // ── Pedidos mayorista del período ──
+  const pedsMay = mayPedidos.filter(p=> p.fecha>=dateFrom && p.fecha<=dateTo);
+
+  // ── AGREGAR POR SKU ──────────────────────────────────────────────────────
+  const skuMap = {}; // clave: skuBase (sin color)
+
+  // Función para obtener base sin color/variante
+  const skuBase = sku => {
+    if(!sku) return '?';
+    const prod = (S.products||[]).find(p=>p.sku===sku);
+    return prod?.skuBase || sku.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,'');
+  };
+
+  const getOrCreate = (sku) => {
+    const base = skuBase(sku);
+    if(!skuMap[base]) skuMap[base]={
+      sku:base, desc:'',
+      ml:{venta:0,ganancia:0,pub:0,comision:0,iva:0,iibb:0,unidades:0,ordenes:0},
+      may:{venta:0,ganancia:0,unidades:0,pedidos:0},
+      prod:null
+    };
+    if(!skuMap[base].desc){
+      const p=(S.products||[]).find(x=>x.sku===sku||skuBase(x.sku)===base);
+      if(p){skuMap[base].desc=p.desc||sku;skuMap[base].prod=p;}
+    }
+    return skuMap[base];
+  };
+
+  // Agregar ML
+  ordsML.forEach(o=>{
+    if(!o.sku||o.sku==='—') return;
+    const s=getOrCreate(o.sku);
+    s.ml.venta     += o.venta||0;
+    s.ml.ganancia  += o.ganancia||0;
+    s.ml.pub       += o.pub||0;
+    s.ml.comision  += o.comision||0;
+    s.ml.iva       += o.iva||0;
+    s.ml.iibb      += o.iibb||0;
+    s.ml.unidades  += o.unidades||1;
+    s.ml.ordenes   ++;
+  });
+
+  // Agregar Mayorista
+  pedsMay.forEach(ped=>{
+    (ped.items||[]).forEach(it=>{
+      if(!it.sku) return;
+      const s=getOrCreate(it.sku);
+      // Calcular ganancia del item mayorista
+      const vSiva  = (it.lista||0)*(it.qty||1)*(1-(it.dcom_pct||0)/100)*(1-(it.dfin_pct||0)/100)*(1-(it.dofe_pct||0)/100)*(1-(it.desp_pct||0)/100);
+      const costo  = (it.costo||0)*(it.qty||1);
+      const iva    = vSiva*(it.iva_pct||21)/100;
+      const iibb   = vSiva*(it.iibb_pct||5)/100;
+      const com    = vSiva*(it.com_pct||5)/100;
+      const gan    = vSiva - costo - iva - iibb - com;
+      s.may.venta    += vSiva;
+      s.may.ganancia += gan;
+      s.may.unidades += it.qty||1;
+      s.may.pedidos  ++;
+    });
+  });
+
+  // ── CALCULAR MÉTRICAS POR SKU ─────────────────────────────────────────────
+  const skus = Object.values(skuMap).map(s=>{
+    const totVenta    = s.ml.venta + s.may.venta;
+    const totGanancia = s.ml.ganancia + s.may.ganancia;
+    const totUnidades = s.ml.unidades + s.may.unidades;
+    const margenML    = s.ml.venta>0  ? s.ml.ganancia/s.ml.venta   : null;
+    const margenMay   = s.may.venta>0 ? s.may.ganancia/s.may.venta : null;
+    const margenPond  = totVenta>0    ? totGanancia/totVenta        : null;
+    const tieneML     = s.ml.ordenes > 0;
+    const tieneMay    = s.may.pedidos > 0;
+    const enRojo      = margenPond !== null && margenPond < 0;
+    const enRiesgo    = margenPond !== null && margenPond >= 0 && margenPond < 0.05;
+    return {...s, totVenta, totGanancia, totUnidades, margenML, margenMay, margenPond, tieneML, tieneMay, enRojo, enRiesgo};
+  }).filter(s=>s.totVenta>0);
+
+  // ── TOTALES GLOBALES ──────────────────────────────────────────────────────
+  const totML = {
+    venta:    ordsML.reduce((s,o)=>s+(o.venta||0),0),
+    ganancia: ordsML.reduce((s,o)=>s+(o.ganancia||0),0),
+    unidades: ordsML.reduce((s,o)=>s+(o.unidades||1),0),
+    ordenes:  ordsML.length
+  };
+  const totMay = {
+    venta:    pedsMay.reduce((s,p)=>s+(p.venta_siva||0),0),
+    ganancia: pedsMay.reduce((s,p)=>s+(p.ganancia||0),0),
+    unidades: pedsMay.reduce((s,p)=>s+(p.items||[]).reduce((ss,i)=>ss+(i.qty||1),0),0),
+    pedidos:  pedsMay.length
+  };
+  const totVenta    = totML.venta + totMay.venta;
+  const totGanancia = totML.ganancia + totMay.ganancia;
+  const margenML    = totML.venta>0  ? totML.ganancia/totML.venta   : 0;
+  const margenMay   = totMay.venta>0 ? totMay.ganancia/totMay.venta : 0;
+  const margenPond  = totVenta>0     ? totGanancia/totVenta         : 0;
+  const skusEnRojo  = skus.filter(s=>s.enRojo);
+  const skusEnRiesgo= skus.filter(s=>s.enRiesgo);
+  const skusDualCanal=skus.filter(s=>s.tieneML&&s.tieneMay);
+  const mixML       = totVenta>0 ? totML.venta/totVenta*100 : 0;
+  const mixMay      = totVenta>0 ? totMay.venta/totVenta*100 : 0;
+
+  _intelData = {skus, totML, totMay, totVenta, totGanancia,
+    margenML, margenMay, margenPond, skusEnRojo, skusEnRiesgo,
+    skusDualCanal, mixML, mixMay, dias, dateFrom, dateTo,
+    ordsML, pedsMay};
+
+  // ── ACTUALIZAR KPIs GLOBALES ──────────────────────────────────────────────
+  const sk=(id,v,col)=>{const e=document.getElementById(id);if(e){e.textContent=v;if(col)e.style.color=col;}};
+  sk('ik_vml', fS(Math.round(totML.venta)));
+  sk('ik_vml_s', `${totML.ordenes} órdenes · ${totML.unidades} uds · ${mixML.toFixed(0)}% del total`);
+  sk('ik_vmay', fS(Math.round(totMay.venta)));
+  sk('ik_vmay_s', `${totMay.pedidos} pedidos · ${totMay.unidades} uds · ${mixMay.toFixed(0)}% del total`);
+  sk('ik_mml', (margenML*100).toFixed(1)+'%', margenML>=0.15?'var(--grn)':margenML>=0.08?'var(--org)':'var(--red)');
+  sk('ik_mml_s', `Ganancia: ${fS(Math.round(totML.ganancia))}`);
+  sk('ik_mmay', (margenMay*100).toFixed(1)+'%', margenMay>=0.15?'var(--grn)':margenMay>=0.08?'var(--org)':'var(--red)');
+  sk('ik_mmay_s', `Ganancia: ${fS(Math.round(totMay.ganancia))}`);
+  sk('ik_mpond', (margenPond*100).toFixed(1)+'%', margenPond>=0.15?'var(--grn)':margenPond>=0.08?'var(--org)':'var(--red)');
+  sk('ik_mpond_s', `Ganancia total: ${fS(Math.round(totGanancia))}`);
+  sk('ik_gtot', fS(Math.round(totGanancia)), totGanancia>=0?'var(--grn)':'var(--red)');
+  sk('ik_gtot_s', `${dias} días · ${skus.length} SKUs`);
+  sk('ik_skus', skus.length.toString());
+  sk('ik_skus_s', `${skusDualCanal.length} en ambos canales`);
+  sk('ik_rojo', skusEnRojo.length.toString(), skusEnRojo.length>0?'var(--red)':'var(--grn)');
+  sk('ik_rojo_s', `${skusEnRiesgo.length} en riesgo (<5%)`);
+
+  if(stEl) stEl.textContent=`✓ ${dias} días · ${skus.length} SKUs · ${totML.ordenes} órdenes ML · ${totMay.pedidos} pedidos May`;
+
+  // ── RENDERIZAR PANEL ACTIVO ───────────────────────────────────────────────
+  intelRenderRent();
+  intelRenderSkus();
+  intelRenderCanales();
+  intelRenderAlertas();
+  intelBuildContexto();
+
+  // Activar tab
+  intelTab(_intelTab);
+};
+
+// ── PANEL RENTABILIDAD ────────────────────────────────────────────────────────
+function intelRenderRent(){
+  const d=_intelData; if(!d) return;
+  const el=document.getElementById('intel_rent_chart');
+  if(!el) return;
+
+  // Distribución de márgenes en rangos
+  const rangos=[
+    {label:'<0% 🔴',min:-99,max:0,color:'var(--red)',skus:[]},
+    {label:'0–5% 🟠',min:0,max:5,color:'var(--org)',skus:[]},
+    {label:'5–10%',min:5,max:10,color:'#f0c040',skus:[]},
+    {label:'10–15%',min:10,max:15,color:'var(--t2)',skus:[]},
+    {label:'15–25% 🟢',min:15,max:25,color:'var(--grn)',skus:[]},
+    {label:'>25% ✅',min:25,max:999,color:'#00e5a0',skus:[]},
+  ];
+  d.skus.forEach(s=>{
+    const m=(s.margenPond||0)*100;
+    const r=rangos.find(r=>m>=r.min&&m<r.max);
+    if(r) r.skus.push(s);
+  });
+  const maxCount=Math.max(...rangos.map(r=>r.skus.length),1);
+
+  let h=`<div style="display:flex;gap:8px;align-items:flex-end;height:80px;margin-bottom:8px">`;
+  rangos.forEach(r=>{
+    const pct=r.skus.length/maxCount*100;
+    const ganTotal=r.skus.reduce((s,x)=>s+x.totGanancia,0);
+    h+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer" onclick="intelFiltrarPorRango(${r.min},${r.max})">
+      <div style="font-size:10px;color:var(--t3)">${r.skus.length}</div>
+      <div style="width:100%;background:${r.color};opacity:0.85;border-radius:3px 3px 0 0;height:${Math.max(pct*0.7,4)}px;transition:height 0.3s" title="${r.skus.length} SKUs · ${fS(Math.round(ganTotal))}"></div>
+    </div>`;
+  });
+  h+=`</div><div style="display:flex;gap:8px">`;
+  rangos.forEach(r=>{
+    h+=`<div style="flex:1;text-align:center;font-size:9px;color:var(--t3)">${r.label}</div>`;
+  });
+  h+=`</div>`;
+
+  // Mix de canales visual
+  h+=`<div style="margin-top:12px;display:flex;gap:12px;align-items:center">
+    <div style="flex:1">
+      <div style="font-size:10px;color:var(--t3);margin-bottom:4px">Mix de ventas</div>
+      <div style="height:10px;border-radius:5px;overflow:hidden;background:var(--s3);display:flex">
+        <div style="width:${d.mixML.toFixed(1)}%;background:var(--acc);transition:width 0.5s"></div>
+        <div style="width:${d.mixMay.toFixed(1)}%;background:var(--blu);transition:width 0.5s"></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:4px;font-size:10px">
+        <span style="color:var(--acc)">■ ML ${d.mixML.toFixed(1)}%</span>
+        <span style="color:var(--blu)">■ May ${d.mixMay.toFixed(1)}%</span>
+      </div>
+    </div>
+    <div style="text-align:right;font-size:11px">
+      <div style="color:var(--t3)">Margen ML vs May</div>
+      <div><span style="color:${d.margenML>=0.15?'var(--grn)':d.margenML>=0.08?'var(--org)':'var(--red)'};font-weight:700">${(d.margenML*100).toFixed(1)}%</span>
+      <span style="color:var(--t3)"> vs </span>
+      <span style="color:${d.margenMay>=0.15?'var(--grn)':d.margenMay>=0.08?'var(--org)':'var(--red)'};font-weight:700">${(d.margenMay*100).toFixed(1)}%</span></div>
+      <div style="font-size:10px;color:var(--t3)">Ponderado: <strong style="color:var(--acc)">${(d.margenPond*100).toFixed(1)}%</strong></div>
+    </div>
+  </div>`;
+  el.innerHTML=h;
+}
+
+// ── PANEL SKUs ────────────────────────────────────────────────────────────────
+let _intelSkuFilter='', _intelSkuSort='ganancia', _intelSkuRangoMin=null, _intelSkuRangoMax=null;
+
+window.intelFiltrarSkus=function(){
+  _intelSkuFilter=document.getElementById('intel_sku_search')?.value||'';
+  _intelSkuSort=document.getElementById('intel_sku_sort')?.value||'ganancia';
+  intelRenderSkus();
+};
+
+window.intelFiltrarPorRango=function(min,max){
+  _intelSkuRangoMin=min; _intelSkuRangoMax=max;
+  intelTab('skus');
+  intelRenderSkus();
+};
+
+function intelRenderSkus(){
+  const d=_intelData; if(!d) return;
+  const el=document.getElementById('intel_sku_tabla'); if(!el) return;
+
+  let skus=[...d.skus];
+
+  // Filtro por rango de margen
+  if(_intelSkuRangoMin!==null){
+    skus=skus.filter(s=>{const m=(s.margenPond||0)*100;return m>=_intelSkuRangoMin&&m<_intelSkuRangoMax;});
+  }
+  // Filtro por búsqueda
+  if(_intelSkuFilter){
+    const q=_intelSkuFilter.toLowerCase();
+    skus=skus.filter(s=>s.sku.toLowerCase().includes(q)||(s.desc||'').toLowerCase().includes(q));
+  }
+  // Ordenar
+  if(_intelSkuSort==='ganancia') skus.sort((a,b)=>b.totGanancia-a.totGanancia);
+  else if(_intelSkuSort==='margen') skus.sort((a,b)=>(b.margenPond||0)-(a.margenPond||0));
+  else if(_intelSkuSort==='rojo') skus.sort((a,b)=>(a.margenPond||0)-(b.margenPond||0));
+  else if(_intelSkuSort==='volumen') skus.sort((a,b)=>b.totVenta-a.totVenta);
+
+  if(!skus.length){el.innerHTML='<p style="color:var(--t3);font-size:12px">Sin SKUs para los filtros seleccionados.</p>';return;}
+
+  let h=`<table class="tbl" style="font-size:11px">
+    <thead><tr>
+      <th>SKU</th><th>Canal</th>
+      <th>Venta ML</th><th>Margen ML</th>
+      <th>Venta May</th><th>Margen May</th>
+      <th>Total</th><th>Margen pond.</th><th>Ganancia</th><th>Uds</th>
+    </tr></thead><tbody>`;
+
+  skus.slice(0,60).forEach(s=>{
+    const mgC=s.margenPond===null?'var(--t3)':s.margenPond<0?'var(--red)':s.margenPond<0.05?'var(--org)':s.margenPond>=0.15?'var(--grn)':'var(--t2)';
+    const mlC=s.margenML===null?'var(--t3)':s.margenML<0?'var(--red)':s.margenML<0.05?'var(--org)':s.margenML>=0.15?'var(--grn)':'var(--t2)';
+    const mayC=s.margenMay===null?'var(--t3)':s.margenMay<0?'var(--red)':s.margenMay<0.05?'var(--org)':s.margenMay>=0.15?'var(--grn)':'var(--t2)';
+    const canal=s.tieneML&&s.tieneMay?'🔀':'ML only'===(!s.tieneMay&&s.tieneML)?'📦':s.tieneMay?'🏪':'?';
+    const canalLabel=s.tieneML&&s.tieneMay?'<span style="color:var(--acc)">ML+May</span>':s.tieneML?'<span style="color:var(--t2)">ML</span>':'<span style="color:var(--blu)">May</span>';
+    const rowBg=s.enRojo?'rgba(255,77,77,.04)':s.enRiesgo?'rgba(255,138,77,.03)':'';
+    h+=`<tr style="background:${rowBg}">
+      <td><span class="sku" title="${esc(s.desc||s.sku)}">${esc(s.sku)}</span></td>
+      <td>${canalLabel}</td>
+      <td class="mono">${s.ml.venta>0?fS(Math.round(s.ml.venta)):'—'}</td>
+      <td style="color:${mlC};font-weight:600">${s.margenML!==null?(s.margenML*100).toFixed(1)+'%':'—'}</td>
+      <td class="mono">${s.may.venta>0?fS(Math.round(s.may.venta)):'—'}</td>
+      <td style="color:${mayC};font-weight:600">${s.margenMay!==null?(s.margenMay*100).toFixed(1)+'%':'—'}</td>
+      <td class="mono" style="font-weight:600">${fS(Math.round(s.totVenta))}</td>
+      <td style="color:${mgC};font-weight:700">${s.margenPond!==null?(s.margenPond*100).toFixed(1)+'%':'—'}</td>
+      <td class="mono" style="color:${s.totGanancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(s.totGanancia))}</td>
+      <td>${s.totUnidades}</td>
+    </tr>`;
+  });
+
+  if(skus.length>60) h+=`<tr><td colspan="10" style="color:var(--t3);text-align:center;padding:8px">... y ${skus.length-60} SKUs más. Usá el buscador para filtrar.</td></tr>`;
+  h+='</tbody></table>';
+  el.innerHTML=h;
+}
+
+// ── PANEL ML vs MAYORISTA ─────────────────────────────────────────────────────
+function intelRenderCanales(){
+  const d=_intelData; if(!d) return;
+
+  // Panel ML
+  const mlEl=document.getElementById('intel_canal_ml');
+  if(mlEl){
+    const topML=d.skus.filter(s=>s.tieneML).sort((a,b)=>b.ml.venta-a.ml.venta).slice(0,5);
+    let h=`<div style="margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="font-size:11px"><span style="color:var(--t3)">Ventas:</span> <strong>${fS(Math.round(d.totML.venta))}</strong></div>
+        <div style="font-size:11px"><span style="color:var(--t3)">Órdenes:</span> <strong>${d.totML.ordenes}</strong></div>
+        <div style="font-size:11px"><span style="color:var(--t3)">Ganancia:</span> <strong style="color:${d.totML.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(d.totML.ganancia))}</strong></div>
+        <div style="font-size:11px"><span style="color:var(--t3)">Margen:</span> <strong style="color:${d.margenML>=0.15?'var(--grn)':d.margenML>=0.08?'var(--org)':'var(--red)'}">${(d.margenML*100).toFixed(1)}%</strong></div>
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:4px;font-weight:600;text-transform:uppercase">Top 5 por venta</div>`;
+    topML.forEach(s=>{ h+=`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--b1)"><span style="font-size:11px">${esc(s.sku)}</span><span style="font-size:11px;color:${s.margenML>=0.15?'var(--grn)':s.margenML>=0.08?'var(--org)':'var(--red)'}">${s.margenML!==null?(s.margenML*100).toFixed(1)+'%':'-'} · ${fS(Math.round(s.ml.venta))}</span></div>`; });
+    mlEl.innerHTML=h+'</div>';
+  }
+
+  // Panel Mayorista
+  const mayEl=document.getElementById('intel_canal_may');
+  if(mayEl){
+    const topMay=d.skus.filter(s=>s.tieneMay).sort((a,b)=>b.may.venta-a.may.venta).slice(0,5);
+    let h=`<div style="margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="font-size:11px"><span style="color:var(--t3)">Ventas:</span> <strong>${fS(Math.round(d.totMay.venta))}</strong></div>
+        <div style="font-size:11px"><span style="color:var(--t3)">Pedidos:</span> <strong>${d.totMay.pedidos}</strong></div>
+        <div style="font-size:11px"><span style="color:var(--t3)">Ganancia:</span> <strong style="color:${d.totMay.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(d.totMay.ganancia))}</strong></div>
+        <div style="font-size:11px"><span style="color:var(--t3)">Margen:</span> <strong style="color:${d.margenMay>=0.15?'var(--grn)':d.margenMay>=0.08?'var(--org)':'var(--red)'}">${(d.margenMay*100).toFixed(1)}%</strong></div>
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:4px;font-weight:600;text-transform:uppercase">Top 5 por venta</div>`;
+    if(topMay.length){
+      topMay.forEach(s=>{ h+=`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--b1)"><span style="font-size:11px">${esc(s.sku)}</span><span style="font-size:11px;color:${s.margenMay>=0.15?'var(--grn)':s.margenMay>=0.08?'var(--org)':'var(--red)'}">${s.margenMay!==null?(s.margenMay*100).toFixed(1)+'%':'-'} · ${fS(Math.round(s.may.venta))}</span></div>`; });
+    } else { h+=`<p style="color:var(--t3);font-size:11px">Sin pedidos mayorista en el período.</p>`; }
+    mayEl.innerHTML=h+'</div>';
+  }
+
+  // Tabla comparativa dual canal
+  const tablaEl=document.getElementById('intel_canal_tabla');
+  if(tablaEl){
+    const dual=d.skusDualCanal.sort((a,b)=>b.totVenta-a.totVenta);
+    if(!dual.length){
+      tablaEl.innerHTML='<p style="color:var(--t3);font-size:12px">No hay SKUs vendidos en ambos canales en el período.</p>';
+      return;
+    }
+    let h=`<table class="tbl" style="font-size:11px">
+      <thead><tr><th>SKU</th><th>Margen ML</th><th>Margen Mayorista</th><th>Diferencia</th><th>Mejor canal</th><th>Venta ML</th><th>Venta May</th><th>Ponderado</th></tr></thead><tbody>`;
+    dual.forEach(s=>{
+      const diff=(s.margenMay||0)-(s.margenML||0);
+      const mejor=diff>0.02?'🏪 Mayorista':diff<-0.02?'📦 ML':'≈ Similar';
+      const diffC=diff>0?'var(--grn)':diff<0?'var(--red)':'var(--t3)';
+      h+=`<tr>
+        <td><span class="sku">${esc(s.sku)}</span></td>
+        <td style="color:${s.margenML>=0.15?'var(--grn)':s.margenML>=0.08?'var(--org)':'var(--red)'};font-weight:600">${(s.margenML*100).toFixed(1)}%</td>
+        <td style="color:${s.margenMay>=0.15?'var(--grn)':s.margenMay>=0.08?'var(--org)':'var(--red)'};font-weight:600">${(s.margenMay*100).toFixed(1)}%</td>
+        <td style="color:${diffC};font-weight:700">${diff>=0?'+':''}${(diff*100).toFixed(1)}%</td>
+        <td style="font-size:11px">${mejor}</td>
+        <td class="mono">${fS(Math.round(s.ml.venta))}</td>
+        <td class="mono">${fS(Math.round(s.may.venta))}</td>
+        <td style="font-weight:700;color:${s.margenPond>=0.15?'var(--grn)':s.margenPond>=0.08?'var(--org)':'var(--red)'}">${(s.margenPond*100).toFixed(1)}%</td>
+      </tr>`;
+    });
+    h+='</tbody></table>';
+    tablaEl.innerHTML=h;
+  }
+}
+
+// ── PANEL ALERTAS ─────────────────────────────────────────────────────────────
+function intelRenderAlertas(){
+  const d=_intelData; if(!d) return;
+  const el=document.getElementById('intel_alertas_cont'); if(!el) return;
+
+  const alertas=[];
+
+  // Alerta 1: SKUs en rojo
+  if(d.skusEnRojo.length){
+    const listStr=d.skusEnRojo.slice(0,5).map(s=>`${s.sku} (${(s.margenPond*100).toFixed(1)}%)`).join(', ');
+    alertas.push({tipo:'🔴',titulo:`${d.skusEnRojo.length} SKU(s) con margen negativo`,
+      msg:`Estás perdiendo plata en: ${listStr}${d.skusEnRojo.length>5?` y ${d.skusEnRojo.length-5} más`:''}. Revisá costos o considerá pausarlos.`,
+      color:'var(--red)',bg:'rgba(255,77,77,.06)',accion:`intelQuick('Analizá estos SKUs con margen negativo y dame recomendaciones: ${d.skusEnRojo.slice(0,5).map(s=>s.sku).join(', ')}')`});
+  }
+
+  // Alerta 2: SKUs en riesgo
+  if(d.skusEnRiesgo.length){
+    const listStr=d.skusEnRiesgo.slice(0,5).map(s=>`${s.sku} (${(s.margenPond*100).toFixed(1)}%)`).join(', ');
+    alertas.push({tipo:'🟠',titulo:`${d.skusEnRiesgo.length} SKU(s) con margen bajo (0–5%)`,
+      msg:`En zona de riesgo: ${listStr}. Cualquier aumento de costo los pone en rojo.`,
+      color:'var(--org)',bg:'rgba(255,138,77,.06)',accion:`intelQuick('¿Cómo puedo mejorar el margen de estos SKUs en zona de riesgo: ${d.skusEnRiesgo.slice(0,5).map(s=>s.sku).join(', ')}?')`});
+  }
+
+  // Alerta 3: Canal con mejor margen
+  if(d.margenMay>0 && d.margenML>0){
+    const diff=d.margenMay-d.margenML;
+    if(Math.abs(diff)>0.03){
+      const mejor=diff>0?'Mayorista':'ML';
+      alertas.push({tipo:'💡',titulo:`${mejor} tiene ${Math.abs(diff*100).toFixed(1)}% más margen`,
+        msg:`ML: ${(d.margenML*100).toFixed(1)}% vs Mayorista: ${(d.margenMay*100).toFixed(1)}%. ${d.skusDualCanal.length} SKUs están en ambos canales.`,
+        color:'var(--acc)',bg:'rgba(232,255,71,.04)',accion:`intelQuick('Dado que ${mejor} tiene mejor margen, ¿cómo debería redistribuir mi catálogo entre canales?')`});
+    }
+  }
+
+  // Alerta 4: Mix muy concentrado
+  if(d.mixML>90&&d.totMay.pedidos>0){
+    alertas.push({tipo:'⚠️',titulo:`Concentración alta en ML (${d.mixML.toFixed(0)}% del total)`,
+      msg:`Solo el ${d.mixMay.toFixed(0)}% de las ventas son mayorista. Diversificar reduce el riesgo de cambios en ML.`,
+      color:'var(--org)',bg:'rgba(255,138,77,.04)',accion:`intelQuick('¿Cómo puedo crecer el canal mayorista para diversificar el riesgo?')`});
+  } else if(d.totMay.pedidos===0){
+    alertas.push({tipo:'📋',titulo:'Sin datos mayorista en el período',
+      msg:`No hay pedidos mayorista registrados en los últimos ${d.dias} días. Si hay ventas no registradas, cargalas en el módulo Mayorista.`,
+      color:'var(--t3)',bg:'var(--s3)',accion:null});
+  }
+
+  // Alerta 5: Top SKU por ganancia ML
+  const topGan=d.skus.filter(s=>s.tieneML).sort((a,b)=>b.ml.ganancia-a.ml.ganancia)[0];
+  if(topGan){
+    alertas.push({tipo:'🏆',titulo:`${topGan.sku} es tu SKU más rentable en ML`,
+      msg:`Generó ${fS(Math.round(topGan.ml.ganancia))} de ganancia con margen ${(topGan.margenML*100).toFixed(1)}% en ${d.dias} días.`,
+      color:'var(--grn)',bg:'rgba(71,232,127,.04)',accion:`intelQuick('¿Cómo puedo escalar ${topGan.sku} que es mi SKU más rentable?')`});
+  }
+
+  if(!alertas.length){
+    alertas.push({tipo:'✅',titulo:'Sin alertas críticas',msg:'Todo el portafolio está dentro de rangos normales.',color:'var(--grn)',bg:'rgba(71,232,127,.04)',accion:null});
+  }
+
+  el.innerHTML=alertas.map(a=>`
+    <div class="card" style="border-left:3px solid ${a.color};background:${a.bg};padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px">${a.tipo} ${esc(a.titulo)}</div>
+          <div style="font-size:11px;color:var(--t2)">${a.msg}</div>
+        </div>
+        ${a.accion?`<button class="btn-g btn-sm" onclick="${a.accion};intelTab('chat')" style="font-size:10px;white-space:nowrap;margin-left:12px">Analizar →</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+// ── CONTEXTO PARA LA IA ───────────────────────────────────────────────────────
+function intelBuildContexto(){
+  const d=_intelData; if(!d) return;
+  const top5=d.skus.sort((a,b)=>b.totGanancia-a.totGanancia).slice(0,10);
+
+  _intelContexto=`ANÁLISIS COMPLETO NIVIKO — ${d.dias} DÍAS (${d.dateFrom} → ${d.dateTo})
+
+RESUMEN EJECUTIVO:
+  Ventas ML:         ${fS(Math.round(d.totML.venta))} (${d.totML.ordenes} órdenes, ${d.totML.unidades} uds)
+  Ventas Mayorista:  ${fS(Math.round(d.totMay.venta))} (${d.totMay.pedidos} pedidos)
+  Ventas totales:    ${fS(Math.round(d.totVenta))}
+  Mix ML/May:        ${d.mixML.toFixed(1)}% / ${d.mixMay.toFixed(1)}%
+  Ganancia total:    ${fS(Math.round(d.totGanancia))}
+  Margen ML:         ${(d.margenML*100).toFixed(1)}%
+  Margen Mayorista:  ${(d.margenMay*100).toFixed(1)}%
+  Margen ponderado:  ${(d.margenPond*100).toFixed(1)}%
+  pubPct real:       ${S.cfg.adsRealPct?S.cfg.adsRealPct.toFixed(2)+'%':'no disponible'}
+
+PORTAFOLIO:
+  SKUs activos: ${d.skus.length}
+  SKUs en rojo (<0%): ${d.skusEnRojo.length} → ${d.skusEnRojo.slice(0,5).map(s=>s.sku).join(', ')}
+  SKUs en riesgo (0-5%): ${d.skusEnRiesgo.length}
+  SKUs en ambos canales: ${d.skusDualCanal.length}
+
+TOP 10 SKUs POR GANANCIA:
+${top5.map(s=>`  ${s.sku}: total ${fS(Math.round(s.totVenta))} | gan ${fS(Math.round(s.totGanancia))} | mg ${s.margenPond!==null?(s.margenPond*100).toFixed(1)+'%':'?'} | ML:${s.ml.ordenes}órd May:${s.may.pedidos}ped`).join('\n')}
+
+SKUs EN ROJO:
+${d.skusEnRojo.slice(0,10).map(s=>`  ${s.sku}: mg ${(s.margenPond*100).toFixed(1)}% | ML ${s.margenML!==null?(s.margenML*100).toFixed(1)+'%':'—'} May ${s.margenMay!==null?(s.margenMay*100).toFixed(1)+'%':'—'}`).join('\n')||'  Ninguno'}
+
+DUAL CANAL (ML + Mayorista):
+${d.skusDualCanal.slice(0,8).map(s=>`  ${s.sku}: ML ${s.margenML!==null?(s.margenML*100).toFixed(1)+'%':'—'} vs May ${s.margenMay!==null?(s.margenMay*100).toFixed(1)+'%':'—'} → ponderado ${s.margenPond!==null?(s.margenPond*100).toFixed(1)+'%':'?'}`).join('\n')||'  Sin SKUs en ambos canales'}`;
+}
+
+// ── CHAT IA ───────────────────────────────────────────────────────────────────
+function intelMsg(role, text){
+  const el=document.getElementById('intel_messages'); if(!el) return;
+  const isAgent=role==='agent';
+  const div=document.createElement('div');
+  div.style.cssText=`display:flex;gap:8px;align-items:flex-start;${isAgent?'':'flex-direction:row-reverse'}`;
+  const bubble=document.createElement('div');
+  bubble.style.cssText=`max-width:85%;padding:10px 14px;border-radius:12px;font-size:12px;line-height:1.6;`
+    +(isAgent?'background:var(--s2);border:1px solid var(--b1)':'background:var(--acc);color:#000');
+  // Markdown básico
+  bubble.innerHTML=text
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>');
+  div.appendChild(bubble);
+  el.appendChild(div);
+  el.scrollTop=el.scrollHeight;
+}
+
+function intelThink(){
+  const id='ithink_'+Date.now();
+  intelMsg('agent',`<span id="${id}" style="color:var(--t3)">⏳ Analizando...</span>`);
+  return id;
+}
+function intelUnthink(id){
+  const el=document.getElementById(id);
+  if(el) el.closest('div[style*="display:flex"]')?.remove();
+}
+
+window.intelQuick=function(text){
+  const inp=document.getElementById('intel_input');
+  if(inp) inp.value=text;
+  intelSend();
+};
+
+window.intelSend=async function(){
+  const inp=document.getElementById('intel_input');
+  const text=(inp?.value||'').trim();
+  if(!text) return;
+  inp.value='';
+  if(!_intelContexto){
+    intelMsg('agent','⚠️ Cargá los datos primero haciendo click en **Actualizar**.');
+    return;
+  }
+  intelMsg('user',text);
+  intelTab('chat');
+  const thinkId=intelThink();
+  try{
+    const r=await fetch(`${PROXY}/ai/chat`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:1200,
+        system:`Sos el analista de negocio de NIVIKO, empresa argentina de importación y distribución con MercadoLíder status.
+Vendés en MercadoLibre (4 cuentas: GBA, BHO, IURA, GBS) y canal mayorista.
+Productos: sillas de oficina/gamer, TV mounts, auriculares, smartwatches, electrodomésticos, electrónica.
+Tenés datos reales de rentabilidad por SKU cruzando ambos canales.
+REGLAS: Respondé en español. Sé directo y accionable. Usá números concretos del contexto.
+Usá **negrita** para destacar. Máximo 300 palabras salvo que pidan más detalle.
+Nunca inventes datos — si no los tenés, decilo.`,
+        messages:[..._intelHistory.slice(-8),
+          {role:'user',content:_intelContexto+'\n\n---\nPregunta del usuario: '+text}]
+      })
+    });
+    const data=await r.json();
+    intelUnthink(thinkId);
+    const resp=data.content?.[0]?.text||data.error?.message||'Error al procesar.';
+    _intelHistory.push({role:'user',content:text},{role:'assistant',content:resp});
+    if(_intelHistory.length>16) _intelHistory=_intelHistory.slice(-16);
+    intelMsg('agent',resp);
+  }catch(e){
+    intelUnthink(thinkId);
+    intelMsg('agent','Error al conectar con la IA: '+e.message);
+  }
+};
+
+
 </script>
-</body>
-</html>
