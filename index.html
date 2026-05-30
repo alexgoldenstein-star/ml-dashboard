@@ -2072,12 +2072,10 @@ function getRange(){
 // de productos actualizada. Se llama al cargar del caché o de la API.
 // Resuelve el problema de órdenes cacheadas con costo=0.
 function applyProductCosts(orders){
-  // Leer porcentajes desde Config (con fallbacks a los valores default)
-  // pubPct: si hay gasto real de ML Ads guardado en S.cfg.adsRealPct, usarlo
-  // Si no, usar el % de Config (default 5%)
-  const pubPct = (S.cfg.adsRealPct ?? S.cfg.pub ?? 5) / 100;
+  // pubPct = tarifa de publicidad ML por venta (lo que ML cobra, default 5%)
+  // NUNCA usar adsRealPct acá — ese es el ACOS global, no el % por orden
+  const pubPct = (S.cfg.pub ?? 5) / 100;
   const iibbPct = (S.cfg.iibb ?? 4) / 100;
-  const fuentePub = S.cfg.adsRealPct ? 'ML Ads real' : 'estimado';
   return orders.map(o=>{
     const p = S.products.find(x=>x.sku===o.sku);
     if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
@@ -5045,21 +5043,16 @@ function adsDesdeOrdenes(dias, dateFrom, dateTo, adsData){
   const roasR = tieneAdsReales && adsSpent>0 ? (adsDirectSales||ventasConPub)/adsSpent : null;
   const mgR   = totV>0 ? totG/totV : 0;
 
-  // ── Guardar pubPct real en S.cfg para que applyProductCosts lo use ──
-  // Solo si hay datos reales y ventas con pub para calcular el %
+  // ── Guardar ACOS real en S.cfg para referencia y contexto IA ──
+  // SOLO para mostrar en el panel — NO toca applyProductCosts
   if(tieneAdsReales && ventasConPub>0){
     const adsRealPct = (adsSpent/ventasConPub)*100;
-    if(Math.abs(adsRealPct - (S.cfg.adsRealPct||0)) > 0.1){ // solo actualizar si cambia >0.1%
-      S.cfg.adsRealPct = Math.round(adsRealPct*100)/100; // redondear a 2 decimales
-      S.cfg.adsRealPctFecha = dateFrom+'→'+dateTo;
-      S.cfg.adsRealPctBase = Math.round(ventasConPub);
-      S.cfg.adsRealPctGasto = Math.round(adsSpent);
-      // Guardar en Firebase y re-aplicar costos con el nuevo %
-      fb.set('config', S.cfg).catch(()=>{});
-      // Re-calcular todas las órdenes con el % real
-      S.orders = applyProductCosts(S.orders);
-      console.log(`[ads] pubPct actualizado: ${adsRealPct.toFixed(2)}% (gasto ${Math.round(adsSpent)} / ventas con pub ${Math.round(ventasConPub)})`);
-    }
+    S.cfg.adsRealPct = Math.round(adsRealPct*100)/100;
+    S.cfg.adsRealPctFecha = dateFrom+'→'+dateTo;
+    S.cfg.adsRealPctBase = Math.round(ventasConPub);
+    S.cfg.adsRealPctGasto = Math.round(adsSpent);
+    fb.set('config', S.cfg).catch(()=>{});
+    console.log(`[ads] ACOS real guardado: ${adsRealPct.toFixed(2)}% (gasto ${Math.round(adsSpent)} / ventas con pub ${Math.round(ventasConPub)})`);
   }
 
   // ── Por cuenta desde órdenes ──
