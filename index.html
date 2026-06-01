@@ -793,13 +793,9 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
             <div class="ch" style="margin-bottom:10px">
               <span class="ct">Distribución de márgenes</span>
               <div style="display:flex;gap:6px;align-items:center">
-                <label style="font-size:10px;color:var(--t3)">Período:</label>
-                <select id="intel_dias" onchange="intelCargar()" class="inp" style="padding:3px 6px;font-size:11px;width:100px">
-                  <option value="7">7 días</option>
-                  <option value="30" selected>30 días</option>
-                  <option value="60">60 días</option>
-                  <option value="90">90 días</option>
-                </select>
+                <input type="date" id="intel_date_from" onchange="intelCargar()" class="inp" style="padding:3px 6px;font-size:11px">
+                <span style="font-size:10px;color:var(--t3)">→</span>
+                <input type="date" id="intel_date_to" onchange="intelCargar()" class="inp" style="padding:3px 6px;font-size:11px">
               </div>
             </div>
             <div id="intel_rent_chart" style="min-height:80px;color:var(--t3);font-size:12px">Cargando...</div>
@@ -1654,11 +1650,9 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
             <span id="ads_status" style="font-size:11px;color:var(--t3)">Cargando datos de MercadoAds...</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center">
-            <select class="inp" id="ads_periodo_sel" style="font-size:11px;padding:4px 8px;height:auto" onchange="adsRecargar()">
-              <option value="7">7 días</option>
-              <option value="30" selected>30 días</option>
-              <option value="60">60 días</option>
-            </select>
+            <input type="date" id="ads_date_from" class="inp" style="font-size:11px;padding:4px 6px" onchange="adsRecargar()">
+            <span style="font-size:11px;color:var(--t3)">→</span>
+            <input type="date" id="ads_date_to" class="inp" style="font-size:11px;padding:4px 6px" onchange="adsRecargar()">
             <button class="btn-g btn-sm" onclick="adsRecargar()" style="font-size:11px">↻ Recargar</button>
           </div>
         </div>
@@ -4018,59 +4012,147 @@ window.medValidar=function(){
 
 
 // ── VENTAS CANCELADAS / DEVUELTAS ─────────────────────────────
-function renderCanceladas(el){
-  const ords=S.orders.filter(function(o){
-    return o.estado==='cancelled'||o.estado==='returned'||o.estado==='refunded'||o.estado==='not_delivered';
-  });
-  const totCanc=ords.filter(function(o){return o.estado==='cancelled';}).length;
-  const totDev=ords.filter(function(o){return o.estado!=='cancelled';}).length;
-  const costosPerdidos=ords.reduce(function(s,o){return s+(o.pub||0)+(o.retencionesML||0);},0);
-  const ventaTotal=ords.reduce(function(s,o){return s+(o.venta||0);},0);
-  const porSku={};
-  ords.forEach(function(o){
-    if(!o.sku)return;
-    if(!porSku[o.sku])porSku[o.sku]={sku:o.sku,desc:o.desc||o.sku,cant:0,estados:{},costos:0};
-    porSku[o.sku].cant++;
-    porSku[o.sku].estados[o.estado]=(porSku[o.sku].estados[o.estado]||0)+1;
-    porSku[o.sku].costos+=(o.pub||0)+(o.retencionesML||0);
-  });
-  const kpis='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">'
-    +'<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Canceladas</div><div class="kv" style="color:var(--red)">'+totCanc+'</div></div>'
-    +'<div class="kpi" style="border-left:3px solid var(--org)"><div class="kl">Devueltas</div><div class="kv" style="color:var(--org)">'+totDev+'</div></div>'
-    +'<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Costos no recuperables</div><div class="kv" style="color:var(--red)">'+fS(Math.round(costosPerdidos))+'</div><div class="ks">pub + retenciones</div></div>'
-    +'<div class="kpi"><div class="kl">Venta involucrada</div><div class="kv">'+fS(Math.round(ventaTotal))+'</div></div>'
-    +'</div>';
-  const skuRows=Object.values(porSku).sort(function(a,b){return b.cant-a.cant;}).map(function(s){
-    const estados=Object.entries(s.estados).map(function(e){return e[1]+'x '+e[0];}).join(', ');
-    return '<tr><td><span class="sku">'+esc(s.sku)+'</span></td>'
-      +'<td style="font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis">'+esc(s.desc)+'</td>'
-      +'<td style="color:var(--red);font-weight:700">'+s.cant+'</td>'
-      +'<td style="font-size:10px;color:var(--t3)">'+estados+'</td>'
-      +'<td class="mono" style="color:var(--red)">-'+fS(Math.round(s.costos))+'</td></tr>';
-  }).join('');
-  const ordRows=ords.sort(function(a,b){return b.fecha>a.fecha?1:-1;}).map(function(o){
-    const estadoColor=o.estado==='cancelled'?'var(--red)':'var(--org)';
-    return '<tr>'
-      +'<td class="mono" style="font-size:10px">'+(o.id||'—')+'</td>'
-      +'<td><span style="font-size:10px;padding:2px 5px;background:var(--s3);border-radius:4px">'+esc(o.acct||'')+'</span></td>'
-      +'<td><span class="sku">'+esc(o.sku||'—')+'</span></td>'
-      +'<td style="font-size:10px">'+(o.fecha||'—')+'</td>'
-      +'<td class="mono">'+fS(o.venta||0)+'</td>'
-      +'<td style="color:'+estadoColor+';font-size:10px">'+esc(o.estado||'')+'</td>'
-      +'<td class="mono" style="color:var(--red)">-'+fS((o.pub||0)+(o.retencionesML||0))+'</td></tr>';
-  }).join('');
-  el.innerHTML=kpis
-    +'<div class="card" style="margin-bottom:12px"><div class="ch"><span class="ct">Por SKU</span></div>'
-    +(Object.values(porSku).length===0
-      ?'<p style="color:var(--t3)">Sin canceladas/devueltas en el historial.</p>'
-      :'<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Descripción</th><th>Cant.</th><th>Desglose</th><th>Costos perdidos</th></tr></thead><tbody>'+skuRows+'</tbody></table>')
-    +'</div>'
-    +'<div class="card"><div class="ch"><span class="ct">Detalle de órdenes</span></div>'
-    +(ords.length===0
-      ?'<p style="color:var(--t3)">Sin órdenes canceladas.</p>'
-      :'<div class="tbl-wrap"><table class="tbl" style="font-size:11px"><thead><tr><th>Orden</th><th>Cuenta</th><th>SKU</th><th>Fecha</th><th>Venta</th><th>Estado</th><th>Costo</th></tr></thead><tbody>'+ordRows+'</tbody></table></div>')
-    +'</div>';
+async function renderCanceladas(el){
+  // Mostrar datos locales mientras carga
+  const ordsLocal=S.orders.filter(o=>
+    o.estado==='cancelled'||o.estado==='returned'||o.estado==='refunded'||o.estado==='not_delivered'
+  );
+
+  // Header con filtro de fechas y botón recargar
+  el.innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+      <input type="date" id="canc_from" class="inp" style="font-size:11px;padding:4px 6px">
+      <span style="font-size:11px;color:var(--t3)">→</span>
+      <input type="date" id="canc_to" class="inp" style="font-size:11px;padding:4px 6px">
+      <button class="btn-g btn-sm" onclick="loadCanceladas()" style="font-size:11px">↻ Recargar desde ML</button>
+      <span id="canc_status" style="font-size:11px;color:var(--t3)">Mostrando datos locales · ${ordsLocal.length} órdenes</span>
+    </div>
+    <div id="canc_body"></div>`;
+
+  // Inicializar fechas
+  const today=new Date().toISOString().split('T')[0];
+  const d30=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+  document.getElementById('canc_from').value=d30;
+  document.getElementById('canc_to').value=today;
+
+  // Render local inmediato
+  cancRenderData(ordsLocal, document.getElementById('canc_body'), false);
+
+  // Luego traer datos frescos de ML
+  window.loadCanceladas = async function(){
+    const stEl=document.getElementById('canc_status');
+    if(stEl) stEl.textContent='⏳ Consultando ML...';
+    const from=document.getElementById('canc_from')?.value||d30;
+    const to=document.getElementById('canc_to')?.value||today;
+    const accounts=S.accounts.filter(a=>a.token);
+    let allOrds=[], allMotivoMap={};
+    for(const acct of accounts){
+      try{
+        const sellerId=UID[acct.id]||acct.userId||acct.id;
+        const r=await fetch(`${PROXY}/plataforma/canceladas?seller_id=${sellerId}&date_from=${from}&date_to=${to}&limit=50`,
+          {headers:{'x-ml-token':acct.token}});
+        const d=await r.json();
+        if(d.ok && d.orders?.length){
+          // Cruzar con S.orders para obtener SKU
+          const enriched=d.orders.map(o=>{
+            const local=S.orders.find(lo=>String(lo.id)===String(o.id));
+            return {...o, sku:local?.sku||o.items?.[0]?.sku||'—', desc:local?.desc||o.items?.[0]?.titulo||'—',
+              venta:local?.venta||o.total||0, acct:acct.id, estado:'cancelled'};
+          });
+          allOrds=[...allOrds,...enriched];
+          (d.por_motivo||[]).forEach(m=>{
+            if(!allMotivoMap[m.motivo]) allMotivoMap[m.motivo]={motivo:m.motivo,cant:0,total:0};
+            allMotivoMap[m.motivo].cant+=m.cant;
+            allMotivoMap[m.motivo].total+=m.total;
+          });
+        }
+      }catch(e){console.warn('canceladas',acct.id,e.message);}
+    }
+    const body=document.getElementById('canc_body');
+    if(stEl) stEl.textContent=`✓ ${allOrds.length} canceladas desde ML · ${from} → ${to}`;
+    if(allOrds.length){
+      cancRenderData(allOrds, body, true, Object.values(allMotivoMap));
+    } else if(stEl){
+      stEl.textContent+=' · Sin canceladas en el período';
+    }
+  };
+  loadCanceladas();
+
+  return; // resto es función interna
 }
+
+function cancRenderData(ords, el, fromML, motivoMap){
+  if(!el) return;
+  const totCanc=ords.filter(o=>o.estado==='cancelled').length;
+  const totDev=ords.filter(o=>o.estado!=='cancelled').length;
+  const ventaTotal=ords.reduce((s,o)=>s+(o.venta||0),0);
+
+  const porSku={};
+  ords.forEach(o=>{
+    if(!o.sku||o.sku==='—') return;
+    if(!porSku[o.sku]) porSku[o.sku]={sku:o.sku,desc:o.desc||o.sku,cant:0,estados:{},venta:0};
+    porSku[o.sku].cant++;
+    porSku[o.sku].venta+=o.venta||0;
+    const est=o.estado||'cancelled';
+    porSku[o.sku].estados[est]=(porSku[o.sku].estados[est]||0)+1;
+  });
+
+  let h=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+    <div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Canceladas</div><div class="kv" style="color:var(--red)">${totCanc}</div></div>
+    <div class="kpi" style="border-left:3px solid var(--org)"><div class="kl">Devueltas/otros</div><div class="kv" style="color:var(--org)">${totDev}</div></div>
+    <div class="kpi"><div class="kl">Venta involucrada</div><div class="kv">${fS(Math.round(ventaTotal))}</div></div>
+    <div class="kpi"><div class="kl">SKUs afectados</div><div class="kv">${Object.keys(porSku).length}</div></div>
+  </div>`;
+
+  // Motivos reales de ML
+  if(motivoMap?.length){
+    h+=`<div class="card" style="margin-bottom:10px;padding:12px">
+      <div class="ch" style="margin-bottom:8px"><span class="ct">Por motivo de cancelación</span></div>
+      <table class="tbl" style="font-size:11px"><thead><tr><th>Motivo</th><th>Cantidad</th><th>Venta involucrada</th></tr></thead><tbody>`;
+    motivoMap.forEach(m=>{
+      h+=`<tr><td style="font-size:11px">${esc(m.motivo)}</td><td style="color:var(--red);font-weight:600">${m.cant}</td><td class="mono">${fS(Math.round(m.total))}</td></tr>`;
+    });
+    h+='</tbody></table></div>';
+  }
+
+  // Por SKU
+  h+=`<div class="card" style="margin-bottom:10px"><div class="ch"><span class="ct">Por SKU</span></div>`;
+  if(!Object.values(porSku).length){
+    h+='<p style="color:var(--t3);padding:8px">Sin canceladas en el período.</p>';
+  } else {
+    h+='<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Descripción</th><th>Canceladas</th><th>Estados</th><th>Venta involucrada</th></tr></thead><tbody>';
+    Object.values(porSku).sort((a,b)=>b.cant-a.cant).forEach(s=>{
+      const estados=Object.entries(s.estados).map(([k,v])=>`${v}x ${k}`).join(', ');
+      h+=`<tr><td><span class="sku">${esc(s.sku)}</span></td><td style="font-size:10px">${esc(s.desc)}</td><td style="color:var(--red);font-weight:700">${s.cant}</td><td style="font-size:10px;color:var(--t3)">${estados}</td><td class="mono">${fS(Math.round(s.venta))}</td></tr>`;
+    });
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+
+  // Detalle órdenes
+  h+=`<div class="card"><div class="ch"><span class="ct">Detalle${fromML?' — datos frescos de ML':' — historial local'}</span></div>`;
+  if(!ords.length){
+    h+='<p style="color:var(--t3);padding:8px">Sin órdenes.</p>';
+  } else {
+    h+=`<table class="tbl" style="font-size:11px"><thead><tr><th>Orden</th><th>Cuenta</th><th>SKU</th><th>Fecha</th><th>Venta</th><th>Estado</th>${fromML?'<th>Motivo</th>':''}</tr></thead><tbody>`;
+    ords.slice(0,50).forEach(o=>{
+      const ec=o.estado==='cancelled'?'var(--red)':'var(--org)';
+      h+=`<tr><td class="mono" style="font-size:10px">${o.id||'—'}</td>
+        <td><span style="font-size:10px;padding:2px 5px;background:var(--s3);border-radius:4px">${esc(o.acct||'')}</span></td>
+        <td><span class="sku">${esc(o.sku||'—')}</span></td>
+        <td style="font-size:10px">${o.fecha||'—'}</td>
+        <td class="mono">${fS(o.venta||0)}</td>
+        <td style="color:${ec};font-size:10px">${esc(o.estado||'')}</td>
+        ${fromML?`<td style="font-size:10px;color:var(--t3)">${esc(o.motivo||'—')}</td>`:''}
+      </tr>`;
+    });
+    if(ords.length>50) h+=`<tr><td colspan="7" style="color:var(--t3);text-align:center;padding:6px">... y ${ords.length-50} más</td></tr>`;
+    h+='</tbody></table>';
+  }
+  h+='</div>';
+  el.innerHTML=h;
+}
+
 
 // ── CONVERSIÓN ───────────────────────────────────────────────
 let _convSort = {col:'conv_pct', dir:1}; // menor conversión primero
@@ -4947,9 +5029,17 @@ async function renderAdsAgente(){
 
 async function adsCargar(accounts){
   const stEl=document.getElementById('ads_status');
-  const dias=parseInt(document.getElementById('ads_periodo_sel')?.value)||30;
-  const dateFrom=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
-  const dateTo=new Date().toISOString().split('T')[0];
+  // Fechas desde selector calendario
+  const today=new Date().toISOString().split('T')[0];
+  const defFrom=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+  const fromEl=document.getElementById('ads_date_from');
+  const toEl=document.getElementById('ads_date_to');
+  // Inicializar valores si están vacíos
+  if(fromEl&&!fromEl.value) fromEl.value=defFrom;
+  if(toEl&&!toEl.value) toEl.value=today;
+  const dateFrom=fromEl?.value||defFrom;
+  const dateTo=toEl?.value||today;
+  const dias=Math.round((new Date(dateTo)-new Date(dateFrom))/864e5)+1;
   if(stEl) stEl.textContent='⏳ Consultando ML Product Ads API...';
 
   // Intentar obtener datos reales de TODAS las cuentas
@@ -4997,12 +5087,20 @@ function adsDesdeOrdenes(dias, dateFrom, dateTo, adsData){
 
   // ── Ventas con publicidad (denominador real del ACOS) ──
   // = ventas sin canceladas Y donde el producto tiene pub activo (pub !== false)
+  // Los productos de tecnología (notebooks, tablets, etc.) tienen pub:false → se excluyen
   const ordsConPub = ords.filter(o=>{
     const p=S.products.find(x=>x.sku===o.sku);
-    return p ? p.pub!==false : true; // si no tiene producto asumimos que tiene pub
+    return p ? p.pub!==false : true;
+  });
+  const ordsSinPub = ords.filter(o=>{
+    const p=S.products.find(x=>x.sku===o.sku);
+    return p && p.pub===false;
   });
   const ventasConPub = ordsConPub.reduce((s,o)=>s+(o.venta||0),0);
+  const ventasSinPub = ordsSinPub.reduce((s,o)=>s+(o.venta||0),0);
   const pctOrdsConPub = totV>0 ? (ventasConPub/totV*100).toFixed(1) : 0;
+  // SKUs únicos sin pub para mostrar en el panel
+  const skusSinPub=[...new Set(ordsSinPub.map(o=>o.sku))];
 
   // ── Consolidar datos reales de ML Ads ──
   const cuentasConAds = Object.entries(adsData).filter(([,d])=>d.metricas!==null);
@@ -5115,9 +5213,12 @@ function adsDesdeOrdenes(dias, dateFrom, dateTo, adsData){
         <div class="kpi" style="grid-column:1/-1;background:rgba(232,255,71,.04);border:1px solid rgba(232,255,71,.15)">
           <div style="font-size:11px;color:var(--acc)">
             ✅ <strong>ACOS real:</strong> ${fS(Math.round(adsSpent))} ÷ ${fS(Math.round(ventasConPub))} = <strong>${acosR!==null?(acosR*100).toFixed(2)+'%':'-'}</strong>
-            &nbsp;·&nbsp; Este % se aplica automáticamente a todos los cálculos de rentabilidad
             &nbsp;·&nbsp; <span style="color:var(--t3)">Período: ${dateFrom} → ${dateTo}</span>
           </div>
+          ${skusSinPub.length?`<div style="margin-top:6px;font-size:10px;color:var(--t3)">
+            🚫 Excluidos del ACOS (pub:false): <strong style="color:var(--t2)">${skusSinPub.slice(0,8).join(', ')}${skusSinPub.length>8?' y '+(skusSinPub.length-8)+' más':''}</strong>
+            · Ventas excluidas: ${fS(Math.round(ventasSinPub))} (${totV>0?((ventasSinPub/totV)*100).toFixed(1)+'%':'0%'} del total)
+          </div>`:'<div style="margin-top:4px;font-size:10px;color:var(--org)">⚠ Ningún producto marcado con pub:false. Si tenés tecnología sin ads, marcalos en Productos & Costos.</div>'}
         </div>`;
     } else {
       kpiExtra.style.display='block';
@@ -8770,9 +8871,16 @@ window.intelCargar = async function(){
   const stEl = document.getElementById('intel_status');
   if(stEl) stEl.textContent = '⏳ Calculando...';
 
-  const dias = parseInt(document.getElementById('intel_dias')?.value)||30;
-  const dateFrom = new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
-  const dateTo   = new Date().toISOString().split('T')[0];
+  // Fechas desde selector calendario
+  const today=new Date().toISOString().split('T')[0];
+  const defFrom=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+  const fromEl=document.getElementById('intel_date_from');
+  const toEl=document.getElementById('intel_date_to');
+  if(fromEl&&!fromEl.value) fromEl.value=defFrom;
+  if(toEl&&!toEl.value) toEl.value=today;
+  const dateFrom=fromEl?.value||defFrom;
+  const dateTo=toEl?.value||today;
+  const dias=Math.round((new Date(dateTo)-new Date(dateFrom))/864e5)+1;
 
   // ── Cargar mayorista desde Firebase si no está en memoria ──
   let mayPedidos = (typeof _mayPedidos !== 'undefined' && _mayPedidos?.length) ? _mayPedidos : [];
