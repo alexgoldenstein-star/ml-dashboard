@@ -4540,169 +4540,340 @@ window.analizarPublicacion = async function(id, titulo, precio, score, vendidos)
 // ── 3. RECLAMOS ──────────────────────────────────────────────
 async function renderReclamos(el, accounts){
   el.innerHTML=`
-    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-      <select class="sel" id="recAcctSel" onchange="loadReclamos()">
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+      <select class="inp" id="recAcctSel" onchange="loadReclamos()" style="font-size:11px;padding:4px 6px">
         <option value="all">Todas las cuentas</option>
         ${accounts.map(a=>`<option value="${a.id}">${a.id}</option>`).join('')}
       </select>
-      <select class="sel" id="recStatus" onchange="loadReclamos()">
+      <select class="inp" id="recStatus" onchange="loadReclamos()" style="font-size:11px;padding:4px 6px">
         <option value="opened">Abiertos</option>
         <option value="closed">Cerrados</option>
       </select>
-      <button class="btn" onclick="loadReclamos()">↻ Recargar</button>
+      <button class="btn-g btn-sm" onclick="loadReclamos()" style="font-size:11px">↻ Recargar</button>
+      <span id="rec_status_txt" style="font-size:11px;color:var(--t3)">Cargando...</span>
     </div>
-    <div id="recList"><div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando reclamos...</div></div>`;
-  setTimeout(loadReclamos, 100);
+
+    <!-- KPIs -->
+    <div id="rec_kpis" class="g4" style="margin-bottom:12px"></div>
+
+    <!-- Vista: lista + detalle lado a lado -->
+    <div style="display:grid;grid-template-columns:340px 1fr;gap:10px;align-items:flex-start" id="rec_layout">
+      <div>
+        <div id="rec_lista" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+      <div id="rec_detalle">
+        <div class="card" style="padding:20px;text-align:center;color:var(--t3)">
+          <div style="font-size:24px;margin-bottom:8px">📋</div>
+          <div style="font-size:12px">Seleccioná un reclamo para ver el detalle completo</div>
+        </div>
+      </div>
+    </div>`;
+
+  await loadReclamos();
 }
 
+window._reclamosCargados = [];
+
 window.loadReclamos = async function(){
-  const sel=document.getElementById('recAcctSel');
+  const stEl=document.getElementById('rec_status_txt');
+  const acctId=document.getElementById('recAcctSel')?.value||'all';
   const status=document.getElementById('recStatus')?.value||'opened';
-  const listEl=document.getElementById('recList');
-  listEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando reclamos...</div>';
-  
-  const acctId=sel?.value;
-  const toLoad=acctId==='all'?S.accounts.filter(a=>a.token):S.accounts.filter(a=>a.token&&a.id==acctId);
-  
+  if(stEl) stEl.textContent='⏳ Consultando ML...';
+
+  const toLoad=acctId==='all'
+    ? S.accounts.filter(a=>a.token)
+    : S.accounts.filter(a=>a.token&&a.id===acctId);
+
   let allClaims=[];
   for(const acct of toLoad){
     try{
       const sellerId=UID[acct.id]||acct.userId||acct.id;
-      const r=await fetch(`${PROXY}/plataforma/reclamos?seller_id=${sellerId}&status=${status}&limit=30`,{headers:{'x-ml-token':acct.token}});
+      const r=await fetch(`${PROXY}/plataforma/reclamos?seller_id=${sellerId}&status=${status}&limit=50`,
+        {headers:{'x-ml-token':acct.token}});
       const d=await r.json();
       if(d.error) throw new Error(d.error);
-      const claims=(d.claims||[]).map(c=>({...c,_acct:acct.id}));
+      const claims=(d.claims||[]).map(c=>({...c,_acct:acct.id,_token:acct.token}));
       allClaims=[...allClaims,...claims];
     }catch(e){
-      console.warn('reclamos error',acct.id,e.message);
+      console.warn('[reclamos]',acct.id,e.message);
     }
   }
 
-  // Cruzar reclamos con órdenes para obtener SKU
-  allClaims = allClaims.map(c=>{
-    const orderId = c.resource_id||c.order_id||'';
-    const order = S.orders.find(o=>String(o.id)===String(orderId)||o.id===orderId);
-    return {...c, _sku:order?.sku||'—', _desc:order?.desc||order?.sku||'—', _venta:order?.venta||0};
+  // Cruzar con S.orders para enriquecer
+  allClaims=allClaims.map(c=>{
+    const ordId=c.resource_id||c.order_id||c.id;
+    const order=S.orders.find(o=>String(o.id)===String(ordId));
+    const prod=order?S.products.find(p=>p.sku===order.sku):null;
+    return {...c,
+      _order:order||null,
+      _sku:order?.sku||'—',
+      _desc:order?.desc||'—',
+      _venta:order?.venta||0,
+      _ganancia:order?.ganancia||0,
+      _prod:prod||null,
+      _diasAbierto:c.date_created?Math.floor((Date.now()-new Date(c.date_created))/864e5):0
+    };
   });
 
-  // Análisis por SKU
-  const porSku={};
-  allClaims.forEach(c=>{
-    const sku=c._sku||'sin SKU';
-    if(!porSku[sku]) porSku[sku]={sku,desc:c._desc,cant:0,tipos:{},venta:0};
-    porSku[sku].cant++;
-    porSku[sku].venta+=c._venta;
-    const t=c.reason_id||c.type||'otro';
-    porSku[sku].tipos[t]=(porSku[sku].tipos[t]||0)+1;
-  });
-  const skuProblemas=Object.values(porSku).sort((a,b)=>b.cant-a.cant);
+  window._reclamosCargados=allClaims;
 
-  // Stats por tipo
-  const tipos={};
-  allClaims.forEach(c=>{
-    const t=c.reason_id||c.type||'otro';
-    tipos[t]=(tipos[t]||0)+1;
-  });
-
-  if(!allClaims.length && toLoad.length){
-    listEl.innerHTML=`<div class="card"><p style="color:var(--t2);text-align:center;padding:20px">
-      No hay reclamos ${status==='opened'?'abiertos':'cerrados'}. ✓
-    </p></div>`;
-    return;
-  }
-
-  if(!allClaims.length){
-    listEl.innerHTML=`<div class="card"><p style="color:var(--red);text-align:center;padding:20px">
-      Error al cargar reclamos. Verificá que el proxy esté actualizado en Vercel.
-    </p></div>`;
-    return;
-  }
-
-  let html=`
-    <div class="g4" style="margin-bottom:12px">
-      <div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Total reclamos</div><div class="kv" style="color:var(--red)">${allClaims.length}</div></div>
-      <div class="kpi" style="border-left:3px solid var(--org)"><div class="kl">SKUs afectados</div><div class="kv" style="color:var(--org)">${skuProblemas.length}</div></div>
-      ${Object.entries(tipos).slice(0,2).map(([t,n])=>`<div class="kpi"><div class="kl">${esc(t)}</div><div class="kv">${n}</div></div>`).join('')}
-    </div>`;
-
-  // Análisis por SKU
-  if(skuProblemas.length){
-    html+=`<div class="card" style="margin-bottom:12px">
-      <div class="ch"><span class="ct">Análisis por SKU — fallas recurrentes</span></div>
-      <table class="tbl" style="font-size:11px"><thead><tr>
-        <th>SKU</th><th>Descripción</th><th>Reclamos</th><th>Tipos de falla</th><th>Venta involucrada</th><th>Alerta</th>
-      </tr></thead><tbody>`;
-    skuProblemas.forEach(s=>{
-      const tipos_str=Object.entries(s.tipos).map(([t,n])=>n+'x '+t).join(', ');
-      const color=s.cant>=3?'var(--red)':s.cant>=2?'var(--org)':'var(--t2)';
-      const alerta=s.cant>=3?'🔴 Problema sistémico':s.cant>=2?'🟡 Revisar':s.cant>=1?'⚪ Monitorear':'';
-      html+=`<tr>
-        <td><span class="sku">${esc(s.sku)}</span></td>
-        <td style="font-size:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc(s.desc)}</td>
-        <td style="font-weight:700;color:${color}">${s.cant}</td>
-        <td style="font-size:10px;color:var(--t3)">${esc(tipos_str)}</td>
-        <td class="mono">${s.venta>0?fS(s.venta):'—'}</td>
-        <td style="font-size:11px">${alerta}</td>
-      </tr>`;
+  // KPIs
+  const kpiEl=document.getElementById('rec_kpis');
+  if(kpiEl){
+    const porRazon={};
+    allClaims.forEach(c=>{
+      const r=c.reason_id||c.type||'otro';
+      porRazon[r]=(porRazon[r]||0)+1;
     });
-    html+='</tbody></table></div>';
+    const topRazon=Object.entries(porRazon).sort((a,b)=>b[1]-a[1])[0];
+    const ventaInvolucrada=allClaims.reduce((s,c)=>s+(c._venta||0),0);
+    const urgentes=allClaims.filter(c=>c._diasAbierto>=5).length;
+    kpiEl.innerHTML=`
+      <div class="kpi" style="border-left:3px solid var(--red)">
+        <div class="kl">Total ${status==='opened'?'abiertos':'cerrados'}</div>
+        <div class="kv" style="color:var(--red)">${allClaims.length}</div>
+        <div class="ks">${toLoad.map(a=>a.id).join(', ')}</div>
+      </div>
+      <div class="kpi" style="border-left:3px solid var(--org)">
+        <div class="kl">Urgentes (+5 días)</div>
+        <div class="kv" style="color:${urgentes>0?'var(--org)':'var(--grn)'}">${urgentes}</div>
+        <div class="ks">sin respuesta</div>
+      </div>
+      <div class="kpi">
+        <div class="kl">Venta involucrada</div>
+        <div class="kv">${fS(Math.round(ventaInvolucrada))}</div>
+        <div class="ks">${allClaims.filter(c=>c._order).length} con orden identificada</div>
+      </div>
+      <div class="kpi">
+        <div class="kl">Razón principal</div>
+        <div class="kv" style="font-size:11px;line-height:1.3">${topRazon?esc(topRazon[0]):'—'}</div>
+        <div class="ks">${topRazon?topRazon[1]+' casos':''}</div>
+      </div>`;
   }
 
-  // Detalle de reclamos
-  html+=`<div class="card"><div class="ch"><span class="ct">Detalle de reclamos</span></div>`;
-  allClaims.forEach(c=>{
-    const diasAbierto=c.date_created?Math.floor((Date.now()-new Date(c.date_created).getTime())/(864e5)):0;
-    const urgente=diasAbierto>2&&status==='opened';
-    html+=`<div style="padding:12px;border:1px solid ${urgente?'rgba(255,77,77,.3)':'var(--b1)'};border-radius:var(--r);margin-bottom:8px;background:${urgente?'rgba(255,77,77,.03)':'transparent'}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span class="sku" style="background:var(--s3)">${esc(c._acct)}</span>
-          ${c._sku&&c._sku!=='—'?`<span class="sku">${esc(c._sku)}</span>`:''}
-          ${urgente?`<span style="font-size:9px;color:var(--red)">⚠ ${diasAbierto}d sin resolver</span>`:''}
-        </div>
-        <span style="font-size:10px;color:var(--t3)">#${c.id}</span>
-      </div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:4px">
-        <strong style="color:var(--t1)">${esc(c.reason_id||c.type||'Reclamo')}</strong>
-        ${c.resource_label?` — ${esc(c.resource_label)}`:''}
-      </div>
-      ${c._desc&&c._desc!=='—'?`<div style="font-size:11px;color:var(--t3);margin-bottom:4px">${esc(c._desc)}</div>`:''}
-      <div style="font-size:10px;color:var(--t3);margin-bottom:8px">
-        Abierto: ${c.date_created?new Date(c.date_created).toLocaleDateString('es-AR'):'—'} · Stage: ${esc(c.stage||'—')} · Venta: ${c._venta>0?fS(c._venta):'—'}
-      </div>
-      <button class="btn-g btn-sm" onclick="generarRespuestaReclamo('${c.id}','${esc(c.reason_id||'reclamo')}','${esc(c._desc||c.resource_label||'')}',${diasAbierto})">
-        🤖 Generar respuesta con IA
-      </button>
-      <div id="respuesta_${c.id}"></div>
-    </div>`;
-  });
-  html+='</div>';
-  listEl.innerHTML=html;
+  // Lista de reclamos
+  const listaEl=document.getElementById('rec_lista');
+  if(listaEl){
+    if(!allClaims.length){
+      listaEl.innerHTML=`<div class="card"><p style="color:var(--t3);text-align:center;padding:16px">
+        ✓ Sin reclamos ${status==='opened'?'abiertos':'cerrados'}
+      </p></div>`;
+    } else {
+      listaEl.innerHTML=allClaims.sort((a,b)=>b._diasAbierto-a._diasAbierto).map((c,i)=>{
+        const urgente=c._diasAbierto>=5;
+        const razon=c.reason_id||c.type||'otro';
+        const razonLabel=recRazonLabel(razon);
+        const acctColor=c._acct==='GBA'?'#4DA3FF':c._acct==='BHO'?'#A78BFA':c._acct==='IURA'?'#FF8A4D':'#47E87F';
+        return `<div class="card" style="padding:10px;cursor:pointer;border-left:3px solid ${urgente?'var(--red)':'var(--b1)'};transition:border .15s"
+          id="rec_card_${i}" onclick="recVerDetalle(${i})">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+                <span style="font-size:9px;padding:1px 6px;border-radius:10px;background:${acctColor}22;color:${acctColor};font-weight:600">${c._acct||'?'}</span>
+                <span style="font-size:9px;padding:1px 6px;border-radius:10px;background:var(--s3);color:var(--t2)">${razonLabel}</span>
+                ${urgente?`<span style="font-size:9px;color:var(--red);font-weight:600">⚠ ${c._diasAbierto}d</span>`:''}
+              </div>
+              <div style="font-size:11px;color:var(--t1);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                ${esc(c._desc!=='—'?c._desc:(c.subject||c.title||'Reclamo #'+c.id))}
+              </div>
+              <div style="font-size:10px;color:var(--t3);margin-top:2px">
+                Orden: ${c.resource_id||c.order_id||c.id||'—'}
+                ${c._venta>0?' · '+fS(Math.round(c._venta)):''}
+              </div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:9px;color:var(--t3)">${c.date_created?new Date(c.date_created).toLocaleDateString('es-AR'):''}</div>
+              <div style="font-size:10px;color:${urgente?'var(--red)':'var(--t3)'}">${c._diasAbierto}d</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  if(stEl) stEl.textContent=`✓ ${allClaims.length} reclamos · ${toLoad.map(a=>a.id).join('+')}`;
+
+  // Abrir el primero automáticamente
+  if(allClaims.length) recVerDetalle(0);
 };
-window.generarRespuestaReclamo = async function(id,tipo,producto,dias){
-  const el=document.getElementById(`respuesta_${id}`);
-  el.innerHTML='<div style="color:var(--t2);font-size:11px;margin-top:8px">🤖 Generando respuesta...</div>';
+
+window.recVerDetalle = async function(idx){
+  const c=window._reclamosCargados[idx];
+  if(!c) return;
+
+  // Highlight en lista
+  document.querySelectorAll('[id^="rec_card_"]').forEach(el=>el.style.background='');
+  const card=document.getElementById(`rec_card_${idx}`);
+  if(card) card.style.background='rgba(232,255,71,.05)';
+
+  const el=document.getElementById('rec_detalle');
+  if(!el) return;
+
+  const razon=c.reason_id||c.type||'otro';
+  const urgente=c._diasAbierto>=5;
+  const acctColor=c._acct==='GBA'?'#4DA3FF':c._acct==='BHO'?'#A78BFA':c._acct==='IURA'?'#FF8A4D':'#47E87F';
+
+  // Timeline mensajes
+  const timeline=c.timeline||[];
+  const timelineHTML=timeline.length
+    ? timeline.map(m=>{
+        const esVendedor=m.sender_role==='complainant'||m.from?.role==='seller'||m.type==='message';
+        const fecha=m.date_created?new Date(m.date_created).toLocaleString('es-AR'):'';
+        return `<div style="display:flex;gap:8px;margin-bottom:8px;${esVendedor?'flex-direction:row-reverse':''}">
+          <div style="max-width:85%;padding:8px 12px;border-radius:10px;font-size:11px;line-height:1.5;
+            ${esVendedor?'background:rgba(232,255,71,.08);border:1px solid rgba(232,255,71,.15)':'background:var(--s2);border:1px solid var(--b1)'}">
+            <div style="font-size:9px;color:var(--t3);margin-bottom:3px">${m.sender_role||m.from?.role||'sistema'} · ${fecha}</div>
+            ${esc(m.text||m.message||m.content||JSON.stringify(m).substring(0,100))}
+          </div>
+        </div>`;
+      }).join('')
+    : `<p style="color:var(--t3);font-size:11px;text-align:center;padding:12px">Sin mensajes en el timeline</p>`;
+
+  // Orden relacionada
+  const orderHTML=c._order ? `
+    <div class="card" style="padding:10px;margin-bottom:10px;background:rgba(71,163,255,.04);border:1px solid rgba(71,163,255,.15)">
+      <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:6px;font-weight:600">📦 Orden relacionada</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">
+        <div><span style="color:var(--t3)">SKU:</span> <strong>${esc(c._sku)}</strong></div>
+        <div><span style="color:var(--t3)">Cuenta:</span> <strong style="color:${acctColor}">${c._acct}</strong></div>
+        <div><span style="color:var(--t3)">Venta:</span> <strong>${fS(Math.round(c._venta))}</strong></div>
+        <div><span style="color:var(--t3)">Ganancia:</span> <strong style="color:${c._ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(c._ganancia))}</strong></div>
+        <div><span style="color:var(--t3)">Fecha:</span> ${c._order.fecha||'—'}</div>
+        <div><span style="color:var(--t3)">Modalidad:</span> ${c._order.modal||'—'}</div>
+        ${c._prod?`<div style="grid-column:1/-1"><span style="color:var(--t3)">Costo unitario:</span> ${fS(Math.round(c._prod.ars||0))} · IVA: ${c._prod.iva||21}%</div>`:''}
+      </div>
+    </div>` 
+    : `<div class="card" style="padding:8px;margin-bottom:10px;background:rgba(255,138,77,.04)">
+        <p style="font-size:11px;color:var(--org)">⚠ No se encontró la orden en el historial local. Orden ID: ${c.resource_id||c.order_id||'—'}</p>
+      </div>`;
+
+  el.innerHTML=`
+    <div class="card" style="padding:0;overflow:hidden">
+
+      <!-- Header del reclamo -->
+      <div style="padding:12px 14px;border-bottom:1px solid var(--b1);background:${urgente?'rgba(255,77,77,.04)':''}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
+          <div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${acctColor}22;color:${acctColor};font-weight:700">${c._acct||'?'}</span>
+              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s3);color:var(--t2)">${recRazonLabel(razon)}</span>
+              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${urgente?'rgba(255,77,77,.15)':'rgba(71,232,127,.1)'};color:${urgente?'var(--red)':'var(--grn)'};font-weight:600">
+                ${c._diasAbierto}d abierto
+              </span>
+              <span style="font-size:10px;color:var(--t3)">#${c.id||'—'}</span>
+            </div>
+            <div style="font-size:13px;font-weight:600">${esc(c._desc!=='—'?c._desc:(c.subject||'Reclamo'))}</div>
+          </div>
+          <button class="btn-g btn-sm" onclick="recAnalizarIA(${idx})" style="font-size:11px;white-space:nowrap;flex-shrink:0">🤖 Analizar con IA</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:10px;color:var(--t3)">
+          <div>Abierto: ${c.date_created?new Date(c.date_created).toLocaleDateString('es-AR'):'—'}</div>
+          <div>Orden: ${c.resource_id||c.order_id||'—'}</div>
+          <div>Estado: <span style="color:var(--t1);font-weight:500">${c.status||'—'}</span></div>
+        </div>
+      </div>
+
+      <!-- Orden relacionada -->
+      <div style="padding:10px 14px;border-bottom:1px solid var(--b1)">
+        ${orderHTML}
+      </div>
+
+      <!-- Resultado IA (se llena al hacer click) -->
+      <div id="rec_ia_result_${idx}" style="padding:0"></div>
+
+      <!-- Timeline -->
+      <div style="padding:10px 14px">
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:8px">
+          💬 Historial de mensajes (${timeline.length})
+        </div>
+        <div style="max-height:280px;overflow-y:auto;padding:4px 0">
+          ${timelineHTML}
+        </div>
+        <!-- Respuesta rápida -->
+        <div style="margin-top:10px;border-top:1px solid var(--b1);padding-top:10px">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:6px;text-transform:uppercase;font-weight:600">Respuesta sugerida por IA</div>
+          <div id="rec_respuesta_${idx}" style="font-size:11px;color:var(--t3);font-style:italic">
+            Hacé click en "Analizar con IA" para generar una respuesta
+          </div>
+        </div>
+      </div>
+
+    </div>`;
+};
+
+window.recAnalizarIA = async function(idx){
+  const c=window._reclamosCargados[idx];
+  if(!c) return;
+  const resEl=document.getElementById(`rec_ia_result_${idx}`);
+  const respEl=document.getElementById(`rec_respuesta_${idx}`);
+  if(resEl) resEl.innerHTML=`<div style="padding:10px 14px;border-bottom:1px solid var(--b1)"><div style="font-size:11px;color:var(--t3)">⏳ Analizando con IA...</div></div>`;
+  if(respEl) respEl.innerHTML='<div style="color:var(--t3)">⏳ Generando respuesta...</div>';
+
   try{
     const r=await fetch(`${PROXY}/ai/reclamo`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({tipo,producto,dias_abierto:dias,descripcion:`Reclamo tipo ${tipo} sobre ${producto}`})
+      body:JSON.stringify({
+        tipo:c.reason_id||c.type||'otro',
+        descripcion:c.description||c.subject||c._desc||'',
+        producto:c._desc||c._sku||'producto',
+        dias_abierto:c._diasAbierto,
+        orden_id:c.resource_id||c.order_id,
+        sku:c._sku,
+        venta:c._venta,
+        ganancia:c._ganancia,
+        acct:c._acct,
+        historial:(c.timeline||[]).map(m=>({
+          rol:m.sender_role||m.from?.role||'sistema',
+          texto:m.text||m.message||m.content||'',
+          fecha:m.date_created
+        }))
+      })
     });
     const d=await r.json();
-    if(!d.ok||!d.data){el.innerHTML=`<p style="color:var(--red);font-size:11px">Error: ${d.error}</p>`;return;}
+    if(!d.ok||!d.data) throw new Error(d.error||'Sin respuesta IA');
     const a=d.data;
-    el.innerHTML=`<div style="margin-top:8px;padding:10px;background:rgba(71,232,127,.05);border:1px solid rgba(71,232,127,.2);border-radius:var(--r)">
-      <div style="font-size:10px;color:var(--t3);margin-bottom:4px">RESPUESTA SUGERIDA</div>
-      <p style="font-size:12px;color:var(--t1);line-height:1.5;white-space:pre-wrap">${esc(a.respuesta_sugerida||'')}</p>
-      <div style="margin-top:6px;display:flex;gap:6px">
-        <button class="btn-g btn-sm" onclick="navigator.clipboard.writeText(${JSON.stringify(a.respuesta_sugerida||'')}).then(()=>toast('Copiado ✓','ok'))">Copiar</button>
-        ${(a.acciones_recomendadas||[]).map(ac=>`<span style="font-size:10px;color:var(--org)">→ ${esc(ac)}</span>`).join(' ')}
-      </div>
-    </div>`;
-  }catch(e){el.innerHTML=`<p style="color:var(--red);font-size:11px">Error: ${e.message}</p>`;}
+    const urgColor=a.urgencia==='alta'?'var(--red)':a.urgencia==='media'?'var(--org)':'var(--grn)';
+
+    if(resEl) resEl.innerHTML=`
+      <div style="padding:10px 14px;border-bottom:1px solid var(--b1);background:rgba(232,255,71,.03)">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+          <span style="font-size:10px;font-weight:600;color:var(--acc)">🤖 Análisis IA</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${urgColor}22;color:${urgColor}">Urgencia ${a.urgencia||'—'}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s3);color:var(--t2)">${esc(a.tipo_detectado||'—')}</span>
+          ${a.escalar?'<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(255,77,77,.15);color:var(--red);font-weight:600">⚠ Escalar</span>':''}
+          <span style="font-size:10px;color:var(--t3)">Resp. máx: ${esc(a.tiempo_respuesta_max||'—')}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${(a.acciones_recomendadas||[]).map(ac=>`
+            <div style="font-size:11px;display:flex;gap:6px;align-items:flex-start">
+              <span style="color:var(--acc);flex-shrink:0">→</span>
+              <span style="color:var(--t2)">${esc(ac)}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+
+    if(respEl) respEl.innerHTML=`
+      <div style="background:rgba(232,255,71,.04);border:1px solid rgba(232,255,71,.15);border-radius:var(--r);padding:10px;font-size:11px;color:var(--t1);line-height:1.6;white-space:pre-wrap">${esc(a.respuesta_sugerida||'')}</div>
+      <button class="btn-g btn-sm" onclick="navigator.clipboard.writeText(${JSON.stringify(a.respuesta_sugerida||'')})" style="margin-top:6px;font-size:10px">📋 Copiar respuesta</button>`;
+
+  }catch(e){
+    if(resEl) resEl.innerHTML=`<div style="padding:10px 14px"><p style="color:var(--red);font-size:11px">Error IA: ${e.message}</p></div>`;
+  }
 };
 
-// ── 4. DESCUENTOS ────────────────────────────────────────────
+function recRazonLabel(razon){
+  const map={
+    'not_delivered':'No llegó','product_not_as_described':'No era lo esperado',
+    'return':'Devolución','item_damaged':'Llegó dañado',
+    'cancel':'Cancelación','shipping_delay':'Demora envío',
+    'wrong_item':'Producto incorrecto','order_cancelled':'Orden cancelada',
+    'otro':'Otro'
+  };
+  return map[razon]||razon||'Otro';
+}
+
+
 async function renderDescuentos(el, accounts){
   el.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando descuentos de todas las cuentas...</div>';
   
