@@ -10030,7 +10030,8 @@ Nunca inventes datos — si no los tenés, decilo.`,
 };
 
 
-</script><script>
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 // HISTORIAL + CARGA HISTÓRICA
 // ══════════════════════════════════════════════════════════════════════════════
@@ -10129,7 +10130,7 @@ window.ejecutarCargaHistorica = async function(meses){
 // ── PANEL HISTORIAL ───────────────────────────────────────────────────────────
 let _histTab='mensual';
 
-async function renderHistorial(){
+window.renderHistorial=async function(){
   const stEl=document.getElementById('hist_info');
   if(stEl) stEl.textContent='⏳ Cargando...';
 
@@ -10193,7 +10194,7 @@ window.histTab=function(tab){
   });
 };
 
-function calcPorMes(orders){
+window.calcPorMes=function(orders){
   const m={};
   orders.filter(o=>o.estado!=='cancelled').forEach(o=>{
     if(!o.fecha) return;
@@ -10204,7 +10205,7 @@ function calcPorMes(orders){
   });
   return Object.values(m).sort((a,b)=>a.mes.localeCompare(b.mes));
 }
-function calcPorSemana(orders){
+window.calcPorSemana=function(orders){
   const m={};
   orders.filter(o=>o.estado!=='cancelled').forEach(o=>{
     if(!o.fecha) return;
@@ -10217,16 +10218,25 @@ function calcPorSemana(orders){
   });
   return Object.values(m).sort((a,b)=>a.sem.localeCompare(b.sem)).slice(-52);
 }
-function calcTopSkus(orders){
+window.calcTopSkus=function(orders){
   const m={};
-  orders.filter(o=>o.estado!=='cancelled'&&o.sku).forEach(o=>{
-    if(!m[o.sku]) m[o.sku]={sku:o.sku,ventas:0,ganancia:0,unidades:0};
-    m[o.sku].ventas+=o.venta||0; m[o.sku].ganancia+=o.ganancia||0; m[o.sku].unidades+=o.unidades||1;
+  const validOrds=orders.filter(o=>o.estado!=='cancelled'&&o.sku&&o.fecha);
+  // Calcular rango de fechas del historial
+  const fechas=validOrds.map(o=>o.fecha).sort();
+  const fechaMin=fechas[0]||'';
+  const fechaMax=fechas[fechas.length-1]||'';
+  const diasHist=fechaMin&&fechaMax?Math.max(1,Math.round((new Date(fechaMax)-new Date(fechaMin))/864e5)):365;
+
+  validOrds.forEach(o=>{
+    if(!m[o.sku]) m[o.sku]={sku:o.sku,ventas:0,ganancia:0,unidades:0,dias_historial:diasHist};
+    m[o.sku].ventas+=o.venta||0;
+    m[o.sku].ganancia+=o.ganancia||0;
+    m[o.sku].unidades+=o.unidades||1;
   });
-  return Object.values(m).sort((a,b)=>b.ganancia-a.ganancia).slice(0,20);
+  return Object.values(m).sort((a,b)=>b.unidades-a.unidades); // ordenar por unidades
 }
 
-function histRenderMensual(data){
+window.histRenderMensual=function(data){
   const el=document.getElementById('hist_mensual_tabla'); if(!el) return;
   if(!data.length){el.innerHTML='<p style="color:var(--t3)">Sin datos mensuales</p>';return;}
 
@@ -10249,8 +10259,8 @@ function histRenderMensual(data){
 
   // Tabla
   let h=`<table class="tbl" style="font-size:11px"><thead><tr>
-    <th>Mes</th><th>Ventas</th><th>Ganancia</th><th>Margen</th>
-    <th>% sobre costo</th><th>Órdenes</th><th>Unidades</th><th>Pub gastada</th>
+    <th>Mes</th><th>Unidades</th><th>Órdenes</th><th>Ventas</th>
+    <th>Ganancia</th><th>Margen s/venta</th><th>Margen s/costo</th><th>Pub gastada</th>
   </tr></thead><tbody>`;
   [...data].reverse().forEach(m=>{
     const mg=m.ventas>0?(m.ganancia/m.ventas*100):0;
@@ -10259,12 +10269,12 @@ function histRenderMensual(data){
     const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
     h+=`<tr>
       <td style="font-weight:600">${m.mes}</td>
+      <td class="mono" style="font-weight:700;color:var(--acc)">${m.unidades.toLocaleString('es-AR')}</td>
+      <td>${m.ordenes.toLocaleString('es-AR')}</td>
       <td class="mono">${fS(Math.round(m.ventas))}</td>
       <td class="mono" style="color:${m.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(m.ganancia))}</td>
       <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
       <td style="color:${mgCosto>=20?'var(--grn)':mgCosto>=10?'var(--org)':'var(--red)'}">${mgCosto.toFixed(1)}%</td>
-      <td>${m.ordenes.toLocaleString()}</td>
-      <td>${m.unidades.toLocaleString()}</td>
       <td class="mono" style="color:var(--t3)">${fS(Math.round(m.pub||0))}</td>
     </tr>`;
   });
@@ -10272,7 +10282,7 @@ function histRenderMensual(data){
   el.innerHTML=h;
 }
 
-function histRenderSemanal(data){
+window.histRenderSemanal=function(data){
   const el=document.getElementById('hist_semanal_tabla'); if(!el) return;
   if(!data.length){el.innerHTML='<p style="color:var(--t3)">Sin datos semanales</p>';return;}
   let h=`<table class="tbl" style="font-size:11px"><thead><tr>
@@ -10295,27 +10305,67 @@ function histRenderSemanal(data){
   el.innerHTML=h+'</tbody></table>';
 }
 
-function histRenderSkus(data){
+window.histRenderSkus=function(data){
   const el=document.getElementById('hist_skus_tabla'); if(!el) return;
   if(!data.length){el.innerHTML='<p style="color:var(--t3)">Sin datos</p>';return;}
-  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
-    <th>SKU</th><th>Ventas acum.</th><th>Ganancia acum.</th><th>Margen</th><th>% sobre costo</th><th>Unidades</th>
+
+  // Enriquecer con datos del producto (costo, uds_pedido)
+  const enriched=data.map(s=>{
+    const prod=(S.products||[]).find(p=>p.sku===s.sku);
+    const costoUnit=prod?.ars||0;
+    const udsPedido=prod?.uds_pedido||0;
+    const diasHist=s.dias_historial||365;
+    const udsXMes=diasHist>0?(s.unidades/(diasHist/30)):0;
+    const mesesStock=costoUnit>0&&udsPedido>0&&udsXMes>0?(udsPedido/udsXMes):0;
+    return {...s,prod,costoUnit,udsPedido,udsXMes,mesesStock};
+  }).sort((a,b)=>b.unidades-a.unidades); // ordenar por unidades
+
+  // Buscar filtro activo
+  const filtroSku=document.getElementById('hist_sku_search')?.value?.toLowerCase()||'';
+  const filtrado=filtroSku?enriched.filter(s=>s.sku.toLowerCase().includes(filtroSku)):enriched;
+
+  let h=`<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+    <input id="hist_sku_search" class="inp" placeholder="Buscar SKU..." oninput="histRenderSkus(window._histSkusData||[])" style="padding:4px 8px;font-size:11px;width:160px">
+    <span style="font-size:11px;color:var(--t3)">${filtrado.length} SKUs</span>
+  </div>`;
+
+  h+=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>SKU</th>
+    <th>Unidades vendidas</th>
+    <th>Uds/mes prom.</th>
+    <th>Stock actual</th>
+    <th>Meses de stock</th>
+    <th>Uds por pedido</th>
+    <th>Venta total</th>
+    <th>Margen s/venta</th>
+    <th>Margen s/costo</th>
   </tr></thead><tbody>`;
-  data.forEach(s=>{
+
+  filtrado.slice(0,60).forEach(s=>{
     const mg=s.ventas>0?(s.ganancia/s.ventas*100):0;
     const costo=s.ventas-s.ganancia;
     const mgCosto=costo>0?(s.ganancia/costo*100):0;
     const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    // Stock actual desde S.products
+    const stockActual=s.prod?.stock||'—';
+    const mesesStockC=s.mesesStock>0?(s.mesesStock>=3?'var(--grn)':s.mesesStock>=1?'var(--org)':'var(--red)'):'var(--t3)';
     h+=`<tr>
-      <td><span class="sku">${esc(s.sku)}</span></td>
+      <td><span class="sku">${esc(s.sku)}</span>
+        ${s.prod?.desc?`<div style="font-size:9px;color:var(--t3);margin-top:1px">${esc(s.prod.desc.substring(0,30))}</div>`:''}
+      </td>
+      <td class="mono" style="font-weight:700;color:var(--acc)">${s.unidades.toLocaleString('es-AR')}</td>
+      <td class="mono">${s.udsXMes>0?s.udsXMes.toFixed(1):' —'}</td>
+      <td class="mono">${typeof stockActual==='number'?stockActual.toLocaleString('es-AR'):stockActual}</td>
+      <td style="color:${mesesStockC};font-weight:600">${s.mesesStock>0?s.mesesStock.toFixed(1)+' m':'—'}</td>
+      <td class="mono" style="color:var(--t3)">${s.udsPedido>0?s.udsPedido.toLocaleString('es-AR'):'—'}</td>
       <td class="mono">${fS(Math.round(s.ventas))}</td>
-      <td class="mono" style="color:${s.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(s.ganancia))}</td>
-      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
+      <td style="color:${mgC};font-weight:600">${mg.toFixed(1)}%</td>
       <td style="color:${mgCosto>=20?'var(--grn)':mgCosto>=10?'var(--org)':'var(--red)'}">${mgCosto.toFixed(1)}%</td>
-      <td>${s.unidades.toLocaleString()}</td>
     </tr>`;
   });
+  if(filtrado.length>60) h+=`<tr><td colspan="9" style="color:var(--t3);text-align:center;padding:6px">... y ${filtrado.length-60} más. Usá el buscador.</td></tr>`;
   el.innerHTML=h+'</tbody></table>';
+  window._histSkusData=data; // guardar para re-filtrar
 }
 
 // Actualizar info sidebar — esperar a que fb esté disponible
@@ -10373,4 +10423,5 @@ window.intelRecargarML=async function(){
   // Recalcular panel
   await intelCargar();
 };
+
 </script>
