@@ -166,6 +166,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="calc"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>Calculadora</div>
     <div class="ni" data-p="container"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="14" height="8" rx="1.5"/><path d="M4 5V3a1 1 0 011-1h6a1 1 0 011 1v2M6 9h4"/></svg>Contenedor</div>
     <div class="ni" data-p="importacion"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 7l4 4 4-4"/><path d="M1 13h14"/></svg>Importación</div>
+    <div class="ni" data-p="historial"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M5 8h6M5 5h6M5 11h3"/></svg>Historial</div>
     <div class="ni" data-p="inteligencia"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>Inteligencia</div>
     <div class="ni" data-p="portafolio"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Portafolio</div>
     <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
@@ -182,6 +183,14 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       <span id="refreshTxt">Actualizar ventas</span>
     </button>
     <button class="btn-sb btn-sb-acc" onclick="openModal('mCuenta')">+ Conectar cuenta</button>
+    <div style="border-top:1px solid var(--b1);margin:6px 0 6px"></div>
+    <button class="btn-sb" onclick="mostrarCargaHistorica()" style="background:rgba(255,138,77,.08);border-color:rgba(255,138,77,.3);color:var(--org);font-size:11px">
+      📅 Carga histórica
+    </button>
+    <button class="btn-sb" onclick="runReconcile(true)" style="font-size:10px;color:var(--t3);border:1px dashed var(--b1);padding:5px" title="Reconciliar canceladas manualmente">
+      🔄 Reconciliar ahora
+    </button>
+    <div id="sb_historial_info" style="font-size:9px;color:var(--t3);text-align:center;padding:0 2px 2px;line-height:1.4"></div>
   </div>
 </aside>
 <div class="mob-overlay" id="mobOv" onclick="closeMob()"></div>
@@ -750,6 +759,67 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       </div>
     </div>
 
+    <!-- HISTORIAL -->
+    <div class="page" id="page-historial">
+      <div style="max-width:1100px;margin:0 auto">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800">Historial</div>
+            <div style="font-size:11px;color:var(--t3)">Performance semanal y mensual guardada · ML + Mayorista</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <span id="hist_info" style="font-size:11px;color:var(--t3)">—</span>
+            <button class="btn-g btn-sm" onclick="renderHistorial()" style="font-size:11px">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <!-- Rango disponible -->
+        <div class="card" id="hist_rango" style="margin-bottom:12px;padding:12px;display:none">
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:12px">
+            <div><span style="color:var(--t3)">Historial disponible:</span> <strong id="hist_desde">—</strong> → <strong id="hist_hasta">—</strong></div>
+            <div><span style="color:var(--t3)">Total ventas guardadas:</span> <strong id="hist_total">—</strong></div>
+            <div><span style="color:var(--t3)">Última sincronización:</span> <strong id="hist_sync">—</strong></div>
+          </div>
+        </div>
+
+        <!-- KPIs resumen -->
+        <div class="g4" id="hist_kpis" style="margin-bottom:14px"></div>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:6px;margin-bottom:12px">
+          <button class="btn-g" id="htab_mensual" onclick="histTab('mensual')" style="font-size:11px;font-weight:600">📅 Por mes</button>
+          <button class="btn-g" id="htab_semanal" onclick="histTab('semanal')" style="font-size:11px">📆 Por semana</button>
+          <button class="btn-g" id="htab_skus" onclick="histTab('skus')" style="font-size:11px">🏆 SKUs acumulado</button>
+        </div>
+
+        <!-- Panel mensual -->
+        <div id="hpanel_mensual">
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:10px"><span class="ct">Performance mensual</span></div>
+            <div id="hist_mensual_chart" style="margin-bottom:12px"></div>
+            <div id="hist_mensual_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- Panel semanal -->
+        <div id="hpanel_semanal" style="display:none">
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:10px"><span class="ct">Performance semanal (últimas 52 semanas)</span></div>
+            <div id="hist_semanal_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- Panel SKUs -->
+        <div id="hpanel_skus" style="display:none">
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:10px"><span class="ct">Top SKUs acumulado histórico</span></div>
+            <div id="hist_skus_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- INTELIGENCIA NIVIKO -->
     <div class="page" id="page-inteligencia">
       <div style="max-width:1200px;margin:0 auto">
@@ -762,7 +832,8 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           </div>
           <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
             <span id="intel_status" style="font-size:11px;color:var(--t3)">—</span>
-            <button class="btn-g btn-sm" onclick="intelCargar()" style="font-size:11px">⟳ Actualizar</button>
+            <button class="btn-g btn-sm" onclick="intelRecargarML()" style="font-size:11px;color:var(--acc)">↻ Recargar ML</button>
+            <button class="btn-g btn-sm" onclick="intelCargar()" style="font-size:11px">⟳ Recalcular</button>
           </div>
         </div>
 
@@ -1053,6 +1124,12 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
                 <option value="30/60/90">30/60/90</option>
               </select>
               <input class="inp" id="mf_cliente" placeholder="Buscar cliente..." oninput="mayRenderPedidos()" style="min-width:160px">
+              <div style="display:flex;gap:4px;align-items:center">
+                <input type="date" id="mf_fecha_desde" class="inp" onchange="mayRenderPedidos()" style="font-size:11px;padding:4px 6px" title="Desde">
+                <span style="font-size:11px;color:var(--t3)">→</span>
+                <input type="date" id="mf_fecha_hasta" class="inp" onchange="mayRenderPedidos()" style="font-size:11px;padding:4px 6px" title="Hasta">
+              </div>
+              <button class="btn-g btn-sm" onclick="mayLimpiarFiltros()" style="font-size:10px">✕ Limpiar</button>
               <button class="btn-g btn-sm" onclick="mayRenderPedidos()">↻ Actualizar</button>
             </div>
           </div>
@@ -1981,21 +2058,15 @@ async function init(){
     startAutoRefresh();
   });
 
-  // Cache
-  const meta=await fb.get("orders_cache");
-  if(meta?.cnt>0){
-    const chunks=meta.chunks||1;
-    const all=[];
-    for(let ci=0;ci<chunks;ci++){
-      const chunk=await fb.get("orders_cache_"+ci);
-      if(chunk?.orders)all.push(...chunk.orders);
-    }
-    if(all.length>0&&all[0]?.venta>0){
-      // Aplicar costos actualizados al cargar del caché
-      // (resuelve órdenes cacheadas con costo=0 antes de cargar el producto)
-      S.orders=applyProductCosts(all);
-      toast(S.orders.length+" ventas del caché");
-      renderAll();checkAlertas();
+  // Carga acumulativa desde Firebase
+  const loaded=await loadCacheAcumulativo();
+  if(loaded){
+    renderAll();checkAlertas();
+    // Mostrar info del historial disponible
+    const meta2=await fb.get('orders_meta').catch(()=>null);
+    if(meta2?.desde&&meta2?.hasta){
+      const sbTxt=document.getElementById("refreshTxt");
+      if(sbTxt) sbTxt.title=`Historial: ${meta2.desde} → ${meta2.hasta} (${meta2.total} ventas)`;
     }
   }
 
@@ -2024,7 +2095,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -2167,7 +2238,23 @@ window.doRefresh=async()=>{
   const sbTxt=document.getElementById("refreshTxt");
   if(sbTxt)sbTxt.textContent="Cargando...";
 
-  const{from,to}=getRange();
+  // Sincronizar hasta AYER (hoy puede tener órdenes incompletas)
+  const ayer=new Date(new Date().getTime()-24*60*60*1000-3*60*60*1000);
+  const fmt=d=>d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
+  // Desde: última sincronización o rango seleccionado
+  const meta=await fb.get('orders_meta').catch(()=>null);
+  let from,to;
+  if(meta?.hasta&&meta.version===2){
+    // Incremental: desde el día siguiente al último guardado
+    const ultimoGuardado=new Date(meta.hasta);
+    ultimoGuardado.setDate(ultimoGuardado.getDate()+1);
+    from=fmt(ultimoGuardado)+"T00:00:00.000-03:00";
+    to=fmt(ayer)+"T23:59:59.999-03:00";
+    toast("Cargando desde "+fmt(ultimoGuardado)+" hasta "+fmt(ayer));
+  } else {
+    const r=getRange();
+    from=r.from; to=r.to;
+  }
   const all=[];
 
   for(const acct of S.accounts){
@@ -2185,7 +2272,16 @@ window.doRefresh=async()=>{
     }catch(e){toast(acct.id+": "+e.message,"err");}
   }
 
-  S.orders=applyProductCosts(all);S.vPage=0;
+  // Merge incremental: no reemplazar todo, combinar con historial existente
+  if(all.length>0){
+    const byId={};
+    // Primero el historial viejo
+    S.orders.forEach(o=>{byId[o.id]=o;});
+    // Encima el nuevo (sobreescribe estados actualizados)
+    applyProductCosts(all).forEach(o=>{byId[o.id]=o;});
+    S.orders=Object.values(byId).sort((a,b)=>a.fecha<b.fecha?1:-1);
+  }
+  S.vPage=0;
   await saveCache();
   checkAlertas();renderAll();
   S.loading=false;
@@ -2197,21 +2293,156 @@ window.doRefresh=async()=>{
   setTimeout(runReconcile,5000);
 };
 
-async function saveCache(){
-  const slim=S.orders.map(o=>({
+// ── PERSISTENCIA ACUMULATIVA ─────────────────────────────────────────────────
+// Guarda órdenes por mes en Firebase. Nunca borra — solo agrega y actualiza.
+// Clave: orders_YYYY_MM (ej: orders_2024_03)
+
+function slimOrder(o){
+  return {
     id:o.id,acct:o.acct,fecha:o.fecha,sku:o.sku,desc:o.desc,
     unidades:o.unidades,ciudad:o.ciudad,estado:o.estado,modal:o.modal,cordon:o.cordon,
     venta:o.venta,comision:o.comision,cuotas:o.cuotas||0,costo:o.costo,
     iva:o.iva,ivaPct:o.ivaPct,pub:o.pub,iibb:o.iibb,
     costoEnvio:o.costoEnvio,bonifEnvio:o.bonifEnvio||0,
     ganancia:o.ganancia,pct:o.pct,
-    sinProducto:o.sinProducto,sinZona:o.sinZona
-  }));
-  const CHUNK=400,ts=new Date().toISOString();
-  for(let ci=0;ci*CHUNK<slim.length;ci++){
-    await fb.set("orders_cache_"+ci,{orders:slim.slice(ci*CHUNK,(ci+1)*CHUNK),ts,chunk:ci});
+    sinProducto:o.sinProducto,sinZona:o.sinZona,
+    mlItemId:o.mlItemId,userId:o.userId
+  };
+}
+
+async function saveCache(){
+  // Agrupar por mes
+  const porMes={};
+  S.orders.forEach(o=>{
+    if(!o.fecha) return;
+    const mes=o.fecha.substring(0,7).replace('-','_'); // YYYY_MM
+    if(!porMes[mes]) porMes[mes]=[];
+    porMes[mes].push(slimOrder(o));
+  });
+
+  const ts=new Date().toISOString();
+  const meses=Object.keys(porMes);
+
+  // Guardar cada mes (merge con lo que ya está en Firebase)
+  for(const mes of meses){
+    try{
+      const existing=await fb.get('orders_'+mes).catch(()=>null);
+      const existingOrds=existing?.orders||[];
+      // Merge: el nuevo reemplaza al viejo por ID
+      const byId={};
+      existingOrds.forEach(o=>{byId[o.id]=o;});
+      porMes[mes].forEach(o=>{byId[o.id]=o;}); // nuevo sobreescribe
+      const merged=Object.values(byId);
+      await fb.set('orders_'+mes,{orders:merged,ts,mes});
+    }catch(e){console.warn('[saveCache] Error guardando mes',mes,e.message);}
   }
-  await fb.set("orders_cache",{ts,cnt:slim.length,chunks:Math.ceil(slim.length/CHUNK)});
+
+  // Actualizar metadata
+  const desde=S.orders.length?S.orders.map(o=>o.fecha).sort()[0]:'';
+  const hasta=S.orders.length?S.orders.map(o=>o.fecha).sort().slice(-1)[0]:'';
+  await fb.set('orders_meta',{
+    total:S.orders.length, desde, hasta,
+    ultima_sync:ts, meses_guardados:meses,
+    version:2
+  });
+
+  // Guardar snapshot histórico de métricas
+  await saveHistorialSnapshot();
+}
+
+async function saveHistorialSnapshot(){
+  // Calcular métricas por semana y por mes para el panel histórico
+  const tc=S.cfg.tc||parseFloat(document.getElementById('tcInput')?.value)||1000;
+  const snapshot={ts:new Date().toISOString(), tc};
+
+  // Por mes
+  const porMes={};
+  S.orders.filter(o=>o.estado!=='cancelled').forEach(o=>{
+    if(!o.fecha) return;
+    const mes=o.fecha.substring(0,7);
+    if(!porMes[mes]) porMes[mes]={mes,ventas:0,ganancia:0,ordenes:0,unidades:0,pub:0};
+    porMes[mes].ventas+=o.venta||0;
+    porMes[mes].ganancia+=o.ganancia||0;
+    porMes[mes].ordenes++;
+    porMes[mes].unidades+=o.unidades||1;
+    porMes[mes].pub+=o.pub||0;
+  });
+  snapshot.por_mes=Object.values(porMes).sort((a,b)=>a.mes.localeCompare(b.mes));
+
+  // Por semana (últimas 12)
+  const porSemana={};
+  S.orders.filter(o=>o.estado!=='cancelled').forEach(o=>{
+    if(!o.fecha) return;
+    const d=new Date(o.fecha);
+    // Semana: lunes de esa semana
+    const day=d.getDay()||7;
+    const lunes=new Date(d); lunes.setDate(d.getDate()-day+1);
+    const sem=lunes.toISOString().split('T')[0];
+    if(!porSemana[sem]) porSemana[sem]={sem,ventas:0,ganancia:0,ordenes:0,unidades:0};
+    porSemana[sem].ventas+=o.venta||0;
+    porSemana[sem].ganancia+=o.ganancia||0;
+    porSemana[sem].ordenes++;
+    porSemana[sem].unidades+=o.unidades||1;
+  });
+  snapshot.por_semana=Object.values(porSemana).sort((a,b)=>a.sem.localeCompare(b.sem)).slice(-52);
+
+  // Por SKU top 20 (ganancia total acumulada)
+  const porSku={};
+  S.orders.filter(o=>o.estado!=='cancelled'&&o.sku).forEach(o=>{
+    if(!porSku[o.sku]) porSku[o.sku]={sku:o.sku,ventas:0,ganancia:0,unidades:0};
+    porSku[o.sku].ventas+=o.venta||0;
+    porSku[o.sku].ganancia+=o.ganancia||0;
+    porSku[o.sku].unidades+=o.unidades||1;
+  });
+  snapshot.top_skus=Object.values(porSku).sort((a,b)=>b.ganancia-a.ganancia).slice(0,20);
+
+  await fb.set('orders_snapshot',snapshot);
+}
+
+// ── CARGA ACUMULATIVA DESDE FIREBASE ─────────────────────────────────────────
+async function loadCacheAcumulativo(){
+  const meta=await fb.get('orders_meta').catch(()=>null);
+
+  if(!meta || meta.version!==2){
+    // Sistema viejo — intentar migrar
+    return loadCacheLegacy();
+  }
+
+  const meses=meta.meses_guardados||[];
+  if(!meses.length) return false;
+
+  toast(`Cargando ${meses.length} meses de historial...`);
+  const all=[];
+  for(const mes of meses){
+    try{
+      const data=await fb.get('orders_'+mes);
+      if(data?.orders?.length) all.push(...data.orders);
+    }catch(e){console.warn('[loadCache] Error leyendo mes',mes);}
+  }
+
+  if(!all.length) return false;
+
+  S.orders=applyProductCosts(all);
+  const desde=meta.desde||'';
+  const hasta=meta.hasta||'';
+  toast(`✓ ${all.length} ventas cargadas (${desde} → ${hasta})`,'ok');
+  return true;
+}
+
+async function loadCacheLegacy(){
+  // Compatibilidad con el sistema viejo de chunks
+  const meta=await fb.get('orders_cache').catch(()=>null);
+  if(!meta?.cnt) return false;
+  const chunks=meta.chunks||1;
+  const all=[];
+  for(let ci=0;ci<chunks;ci++){
+    const chunk=await fb.get('orders_cache_'+ci).catch(()=>null);
+    if(chunk?.orders) all.push(...chunk.orders);
+  }
+  if(!all.length) return false;
+  S.orders=applyProductCosts(all);
+  toast(`✓ ${all.length} ventas (caché legacy)`,'ok');
+  return true;
 }
 
 // ── RECONCILIACIÓN AUTOMÁTICA ─────────────────────────────────
@@ -2514,10 +2745,16 @@ window.exportCtrl = function(){
   const l = document.createElement('a');l.href=URL.createObjectURL(b);l.download='control_productos.csv';l.click();
 };
 
-async function runReconcile(){
+async function runReconcile(force=false){
   if(!S.accounts.length||!S.orders.length)return;
   const today=new Date().toISOString().split("T")[0];
-  if(_lastReconcile===today)return;
+  const now=new Date();
+  const isMonday=now.getDay()===1; // 0=dom, 1=lun
+  // Correr automáticamente solo los lunes o si es forzado
+  if(!force&&!isMonday)return;
+  if(!force&&_lastReconcile===today)return;
+  if(force) toast("🔄 Reconciliando canceladas...");
+  else toast("🔄 Reconciliación automática (lunes)...");
 
   const now=new Date();
   const dateKey=now.getFullYear().toString()+String(now.getMonth()+1).padStart(2,"0")+"01";
@@ -2563,7 +2800,43 @@ async function runReconcile(){
       }
     }catch(e){console.warn("reconcile",acct.id,e.message);}
   }
+  // Reconciliar canceladas: revisar órdenes "recientes" que pueden haberse cancelado
+  // (últimas 2 semanas con estado != cancelled)
+  try{
+    const hace14=new Date(Date.now()-14*864e5).toISOString().split('T')[0];
+    const ordenes2sem=S.orders.filter(o=>o.fecha>=hace14&&o.estado!=='cancelled');
+    if(ordenes2sem.length&&force){
+      let canceladas=0;
+      for(const acct of S.accounts){
+        if(!acct.token)continue;
+        const sellerId=UID[acct.id]||acct.userId;
+        // Traer órdenes canceladas de los últimos 14 días desde ML
+        const r=await fetch(`${PROXY}/plataforma/canceladas?seller_id=${sellerId}&date_from=${hace14}&date_to=${today}&limit=100`,
+          {headers:{'x-ml-token':acct.token}}).then(r=>r.ok?r.json():{}).catch(()=>({}));
+        const cancelIds=new Set((r.orders||[]).map(o=>String(o.id)));
+        // Actualizar estado en S.orders
+        S.orders=S.orders.map(o=>{
+          if(o.acct!==acct.id)return o;
+          if(cancelIds.has(String(o.id))&&o.estado!=='cancelled'){
+            canceladas++;
+            return {...o,estado:'cancelled',ganancia:0,pub:0};
+          }
+          return o;
+        });
+      }
+      if(canceladas>0){
+        toast(`✓ ${canceladas} órdenes actualizadas a canceladas`,'ok');
+        await saveCache();renderAll();
+      } else if(force){
+        toast('✓ Sin cambios en canceladas','ok');
+      }
+    }
+  }catch(e){console.warn('[reconcile canceladas]',e.message);}
+
   _lastReconcile=today;
+  // Guardar fecha de última reconciliación
+  S.cfg.lastReconcile=today;
+  fb.set('config',S.cfg).catch(()=>{});
 }
 
 // Auto-refresh tokens
@@ -3070,7 +3343,9 @@ window.saveProd=async()=>{
   if(!sku){toast("SKU requerido","err");return;}
   if(!desc){toast("Descripción requerida","err");return;}
   if(ars<=0){toast("Ingresá el costo ARS","err");return;}
-  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku)};
+  const udsPedido=parseInt(document.getElementById("mp_uds_pedido")?.value)||0;
+  const cbm=parseFloat(document.getElementById("mp_cbm")?.value)||0;
+  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{})};
   S.prodEdits[sku]=prod;
   const idx=S.products.findIndex(x=>x.sku===sku);
   if(idx>=0)S.products[idx]={...S.products[idx],...prod};else S.products.push(prod);
@@ -4701,7 +4976,6 @@ window.recVerDetalle = async function(idx){
   const c=window._reclamosCargados[idx];
   if(!c) return;
 
-  // Highlight en lista
   document.querySelectorAll('[id^="rec_card_"]').forEach(el=>el.style.background='');
   const card=document.getElementById(`rec_card_${idx}`);
   if(card) card.style.background='rgba(232,255,71,.05)';
@@ -4713,92 +4987,207 @@ window.recVerDetalle = async function(idx){
   const urgente=c._diasAbierto>=5;
   const acctColor=c._acct==='GBA'?'#4DA3FF':c._acct==='BHO'?'#A78BFA':c._acct==='IURA'?'#FF8A4D':'#47E87F';
 
-  // Timeline mensajes
+  // ── Datos del envío ──
+  const env=c.envio||{};
+  const envioHTML=Object.keys(env).length>1?`
+    <div style="background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:10px;margin-bottom:8px">
+      <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">🚚 Envío</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:11px">
+        <div><span style="color:var(--t3)">Estado:</span> <strong style="color:${env.status==='delivered'?'var(--grn)':env.status==='not_delivered'?'var(--red)':'var(--org)'}">${env.status||'—'}</strong>${env.sub_status?` <span style="color:var(--t3);font-size:10px">(${env.sub_status})</span>`:''}</div>
+        <div><span style="color:var(--t3)">Modalidad:</span> ${env.logistic_type||env.modo||'—'}</div>
+        ${env.tracking_number?`<div style="grid-column:1/-1"><span style="color:var(--t3)">Tracking:</span> <strong>${env.tracking_number}</strong> <span style="color:var(--t3)">(${env.tracking_method||'—'})</span></div>`:''}
+        ${env.fecha_entrega_estimada?`<div><span style="color:var(--t3)">Entrega estimada:</span> ${new Date(env.fecha_entrega_estimada).toLocaleDateString('es-AR')}</div>`:''}
+        ${env.fecha_entregado?`<div><span style="color:var(--grn)">✓ Entregado:</span> ${new Date(env.fecha_entregado).toLocaleDateString('es-AR')}</div>`:''}
+        ${env.direccion?.calle?`<div style="grid-column:1/-1"><span style="color:var(--t3)">Destino:</span> ${env.direccion.calle} ${env.direccion.numero||''}, ${env.direccion.ciudad||''}, ${env.direccion.provincia||''} (CP: ${env.direccion.cp||'—'})</div>`:''}
+      </div>
+    </div>`:
+    `<div style="font-size:11px;color:var(--t3)">Sin datos de envío</div>`;
+
+  // ── Items de la orden ──
+  const items=c.items||[];
+  // Cruzar con S.products para datos de costo/margen
+  const itemsEnriquecidos=items.map(it=>{
+    const sku=it.seller_sku||it.id;
+    const prod=S.products.find(p=>p.sku===sku||p.mlItemId===it.id);
+    const localOrd=S.orders.find(o=>String(o.id)===String(c.order_id||c.resource_id));
+    return {...it, _prod:prod, _localOrd:localOrd};
+  });
+
+  const itemsHTML=itemsEnriquecidos.length?itemsEnriquecidos.map(it=>{
+    const costoUnit=it._prod?.ars||0;
+    const margenUnit=costoUnit>0?((it.precio_unitario-costoUnit)/it.precio_unitario*100).toFixed(1)+'%':'—';
+    return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--b1);align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.titulo)}">${esc(it.titulo)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:10px;color:var(--t3);margin-bottom:4px">
+          ${it.seller_sku?`<span>SKU: <strong style="color:var(--t1)">${esc(it.seller_sku)}</strong></span>`:''}
+          ${it.id?`<span>ML ID: <a href="https://articulo.mercadolibre.com.ar/-_${it.id}" target="_blank" style="color:var(--acc)">${it.id}</a></span>`:''}
+          ${it.variante?`<span>Variante: <strong>${esc(it.variante)}</strong></span>`:''}
+          ${it.condicion?`<span>${it.condicion}</span>`:''}
+        </div>
+        <div style="display:flex;gap:12px;font-size:11px">
+          <span><span style="color:var(--t3)">Cant:</span> <strong>${it.qty}</strong></span>
+          <span><span style="color:var(--t3)">Precio unit:</span> <strong>${fS(Math.round(it.precio_unitario))}</strong></span>
+          <span><span style="color:var(--t3)">Total:</span> <strong>${fS(Math.round(it.precio_total))}</strong></span>
+          ${costoUnit>0?`<span><span style="color:var(--t3)">Costo:</span> <strong>${fS(Math.round(costoUnit))}</strong></span>`:''}
+          ${margenUnit!=='—'?`<span><span style="color:var(--t3)">Margen aprox:</span> <strong style="color:var(--org)">${margenUnit}</strong></span>`:''}
+        </div>
+      </div>
+      ${it.permalink?`<a href="${it.permalink}" target="_blank" class="btn-g btn-sm" style="font-size:10px;flex-shrink:0">↗ Ver</a>`:''}
+    </div>`;
+  }).join('')
+  :`<p style="color:var(--t3);font-size:11px">Sin datos de items</p>`;
+
+  // ── Datos del comprador ──
+  const buyer=c.buyer||{};
+  const buyerHTML=buyer.nick?`
+    <div style="display:flex;gap:10px;align-items:center;font-size:11px">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">👤</div>
+      <div>
+        <div style="font-weight:600">${esc(buyer.nombre||buyer.nick)}</div>
+        <div style="color:var(--t3)">@${esc(buyer.nick||'—')}${buyer.email?' · '+esc(buyer.email):''}</div>
+      </div>
+    </div>`
+    :`<p style="color:var(--t3);font-size:11px">Sin datos del comprador</p>`;
+
+  // ── Datos del reclamo local (S.orders) ──
+  const localOrd=S.orders.find(o=>String(o.id)===String(c.order_id||c.resource_id));
+  const localProd=localOrd?S.products.find(p=>p.sku===localOrd.sku):null;
+  const localHTML=localOrd?`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px">
+      <div><span style="color:var(--t3)">SKU:</span> <strong>${esc(localOrd.sku||'—')}</strong></div>
+      <div><span style="color:var(--t3)">Venta registrada:</span> <strong>${fS(Math.round(localOrd.venta||0))}</strong></div>
+      <div><span style="color:var(--t3)">Ganancia:</span> <strong style="color:${(localOrd.ganancia||0)>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(localOrd.ganancia||0))}</strong></div>
+      <div><span style="color:var(--t3)">Modalidad:</span> ${localOrd.modal||'—'}</div>
+      <div><span style="color:var(--t3)">Publicidad:</span> ${fS(Math.round(localOrd.pub||0))}</div>
+      <div><span style="color:var(--t3)">Comisión:</span> ${fS(Math.round(localOrd.comision||0))}</div>
+      ${localProd?`<div><span style="color:var(--t3)">Costo unit:</span> ${fS(Math.round(localProd.ars||0))}</div>
+      <div><span style="color:var(--t3)">IVA %:</span> ${localProd.iva||21}%</div>
+      <div><span style="color:var(--t3)">Pub activa:</span> ${localProd.pub===false?'❌ No':'✅ Sí'}</div>`:''}
+    </div>`
+    :`<p style="color:var(--org);font-size:11px">⚠ Orden no encontrada en historial local (ID: ${c.order_id||c.resource_id||'—'})</p>`;
+
+  // ── Timeline ──
   const timeline=c.timeline||[];
-  const timelineHTML=timeline.length
-    ? timeline.map(m=>{
-        const esVendedor=m.sender_role==='complainant'||m.from?.role==='seller'||m.type==='message';
-        const fecha=m.date_created?new Date(m.date_created).toLocaleString('es-AR'):'';
-        return `<div style="display:flex;gap:8px;margin-bottom:8px;${esVendedor?'flex-direction:row-reverse':''}">
-          <div style="max-width:85%;padding:8px 12px;border-radius:10px;font-size:11px;line-height:1.5;
-            ${esVendedor?'background:rgba(232,255,71,.08);border:1px solid rgba(232,255,71,.15)':'background:var(--s2);border:1px solid var(--b1)'}">
-            <div style="font-size:9px;color:var(--t3);margin-bottom:3px">${m.sender_role||m.from?.role||'sistema'} · ${fecha}</div>
-            ${esc(m.text||m.message||m.content||JSON.stringify(m).substring(0,100))}
+  const timelineHTML=timeline.length?timeline.map(m=>{
+    const esVendedor=m.sender_role==='respondent'||m.from?.role==='seller';
+    const fecha=m.date_created?new Date(m.date_created).toLocaleString('es-AR'):'';
+    const texto=m.text||m.message||m.translations?.[0]?.text||m.content||'';
+    return `<div style="display:flex;gap:8px;margin-bottom:8px;${esVendedor?'flex-direction:row-reverse':''}">
+      <div style="max-width:85%;padding:8px 12px;border-radius:10px;font-size:11px;line-height:1.5;
+        ${esVendedor
+          ?'background:rgba(232,255,71,.08);border:1px solid rgba(232,255,71,.2)'
+          :'background:var(--s2);border:1px solid var(--b1)'}">
+        <div style="font-size:9px;color:var(--t3);margin-bottom:3px">
+          ${esVendedor?'Vos (vendedor)':'Comprador'} · ${fecha}
+        </div>
+        ${esc(texto||'[sin texto]')}
+      </div>
+    </div>`;
+  }).join('')
+  :`<p style="color:var(--t3);font-size:11px;text-align:center;padding:16px">Sin mensajes registrados</p>`;
+
+  // ── Resolución (si está cerrado) ──
+  const resolucion=c.resolution;
+  const resolucionHTML=resolucion?`
+    <div style="padding:8px 12px;background:rgba(71,232,127,.06);border:1px solid rgba(71,232,127,.2);border-radius:var(--r);margin-bottom:8px;font-size:11px">
+      <span style="color:var(--grn);font-weight:600">✓ Resuelto:</span> ${esc(resolucion.reason||resolucion.type||JSON.stringify(resolucion).substring(0,100))}
+    </div>`:''
+
+  el.innerHTML=`<div class="card" style="padding:0;overflow:hidden">
+
+    <!-- ── HEADER ── -->
+    <div style="padding:12px 14px;border-bottom:1px solid var(--b1);${urgente?'background:rgba(255,77,77,.03)':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:5px">
+            <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${acctColor}22;color:${acctColor};font-weight:700">${c._acct||'?'}</span>
+            <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s3);color:var(--t2)">${recRazonLabel(razon)}</span>
+            <span style="font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;
+              background:${urgente?'rgba(255,77,77,.15)':'rgba(71,232,127,.1)'};
+              color:${urgente?'var(--red)':'var(--grn)'}">
+              ${c._diasAbierto}d abierto
+            </span>
+            ${c.stage?`<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(71,163,255,.1);color:#4DA3FF">${c.stage}</span>`:''}
           </div>
-        </div>`;
-      }).join('')
-    : `<p style="color:var(--t3);font-size:11px;text-align:center;padding:12px">Sin mensajes en el timeline</p>`;
-
-  // Orden relacionada
-  const orderHTML=c._order ? `
-    <div class="card" style="padding:10px;margin-bottom:10px;background:rgba(71,163,255,.04);border:1px solid rgba(71,163,255,.15)">
-      <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:6px;font-weight:600">📦 Orden relacionada</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">
-        <div><span style="color:var(--t3)">SKU:</span> <strong>${esc(c._sku)}</strong></div>
-        <div><span style="color:var(--t3)">Cuenta:</span> <strong style="color:${acctColor}">${c._acct}</strong></div>
-        <div><span style="color:var(--t3)">Venta:</span> <strong>${fS(Math.round(c._venta))}</strong></div>
-        <div><span style="color:var(--t3)">Ganancia:</span> <strong style="color:${c._ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(c._ganancia))}</strong></div>
-        <div><span style="color:var(--t3)">Fecha:</span> ${c._order.fecha||'—'}</div>
-        <div><span style="color:var(--t3)">Modalidad:</span> ${c._order.modal||'—'}</div>
-        ${c._prod?`<div style="grid-column:1/-1"><span style="color:var(--t3)">Costo unitario:</span> ${fS(Math.round(c._prod.ars||0))} · IVA: ${c._prod.iva||21}%</div>`:''}
-      </div>
-    </div>` 
-    : `<div class="card" style="padding:8px;margin-bottom:10px;background:rgba(255,138,77,.04)">
-        <p style="font-size:11px;color:var(--org)">⚠ No se encontró la orden en el historial local. Orden ID: ${c.resource_id||c.order_id||'—'}</p>
-      </div>`;
-
-  el.innerHTML=`
-    <div class="card" style="padding:0;overflow:hidden">
-
-      <!-- Header del reclamo -->
-      <div style="padding:12px 14px;border-bottom:1px solid var(--b1);background:${urgente?'rgba(255,77,77,.04)':''}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px">
-          <div>
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
-              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${acctColor}22;color:${acctColor};font-weight:700">${c._acct||'?'}</span>
-              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s3);color:var(--t2)">${recRazonLabel(razon)}</span>
-              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${urgente?'rgba(255,77,77,.15)':'rgba(71,232,127,.1)'};color:${urgente?'var(--red)':'var(--grn)'};font-weight:600">
-                ${c._diasAbierto}d abierto
-              </span>
-              <span style="font-size:10px;color:var(--t3)">#${c.id||'—'}</span>
-            </div>
-            <div style="font-size:13px;font-weight:600">${esc(c._desc!=='—'?c._desc:(c.subject||'Reclamo'))}</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:3px">${esc(c._desc!=='—'?c._desc:(items[0]?.titulo||c.subject||'Reclamo'))}</div>
+          <div style="display:flex;gap:12px;font-size:10px;color:var(--t3);flex-wrap:wrap">
+            <span>🔖 Reclamo <strong style="color:var(--t1)">#${c.claim_id||c.id||'—'}</strong></span>
+            <span>📦 Venta <strong style="color:var(--t1)">#${c.order_id||c.resource_id||'—'}</strong></span>
+            <span>📅 ${c.date_created?new Date(c.date_created).toLocaleDateString('es-AR'):'—'}</span>
+            ${c.date_closed?`<span>✓ Cerrado: ${new Date(c.date_closed).toLocaleDateString('es-AR')}</span>`:''}
           </div>
-          <button class="btn-g btn-sm" onclick="recAnalizarIA(${idx})" style="font-size:11px;white-space:nowrap;flex-shrink:0">🤖 Analizar con IA</button>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:10px;color:var(--t3)">
-          <div>Abierto: ${c.date_created?new Date(c.date_created).toLocaleDateString('es-AR'):'—'}</div>
-          <div>Orden: ${c.resource_id||c.order_id||'—'}</div>
-          <div>Estado: <span style="color:var(--t1);font-weight:500">${c.status||'—'}</span></div>
-        </div>
+        <button class="btn-g btn-sm" onclick="recAnalizarIA(${idx})"
+          style="font-size:11px;white-space:nowrap;flex-shrink:0;padding:6px 12px">
+          🤖 Analizar con IA
+        </button>
+      </div>
+      ${resolucionHTML}
+    </div>
+
+    <!-- ── RESULTADO IA ── -->
+    <div id="rec_ia_result_${idx}"></div>
+
+    <!-- ── TABS INTERNOS ── -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--b1);overflow-x:auto">
+      ${['orden','envio','comprador','mensajes'].map((t,i)=>`
+        <button onclick="recSubTab(${idx},'${t}')" id="rst_${idx}_${t}"
+          style="padding:7px 14px;font-size:11px;border:none;background:${i===0?'var(--s2)':'transparent'};
+          color:${i===0?'var(--t1)':'var(--t3)'};border-bottom:${i===0?'2px solid var(--acc)':'2px solid transparent'};
+          cursor:pointer;white-space:nowrap;transition:all .15s">
+          ${{orden:'📦 Orden',envio:'🚚 Envío',comprador:'👤 Comprador',mensajes:`💬 Mensajes (${timeline.length})`}[t]}
+        </button>`).join('')}
+    </div>
+
+    <!-- ── PANELES ── -->
+    <div style="padding:12px 14px;overflow-y:auto;max-height:420px">
+
+      <div id="rsp_${idx}_orden">
+        <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Items de la orden</div>
+        ${itemsHTML}
+        <div style="margin-top:12px;font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Datos de rentabilidad (historial local)</div>
+        ${localHTML}
       </div>
 
-      <!-- Orden relacionada -->
-      <div style="padding:10px 14px;border-bottom:1px solid var(--b1)">
-        ${orderHTML}
+      <div id="rsp_${idx}_envio" style="display:none">
+        ${envioHTML}
       </div>
 
-      <!-- Resultado IA (se llena al hacer click) -->
-      <div id="rec_ia_result_${idx}" style="padding:0"></div>
+      <div id="rsp_${idx}_comprador" style="display:none">
+        ${buyerHTML}
+      </div>
 
-      <!-- Timeline -->
-      <div style="padding:10px 14px">
-        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:8px">
-          💬 Historial de mensajes (${timeline.length})
-        </div>
-        <div style="max-height:280px;overflow-y:auto;padding:4px 0">
+      <div id="rsp_${idx}_mensajes" style="display:none">
+        <div style="display:flex;flex-direction:column;gap:2px">
           ${timelineHTML}
         </div>
-        <!-- Respuesta rápida -->
-        <div style="margin-top:10px;border-top:1px solid var(--b1);padding-top:10px">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:6px;text-transform:uppercase;font-weight:600">Respuesta sugerida por IA</div>
-          <div id="rec_respuesta_${idx}" style="font-size:11px;color:var(--t3);font-style:italic">
-            Hacé click en "Analizar con IA" para generar una respuesta
-          </div>
-        </div>
       </div>
 
-    </div>`;
+    </div>
+
+    <!-- ── RESPUESTA SUGERIDA ── -->
+    <div style="border-top:1px solid var(--b1);padding:10px 14px">
+      <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Respuesta sugerida por IA</div>
+      <div id="rec_respuesta_${idx}" style="font-size:11px;color:var(--t3);font-style:italic">
+        Hacé click en "Analizar con IA" para generar una respuesta lista para copiar
+      </div>
+    </div>
+
+  </div>`;
+};
+
+window.recSubTab=function(idx,tab){
+  ['orden','envio','comprador','mensajes'].forEach(t=>{
+    const panel=document.getElementById(`rsp_${idx}_${t}`);
+    const btn=document.getElementById(`rst_${idx}_${t}`);
+    if(panel) panel.style.display=t===tab?'':'none';
+    if(btn){
+      btn.style.background=t===tab?'var(--s2)':'transparent';
+      btn.style.color=t===tab?'var(--t1)':'var(--t3)';
+      btn.style.borderBottom=t===tab?'2px solid var(--acc)':'2px solid transparent';
+    }
+  });
 };
 
 window.recAnalizarIA = async function(idx){
@@ -6460,6 +6849,13 @@ window.mayTab = function(tab){
 };
 
 // ─── PEDIDOS ──────────────────────────────────────────────────────────────────
+window.mayLimpiarFiltros=function(){
+  ['mf_vendedor','mf_estado','mf_pago'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['mf_cliente'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['mf_fecha_desde','mf_fecha_hasta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  mayRenderPedidos();
+};
+
 window.maySort = function(col){
   if(_maySort.col===col) _maySort.dir*=-1; else{_maySort.col=col;_maySort.dir=-1;}
   mayRenderPedidos();
@@ -6471,6 +6867,9 @@ window.mayRenderPedidos = function(){
   const fpago = document.getElementById('mf_pago')?.value||'';
   const fcliente = (document.getElementById('mf_cliente')?.value||'').toLowerCase();
 
+  const ffDesde=document.getElementById('mf_fecha_desde')?.value||'';
+  const ffHasta=document.getElementById('mf_fecha_hasta')?.value||'';
+
   let pedidos = _mayPedidos.filter(p=>{
     if(fvend && p.vendedor!==fvend) return false;
     if(fpago && p.pago!==fpago) return false;
@@ -6480,6 +6879,8 @@ window.mayRenderPedidos = function(){
       if(festado==='enviado' && p.enviado!=='SI' && p.enviado!==true) return false;
       if(festado==='pendiente' && p.facturado==='SI') return false;
     }
+    if(ffDesde && p.fecha && p.fecha<ffDesde) return false;
+    if(ffHasta && p.fecha && p.fecha>ffHasta) return false;
     return true;
   });
 
@@ -9261,6 +9662,46 @@ function intelRenderRent(){
     </div>
   </div>`;
   el.innerHTML=h;
+
+  // Canal mix — panel separado
+  const mixEl=document.getElementById('intel_mix_chart');
+  if(mixEl){
+    let mh=`<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:10px;color:var(--t3);margin-bottom:4px">Mix de ventas ML vs Mayorista</div>
+        <div style="height:14px;border-radius:6px;overflow:hidden;background:var(--s3);display:flex">
+          <div style="width:${d.mixML.toFixed(1)}%;background:var(--acc);transition:width 0.5s;display:flex;align-items:center;justify-content:center">
+            ${d.mixML>10?`<span style="font-size:9px;color:#000;font-weight:700">${d.mixML.toFixed(0)}%</span>`:''}
+          </div>
+          <div style="width:${d.mixMay.toFixed(1)}%;background:var(--blu);transition:width 0.5s;display:flex;align-items:center;justify-content:center">
+            ${d.mixMay>10?`<span style="font-size:9px;color:#fff;font-weight:700">${d.mixMay.toFixed(0)}%</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:5px;font-size:11px">
+          <span><span style="color:var(--acc)">■</span> ML: <strong>${fS(Math.round(d.totML?.venta||0))}</strong> <span style="color:var(--t3)">(${d.mixML.toFixed(1)}%)</span></span>
+          <span><span style="color:var(--blu)">■</span> May: <strong>${fS(Math.round(d.totMay?.venta||0))}</strong> <span style="color:var(--t3)">(${d.mixMay.toFixed(1)}%)</span></span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:11px">
+        <div style="text-align:center">
+          <div style="color:var(--t3);font-size:10px;margin-bottom:2px">Margen ML</div>
+          <div style="font-weight:700;color:${d.margenML>=0.15?'var(--grn)':d.margenML>=0.08?'var(--org)':'var(--red)'}">${(d.margenML*100).toFixed(1)}%</div>
+          <div style="font-size:10px;color:var(--t3)">s/costo: ${d.margenML>0?((d.margenML/(1-d.margenML))*100).toFixed(1)+'%':'—'}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="color:var(--t3);font-size:10px;margin-bottom:2px">Margen May</div>
+          <div style="font-weight:700;color:${d.margenMay>=0.15?'var(--grn)':d.margenMay>=0.08?'var(--org)':'var(--red)'}">${(d.margenMay*100).toFixed(1)}%</div>
+          <div style="font-size:10px;color:var(--t3)">s/costo: ${d.margenMay>0?((d.margenMay/(1-d.margenMay))*100).toFixed(1)+'%':'—'}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="color:var(--t3);font-size:10px;margin-bottom:2px">Ponderado</div>
+          <div style="font-weight:700;color:var(--acc)">${(d.margenPond*100).toFixed(1)}%</div>
+          <div style="font-size:10px;color:var(--t3)">s/costo: ${d.margenPond>0?((d.margenPond/(1-d.margenPond))*100).toFixed(1)+'%':'—'}</div>
+        </div>
+      </div>
+    </div>`;
+    mixEl.innerHTML=mh;
+  }
 }
 
 // ── PANEL SKUs ────────────────────────────────────────────────────────────────
@@ -9304,9 +9745,9 @@ function intelRenderSkus(){
   let h=`<table class="tbl" style="font-size:11px">
     <thead><tr>
       <th>SKU</th><th>Canal</th>
-      <th>Venta ML</th><th>Margen ML</th>
-      <th>Venta May</th><th>Margen May</th>
-      <th>Total</th><th>Margen pond.</th><th>Ganancia</th><th>Uds</th>
+      <th>Venta ML</th><th>Mg ML</th><th>Mg s/costo ML</th>
+      <th>Venta May</th><th>Mg May</th><th>Mg s/costo May</th>
+      <th>Total</th><th>Mg pond.</th><th>Mg s/costo</th><th>Ganancia</th><th>Uds</th>
     </tr></thead><tbody>`;
 
   skus.slice(0,60).forEach(s=>{
@@ -9316,15 +9757,21 @@ function intelRenderSkus(){
     const canal=s.tieneML&&s.tieneMay?'🔀':'ML only'===(!s.tieneMay&&s.tieneML)?'📦':s.tieneMay?'🏪':'?';
     const canalLabel=s.tieneML&&s.tieneMay?'<span style="color:var(--acc)">ML+May</span>':s.tieneML?'<span style="color:var(--t2)">ML</span>':'<span style="color:var(--blu)">May</span>';
     const rowBg=s.enRojo?'rgba(255,77,77,.04)':s.enRiesgo?'rgba(255,138,77,.03)':'';
+    const mgCostoML=s.margenML!==null&&s.margenML<1?((s.margenML/(1-s.margenML))*100).toFixed(1)+'%':'—';
+    const mgCostoMay=s.margenMay!==null&&s.margenMay<1?((s.margenMay/(1-s.margenMay))*100).toFixed(1)+'%':'—';
+    const mgCostoPond=s.margenPond!==null&&s.margenPond<1?((s.margenPond/(1-s.margenPond))*100).toFixed(1)+'%':'—';
     h+=`<tr style="background:${rowBg}">
       <td><span class="sku" title="${esc(s.desc||s.sku)}">${esc(s.sku)}</span></td>
       <td>${canalLabel}</td>
       <td class="mono">${s.ml.venta>0?fS(Math.round(s.ml.venta)):'—'}</td>
       <td style="color:${mlC};font-weight:600">${s.margenML!==null?(s.margenML*100).toFixed(1)+'%':'—'}</td>
+      <td style="color:${mlC}">${mgCostoML}</td>
       <td class="mono">${s.may.venta>0?fS(Math.round(s.may.venta)):'—'}</td>
       <td style="color:${mayC};font-weight:600">${s.margenMay!==null?(s.margenMay*100).toFixed(1)+'%':'—'}</td>
+      <td style="color:${mayC}">${mgCostoMay}</td>
       <td class="mono" style="font-weight:600">${fS(Math.round(s.totVenta))}</td>
       <td style="color:${mgC};font-weight:700">${s.margenPond!==null?(s.margenPond*100).toFixed(1)+'%':'—'}</td>
+      <td style="color:${mgC}">${mgCostoPond}</td>
       <td class="mono" style="color:${s.totGanancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(s.totGanancia))}</td>
       <td>${s.totUnidades}</td>
     </tr>`;
@@ -9583,4 +10030,340 @@ Nunca inventes datos — si no los tenés, decilo.`,
 };
 
 
+</script><script>
+// ══════════════════════════════════════════════════════════════════════════════
+// HISTORIAL + CARGA HISTÓRICA
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── CARGA HISTÓRICA DESDE ML ──────────────────────────────────────────────────
+window.mostrarCargaHistorica = function(){
+  const meta_info = document.getElementById('sb_historial_info');
+  const meses = [
+    {label:'3 meses',value:3},{label:'6 meses',value:6},
+    {label:'1 año',value:12},{label:'2 años',value:24}
+  ];
+  const html=`<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center" id="modal_historica">
+    <div style="background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:24px;width:440px;max-width:90vw">
+      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;margin-bottom:6px">📅 Carga histórica</div>
+      <p style="font-size:12px;color:var(--t3);margin-bottom:16px">Trae el historial completo de ventas desde ML y lo guarda en Firebase.<br>No reemplaza lo que ya tenés — solo agrega lo nuevo.</p>
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--t3);margin-bottom:6px">¿Cuánto historial querés traer?</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${meses.map(m=>`<button class="btn-g" onclick="ejecutarCargaHistorica(${m.value})" style="font-size:12px">${m.label}</button>`).join('')}
+        </div>
+      </div>
+      <div id="hist_progress" style="font-size:11px;color:var(--t3);min-height:20px"></div>
+      <div style="margin-top:16px;text-align:right">
+        <button class="btn-g btn-sm" onclick="document.getElementById('modal_historica').remove()" style="font-size:11px">Cerrar</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+};
+
+window.ejecutarCargaHistorica = async function(meses){
+  const progEl=document.getElementById('hist_progress');
+  const upd=txt=>{if(progEl)progEl.innerHTML=txt;};
+  const accounts=S.accounts.filter(a=>a.token);
+  if(!accounts.length){upd('<span style="color:var(--red)">Sin cuentas conectadas</span>');return;}
+
+  // Calcular rango: desde hace N meses hasta hoy
+  const hoy=new Date();
+  const desde=new Date(hoy); desde.setMonth(desde.getMonth()-meses);
+  const fmt=d=>d.toISOString().split('T')[0];
+
+  // Traer mes por mes para no sobrecargar la API
+  const allOrds=[];
+  let mesActual=new Date(desde);
+  let totalMeses=0;
+
+  while(mesActual<=hoy){
+    const mesFrom=fmt(mesActual);
+    const mesHasta=new Date(mesActual); mesHasta.setMonth(mesHasta.getMonth()+1); mesHasta.setDate(0);
+    const mesTo=fmt(mesHasta>hoy?hoy:mesHasta);
+    const mesLabel=mesActual.toLocaleDateString('es-AR',{month:'short',year:'numeric'});
+
+    upd(`⏳ Cargando <strong>${mesLabel}</strong>... (${totalMeses+1}/${meses} meses)`);
+
+    for(const acct of accounts){
+      try{
+        const uid=UID[acct.id]||acct.userId;
+        if(!uid) continue;
+        const from=mesFrom+'T00:00:00.000-03:00';
+        const to=mesTo+'T23:59:59.999-03:00';
+        const r=await fetch(PROXY+'/orders/all?seller_id='+uid+'&from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to)+'&envio_bonif='+(S.cfg.envioBonif?'true':'false')+'&umbral_free_ship='+(S.cfg.umbral_free_ship||33000),
+          {headers:{'x-ml-token':acct.token}});
+        if(!r.ok) continue;
+        const data=await r.json();
+        const ords=(data.orders||[]).map(o=>({...o,acct:acct.id}));
+        allOrds.push(...ords);
+      }catch(e){console.warn('[hist]',acct.id,e.message);}
+    }
+
+    mesActual.setMonth(mesActual.getMonth()+1);
+    totalMeses++;
+    // Pequeña pausa para no saturar
+    await new Promise(r=>setTimeout(r,300));
+  }
+
+  upd(`⏳ Guardando ${allOrds.length} ventas en Firebase...`);
+
+  // Merge con S.orders y guardar
+  const byId={};
+  S.orders.forEach(o=>{byId[o.id]=o;});
+  applyProductCosts(allOrds).forEach(o=>{byId[o.id]=o;});
+  S.orders=Object.values(byId).sort((a,b)=>a.fecha<b.fecha?1:-1);
+
+  await saveCache();
+
+  upd(`✅ <strong>${allOrds.length} ventas</strong> históricas guardadas. Historial: ${fmt(desde)} → ${fmt(hoy)}`);
+
+  // Actualizar info en sidebar
+  const sbInfo=document.getElementById('sb_historial_info');
+  if(sbInfo) sbInfo.textContent=`${fmt(desde)} → ${fmt(hoy)}`;
+
+  renderAll();checkAlertas();
+  toast(`✓ Historial de ${meses} meses guardado (${allOrds.length} ventas)`,'ok');
+};
+
+// ── PANEL HISTORIAL ───────────────────────────────────────────────────────────
+let _histTab='mensual';
+
+async function renderHistorial(){
+  const stEl=document.getElementById('hist_info');
+  if(stEl) stEl.textContent='⏳ Cargando...';
+
+  // Leer snapshot de Firebase
+  const snapshot=await fb.get('orders_snapshot').catch(()=>null);
+  const meta=await fb.get('orders_meta').catch(()=>null);
+
+  if(!snapshot&&!S.orders.length){
+    document.getElementById('hist_kpis').innerHTML=
+      `<div class="card" style="grid-column:1/-1;padding:16px;text-align:center;color:var(--t3)">
+        Sin historial guardado. Hacé click en <strong>📅 Carga histórica</strong> para traer los datos desde ML.
+      </div>`;
+    if(stEl) stEl.textContent='Sin datos';
+    return;
+  }
+
+  // Usar snapshot de Firebase o calcular desde S.orders si no hay snapshot
+  const porMes   = snapshot?.por_mes    || calcPorMes(S.orders);
+  const porSem   = snapshot?.por_semana || calcPorSemana(S.orders);
+  const topSkus  = snapshot?.top_skus   || calcTopSkus(S.orders);
+
+  // Rango disponible
+  const rangoEl=document.getElementById('hist_rango');
+  if(rangoEl&&meta){
+    rangoEl.style.display='';
+    document.getElementById('hist_desde').textContent=meta.desde||'—';
+    document.getElementById('hist_hasta').textContent=meta.hasta||'—';
+    document.getElementById('hist_total').textContent=(meta.total||0).toLocaleString('es-AR')+' ventas';
+    document.getElementById('hist_sync').textContent=meta.ultima_sync?new Date(meta.ultima_sync).toLocaleString('es-AR'):'—';
+  }
+
+  // KPIs resumen
+  const totVentas=porMes.reduce((s,m)=>s+m.ventas,0);
+  const totGan=porMes.reduce((s,m)=>s+m.ganancia,0);
+  const totOrds=porMes.reduce((s,m)=>s+m.ordenes,0);
+  const mejorMes=porMes.length?[...porMes].sort((a,b)=>b.ganancia-a.ganancia)[0]:null;
+  const margenProm=totVentas>0?(totGan/totVentas*100).toFixed(1)+'%':'—';
+  const kEl=document.getElementById('hist_kpis');
+  if(kEl) kEl.innerHTML=`
+    <div class="kpi"><div class="kl">Ventas históricas</div><div class="kv">${fS(Math.round(totVentas))}</div><div class="ks">${totOrds.toLocaleString()} órdenes · ${porMes.length} meses</div></div>
+    <div class="kpi grn"><div class="kl">Ganancia acumulada</div><div class="kv">${fS(Math.round(totGan))}</div><div class="ks">Margen prom: ${margenProm}</div></div>
+    <div class="kpi acc"><div class="kl">Mejor mes</div><div class="kv" style="font-size:12px">${mejorMes?.mes||'—'}</div><div class="ks">${mejorMes?fS(Math.round(mejorMes.ganancia)):''}</div></div>
+    <div class="kpi"><div class="kl">Promedio mensual</div><div class="kv">${porMes.length?fS(Math.round(totVentas/porMes.length)):'—'}</div><div class="ks">en ventas</div></div>`;
+
+  // Panel mensual
+  histRenderMensual(porMes);
+  histRenderSemanal(porSem);
+  histRenderSkus(topSkus);
+
+  if(stEl) stEl.textContent=`${porMes.length} meses · ${totOrds.toLocaleString()} órdenes`;
+  histTab(_histTab);
+}
+
+window.histTab=function(tab){
+  _histTab=tab;
+  ['mensual','semanal','skus'].forEach(t=>{
+    const p=document.getElementById('hpanel_'+t);
+    const b=document.getElementById('htab_'+t);
+    if(p) p.style.display=t===tab?'':'none';
+    if(b){b.style.background=t===tab?'var(--acc)':'';b.style.color=t===tab?'#000':'';}
+  });
+};
+
+function calcPorMes(orders){
+  const m={};
+  orders.filter(o=>o.estado!=='cancelled').forEach(o=>{
+    if(!o.fecha) return;
+    const mes=o.fecha.substring(0,7);
+    if(!m[mes]) m[mes]={mes,ventas:0,ganancia:0,ordenes:0,unidades:0,pub:0};
+    m[mes].ventas+=o.venta||0; m[mes].ganancia+=o.ganancia||0;
+    m[mes].ordenes++; m[mes].unidades+=o.unidades||1; m[mes].pub+=o.pub||0;
+  });
+  return Object.values(m).sort((a,b)=>a.mes.localeCompare(b.mes));
+}
+function calcPorSemana(orders){
+  const m={};
+  orders.filter(o=>o.estado!=='cancelled').forEach(o=>{
+    if(!o.fecha) return;
+    const d=new Date(o.fecha); const day=d.getDay()||7;
+    const lunes=new Date(d); lunes.setDate(d.getDate()-day+1);
+    const sem=lunes.toISOString().split('T')[0];
+    if(!m[sem]) m[sem]={sem,ventas:0,ganancia:0,ordenes:0,unidades:0};
+    m[sem].ventas+=o.venta||0; m[sem].ganancia+=o.ganancia||0;
+    m[sem].ordenes++; m[sem].unidades+=o.unidades||1;
+  });
+  return Object.values(m).sort((a,b)=>a.sem.localeCompare(b.sem)).slice(-52);
+}
+function calcTopSkus(orders){
+  const m={};
+  orders.filter(o=>o.estado!=='cancelled'&&o.sku).forEach(o=>{
+    if(!m[o.sku]) m[o.sku]={sku:o.sku,ventas:0,ganancia:0,unidades:0};
+    m[o.sku].ventas+=o.venta||0; m[o.sku].ganancia+=o.ganancia||0; m[o.sku].unidades+=o.unidades||1;
+  });
+  return Object.values(m).sort((a,b)=>b.ganancia-a.ganancia).slice(0,20);
+}
+
+function histRenderMensual(data){
+  const el=document.getElementById('hist_mensual_tabla'); if(!el) return;
+  if(!data.length){el.innerHTML='<p style="color:var(--t3)">Sin datos mensuales</p>';return;}
+
+  // Mini sparkline
+  const maxV=Math.max(...data.map(m=>m.ventas),1);
+  const chartEl=document.getElementById('hist_mensual_chart');
+  if(chartEl){
+    chartEl.innerHTML=`<div style="display:flex;gap:3px;align-items:flex-end;height:60px;overflow-x:auto">
+      ${data.map(m=>{
+        const h=Math.max((m.ventas/maxV)*56,2);
+        const mgPct=m.ventas>0?(m.ganancia/m.ventas*100):0;
+        const col=mgPct>=15?'var(--grn)':mgPct>=8?'var(--org)':'var(--red)';
+        return `<div style="flex:1;min-width:28px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:default" title="${m.mes}: ${fS(Math.round(m.ventas))} ventas · ${mgPct.toFixed(1)}% margen">
+          <div style="width:100%;background:${col};opacity:.8;border-radius:2px 2px 0 0;height:${h}px"></div>
+          <div style="font-size:8px;color:var(--t3);writing-mode:vertical-lr;transform:rotate(180deg)">${m.mes.slice(5)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Tabla
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>Mes</th><th>Ventas</th><th>Ganancia</th><th>Margen</th>
+    <th>% sobre costo</th><th>Órdenes</th><th>Unidades</th><th>Pub gastada</th>
+  </tr></thead><tbody>`;
+  [...data].reverse().forEach(m=>{
+    const mg=m.ventas>0?(m.ganancia/m.ventas*100):0;
+    const costo=m.ventas-m.ganancia; // aproximado
+    const mgCosto=costo>0?(m.ganancia/costo*100):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    h+=`<tr>
+      <td style="font-weight:600">${m.mes}</td>
+      <td class="mono">${fS(Math.round(m.ventas))}</td>
+      <td class="mono" style="color:${m.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(m.ganancia))}</td>
+      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
+      <td style="color:${mgCosto>=20?'var(--grn)':mgCosto>=10?'var(--org)':'var(--red)'}">${mgCosto.toFixed(1)}%</td>
+      <td>${m.ordenes.toLocaleString()}</td>
+      <td>${m.unidades.toLocaleString()}</td>
+      <td class="mono" style="color:var(--t3)">${fS(Math.round(m.pub||0))}</td>
+    </tr>`;
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+}
+
+function histRenderSemanal(data){
+  const el=document.getElementById('hist_semanal_tabla'); if(!el) return;
+  if(!data.length){el.innerHTML='<p style="color:var(--t3)">Sin datos semanales</p>';return;}
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>Semana (lunes)</th><th>Ventas</th><th>Ganancia</th><th>Margen</th><th>% sobre costo</th><th>Órdenes</th><th>Uds</th>
+  </tr></thead><tbody>`;
+  [...data].reverse().forEach(s=>{
+    const mg=s.ventas>0?(s.ganancia/s.ventas*100):0;
+    const costo=s.ventas-s.ganancia;
+    const mgCosto=costo>0?(s.ganancia/costo*100):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    h+=`<tr>
+      <td>${s.sem}</td>
+      <td class="mono">${fS(Math.round(s.ventas))}</td>
+      <td class="mono" style="color:${s.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(s.ganancia))}</td>
+      <td style="color:${mgC};font-weight:600">${mg.toFixed(1)}%</td>
+      <td style="color:${mgCosto>=20?'var(--grn)':mgCosto>=10?'var(--org)':'var(--red)'}">${mgCosto.toFixed(1)}%</td>
+      <td>${s.ordenes}</td><td>${s.unidades}</td>
+    </tr>`;
+  });
+  el.innerHTML=h+'</tbody></table>';
+}
+
+function histRenderSkus(data){
+  const el=document.getElementById('hist_skus_tabla'); if(!el) return;
+  if(!data.length){el.innerHTML='<p style="color:var(--t3)">Sin datos</p>';return;}
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>SKU</th><th>Ventas acum.</th><th>Ganancia acum.</th><th>Margen</th><th>% sobre costo</th><th>Unidades</th>
+  </tr></thead><tbody>`;
+  data.forEach(s=>{
+    const mg=s.ventas>0?(s.ganancia/s.ventas*100):0;
+    const costo=s.ventas-s.ganancia;
+    const mgCosto=costo>0?(s.ganancia/costo*100):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    h+=`<tr>
+      <td><span class="sku">${esc(s.sku)}</span></td>
+      <td class="mono">${fS(Math.round(s.ventas))}</td>
+      <td class="mono" style="color:${s.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(s.ganancia))}</td>
+      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
+      <td style="color:${mgCosto>=20?'var(--grn)':mgCosto>=10?'var(--org)':'var(--red)'}">${mgCosto.toFixed(1)}%</td>
+      <td>${s.unidades.toLocaleString()}</td>
+    </tr>`;
+  });
+  el.innerHTML=h+'</tbody></table>';
+}
+
+// Actualizar info sidebar al cargar
+(async()=>{
+  const meta=await fb.get('orders_meta').catch(()=>null);
+  if(meta?.desde){
+    const sbInfo=document.getElementById('sb_historial_info');
+    if(sbInfo) sbInfo.textContent=`${meta.desde} → ${meta.hasta}`;
+  }
+})();
+
+window.intelRecargarML=async function(){
+  // Fuerza actualización de datos de ML dentro del período seleccionado en Intel
+  const fromEl=document.getElementById('intel_date_from');
+  const toEl=document.getElementById('intel_date_to');
+  const dateFrom=fromEl?.value;
+  const dateTo=toEl?.value;
+  if(!dateFrom||!dateTo){toast('Seleccioná un rango de fechas primero','err');return;}
+
+  const stEl=document.getElementById('intel_status');
+  if(stEl) stEl.textContent='⏳ Recargando desde ML...';
+  toast('Recargando ventas de ML...');
+
+  const accounts=S.accounts.filter(a=>a.token);
+  const all=[];
+  for(const acct of accounts){
+    try{
+      const uid=UID[acct.id]||acct.userId;
+      if(!uid) continue;
+      const r=await fetch(PROXY+'/orders/all?seller_id='+uid+'&from='+encodeURIComponent(dateFrom+'T00:00:00.000-03:00')+'&to='+encodeURIComponent(dateTo+'T23:59:59.999-03:00')+'&envio_bonif='+(S.cfg.envioBonif?'true':'false')+'&umbral_free_ship='+(S.cfg.umbral_free_ship||33000),
+        {headers:{'x-ml-token':acct.token}});
+      if(!r.ok) continue;
+      const data=await r.json();
+      all.push(...(data.orders||[]).map(o=>({...o,acct:acct.id})));
+      toast(acct.id+': '+data.total+' ventas ✓','ok');
+    }catch(e){toast(acct.id+': '+e.message,'err');}
+  }
+
+  if(all.length){
+    // Merge con S.orders
+    const byId={};
+    S.orders.forEach(o=>{byId[o.id]=o;});
+    applyProductCosts(all).forEach(o=>{byId[o.id]=o;});
+    S.orders=Object.values(byId).sort((a,b)=>a.fecha<b.fecha?1:-1);
+    await saveCache();
+    toast('✓ '+all.length+' ventas actualizadas','ok');
+  }
+  // Recalcular panel
+  await intelCargar();
+};
 </script>
