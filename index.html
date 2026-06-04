@@ -2067,6 +2067,9 @@ async function init(){
     if(meta2?.desde&&meta2?.hasta){
       const sbTxt=document.getElementById("refreshTxt");
       if(sbTxt) sbTxt.title=`Historial: ${meta2.desde} → ${meta2.hasta} (${meta2.total} ventas)`;
+      // Actualizar sidebar info
+      const sbInfo=document.getElementById('sb_historial_info');
+      if(sbInfo) sbInfo.textContent=meta2.desde+' → '+meta2.hasta;
     }
   }
 
@@ -2749,14 +2752,11 @@ async function runReconcile(force=false){
   if(!S.accounts.length||!S.orders.length)return;
   const today=new Date().toISOString().split("T")[0];
   const now=new Date();
-  const isMonday=now.getDay()===1; // 0=dom, 1=lun
-  // Correr automáticamente solo los lunes o si es forzado
+  const isMonday=now.getDay()===1;
   if(!force&&!isMonday)return;
   if(!force&&_lastReconcile===today)return;
   if(force) toast("🔄 Reconciliando canceladas...");
   else toast("🔄 Reconciliación automática (lunes)...");
-
-  const now=new Date();
   const dateKey=now.getFullYear().toString()+String(now.getMonth()+1).padStart(2,"0")+"01";
 
   for(const acct of S.accounts){
@@ -10318,14 +10318,21 @@ function histRenderSkus(data){
   el.innerHTML=h+'</tbody></table>';
 }
 
-// Actualizar info sidebar al cargar
-(async()=>{
-  const meta=await fb.get('orders_meta').catch(()=>null);
-  if(meta?.desde){
-    const sbInfo=document.getElementById('sb_historial_info');
-    if(sbInfo) sbInfo.textContent=`${meta.desde} → ${meta.hasta}`;
-  }
-})();
+// Actualizar info sidebar — esperar a que fb esté disponible
+window._updateSbHistorial=async function(){
+  try{
+    if(typeof fb==='undefined'||!fb) return;
+    const meta=await fb.get('orders_meta').catch(()=>null);
+    if(meta?.desde){
+      const sbInfo=document.getElementById('sb_historial_info');
+      if(sbInfo) sbInfo.textContent=meta.desde+' → '+meta.hasta;
+    }
+  }catch(e){}
+};
+// Se llama desde el init principal una vez que fb está listo
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(window._updateSbHistorial, 3000);
+});
 
 window.intelRecargarML=async function(){
   // Fuerza actualización de datos de ML dentro del período seleccionado en Intel
