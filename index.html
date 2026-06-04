@@ -6147,9 +6147,12 @@ function portConstruirAnalisis(){
     }
     if(!prod) prod=S.products.find(p=>skuBase(p.sku)===s.skuBase);
 
-    const costoUnitARS=prod?.ars||0;  // costo unitario ARS (landed cost)
+    const costoUnitARS=prod?.ars||0;  // costo unitario ARS (landed cost, ya incluye todo)
     const costoUnitUSD=costoUnitARS>0?costoUnitARS/tcambio:0;
     const pack=prod?.pack||packFromSku(s.skuBase);
+    // Unidades por pedido: del producto si está cargado, sino del portafolio existente
+    const udsPedidoProd=prod?.uds_pedido||0;
+    const cbmProd=prod?.cbm||0;
 
     // Período y quiebres
     const fechas=s.ml.ords.map(o=>o.fecha).sort();
@@ -6200,8 +6203,13 @@ function portConstruirAnalisis(){
     if(base.estado==='inactivo') return;
 
     // FOB del contenedor = costo unitario USD × u por contenedor
-    const ucontenedor=base.ucontenedor||0;
-    const fobContenedor=ucontenedor>0&&costoUnitUSD>0?+(costoUnitUSD*ucontenedor).toFixed(0):(base.fob||0);
+    // uds_pedido: priorizar el del producto, luego el del portafolio manual
+    const ucontenedor=udsPedidoProd||base.ucontenedor||0;
+    // Costo del pedido = costo unitario ARS × uds por pedido (ya incluye todo)
+    const costoPedidoARS=ucontenedor>0&&costoUnitARS>0?costoUnitARS*ucontenedor:0;
+    const costoPedidoUSD=costoUnitUSD>0&&ucontenedor>0?+(costoUnitUSD*ucontenedor).toFixed(0):0;
+    // fob mantiene compatibilidad pero ahora es el costo real en USD
+    const fobContenedor=costoPedidoUSD||(base.fob||0);
 
     // Plan de compras
     const uAnualBase=Math.round(uMes*12);
@@ -6226,7 +6234,10 @@ function portConstruirAnalisis(){
       fob:          fobContenedor,
       costoUnitUSD: +costoUnitUSD.toFixed(2),
       costoUnitARS,
+      costoPedidoARS,
+      costoPedidoUSD,
       ucontenedor,
+      cbm:          cbmProd||base.cbm||0,
       rent:         +(rentML.toFixed(1)),
       dias:         diasRotReal,
       diasMax:      Math.round(diasRotReal*1.5),
@@ -6273,24 +6284,62 @@ function portConstruirAnalisis(){
 
 
 function portCalc(d){
-  if(!d.fob||!d.rent||!d.dias) return null;
-  const ganLote = d.fob*(d.rent/100);
-  const rotaciones = 365/d.dias;
-  const roiAnual = (d.rent/100)*rotaciones*100;
-  const ganAnual = ganLote*rotaciones;
-  // Escenario pesimista con diasMax
-  const rotPes = 365/d.diasMax;
-  const roiPes = (d.rent/100)*rotPes*100;
-  return {ganLote,rotaciones,roiAnual,ganAnual,roiPes,rotPes};
+  // Necesitamos costo del pedido y margen real
+  const h=d._historico;
+  if(!h) return null;
+
+  const costoUnitARS=d.costoUnitARS||0;
+  const uMes=h.unidadesPorMes||0;
+  const ucontenedor=d.ucontenedor||0;
+  const rentPct=(h.rentReal||d.rent||0)/100; // margen sobre venta
+  const diasRot=h.diasRotReal||d.dias||90;
+
+  if(!costoUnitARS||!uMes) return null;
+
+  // Ganancia mensual real = unidades/mes × ganancia unitaria
+  const ventaPromUnitARS=costoUnitARS>0&&rentPct>0?costoUnitARS/(1-rentPct):0;
+  const ganUnitARS=ventaPromUnitARS>0?ventaPromUnitARS*rentPct:0;
+  const ganMensual=Math.round(ganUnitARS*uMes);
+  const ganAnual=ganMensual*12;
+
+  // Margen sobre costo
+  const mgSCosto=costoUnitARS>0?(ganUnitARS/costoUnitARS)*100:0;
+
+  // ROI sobre inversión del pedido
+  const costoPedidoARS=d.costoPedidoARS||costoUnitARS*ucontenedor||0;
+  const roiAnual=costoPedidoARS>0?(ganAnual/costoPedidoARS)*100:0;
+
+  // Meses de stock que dura un pedido
+  const mesesPedido=ucontenedor>0&&uMes>0?ucontenedor/uMes:0;
+
+  // Frecuencia de reposición
+  const diasEntreRep=mesesPedido*30;
+
+  // Escenario pesimista (-30%)
+  const ganAnualPes=ganAnual*0.70;
+  const roiAnualPes=costoPedidoARS>0?(ganAnualPes/costoPedidoARS)*100:0;
+
+  // Escenario optimista (+20%)
+  const ganAnualOpt=ganAnual*1.20;
+  const roiAnualOpt=costoPedidoARS>0?(ganAnualOpt/costoPedidoARS)*100:0;
+
+  return {
+    costoUnitARS,ganUnitARS,ganMensual,ganAnual,
+    mgSCosto,roiAnual,roiAnualPes,roiAnualOpt,
+    costoPedidoARS,mesesPedido,diasEntreRep,
+    ventaPromUnitARS,rentPct:rentPct*100
+  };
 }
 
 function portDecision(calc,d){
   if(!calc) return {label:'Sin datos',color:'var(--t3)',priority:99};
-  if(calc.roiAnual>=120) return {label:'★ Reponer YA',color:'var(--grn)',priority:1};
+  // Decisión basada en ROI anual real sobre inversión del pedido
+  if(calc.roiAnual>=150) return {label:'★ Reponer YA',color:'#00e5a0',priority:1};
   if(calc.roiAnual>=80)  return {label:'↑ Reponer',color:'var(--grn)',priority:2};
-  if(calc.roiAnual>=50)  return {label:'→ Mantener',color:'var(--org)',priority:3};
-  if(calc.roiAnual>=25)  return {label:'↓ Evaluar',color:'var(--org)',priority:4};
-  return {label:'✕ Reemplazar',color:'var(--red)',priority:5};
+  if(calc.roiAnual>=40)  return {label:'→ Mantener',color:'var(--org)',priority:3};
+  if(calc.roiAnual>=15)  return {label:'↓ Evaluar',color:'var(--org)',priority:4};
+  if(calc.roiAnual>0)    return {label:'✕ Bajo retorno',color:'var(--red)',priority:5};
+  return {label:'✕ Sin datos suficientes',color:'var(--t3)',priority:6};
 }
 
 function portRender(){
@@ -6320,11 +6369,13 @@ function portRender(){
   const reponer = conCalc.filter(d=>d.calc.roiAnual>=80).length;
   const reemplazar = conCalc.filter(d=>d.calc.roiAnual<25).length;
 
+  const ganMensualTotal=conCalc.reduce((s,d)=>s+(d.calc?.ganMensual||0),0);
+  const sinUdsPedido=items.filter(d=>!d.ucontenedor).length;
   document.getElementById('port_kpis').innerHTML=`
-    <div class="kpi"><div class="kl">Productos en portafolio</div><div class="kv">${items.length}</div></div>
-    <div class="kpi"><div class="kl">ROI anual promedio</div><div class="kv" style="color:var(--grn)">${avgROI.toFixed(0)}%</div></div>
-    <div class="kpi"><div class="kl">Reponer (ROI>80%)</div><div class="kv" style="color:var(--grn)">${reponer}</div></div>
-    <div class="kpi"><div class="kl">Reemplazar (ROI<25%)</div><div class="kv" style="color:var(--red)">${reemplazar}</div></div>`;
+    <div class="kpi"><div class="kl">SKUs en portafolio</div><div class="kv">${items.length}</div><div class="ks">${sinUdsPedido>0?`<span style="color:var(--org)">${sinUdsPedido} sin uds/pedido</span>`:' todos completos'}</div></div>
+    <div class="kpi grn"><div class="kl">Ganancia mensual</div><div class="kv">${fS(ganMensualTotal)}</div><div class="ks">desde historial real</div></div>
+    <div class="kpi"><div class="kl">ROI promedio</div><div class="kv" style="color:${avgROI>=80?'var(--grn)':avgROI>=40?'var(--org)':'var(--red)'}">${avgROI.toFixed(0)}%</div><div class="ks">sobre inversión pedido</div></div>
+    <div class="kpi"><div class="kl">Reponer / Evaluar</div><div class="kv"><span style="color:var(--grn)">${reponer}</span> / <span style="color:var(--red)">${reemplazar}</span></div><div class="ks">ROI>80% / ROI<25%</div></div>`;
 
   // Ranking tabla
   if(!items.length){
@@ -6333,8 +6384,17 @@ function portRender(){
   }
 
   let html='<div class="card"><div class="tbl-wrap"><table class="tbl" style="font-size:11px"><thead><tr>'
-    +'<th>#</th><th>Producto</th><th>FOB</th><th>Rent%</th><th>Días rot.</th>'
-    +'<th>ROI anual</th><th>ROI pesim.</th><th>u/mes hist.</th><th>Potencial anual</th><th>Quiebre stock</th>'
+    +'<th>#</th><th>Producto</th>'
+    +'<th title="Costo unitario ARS (landed cost)">Costo unit.</th>'
+    +'<th title="Margen sobre venta">Mg s/venta</th>'
+    +'<th title="Margen sobre costo">Mg s/costo</th>'
+    +'<th title="Unidades vendidas por mes (promedio histórico)">u/mes</th>'
+    +'<th title="Unidades por pedido de importación">u/pedido</th>'
+    +'<th title="Meses que dura un pedido">Meses stock</th>'
+    +'<th title="Ganancia mensual real">Gan. mensual</th>'
+    +'<th title="ROI anual sobre inversión del pedido">ROI anual</th>'
+    +'<th title="ROI escenario pesimista -30%">ROI pesim.</th>'
+    +'<th title="% meses sin ventas">Quiebre</th>'
     +'<th>Decisión</th><th></th>'
     +'</tr></thead><tbody>';
 
@@ -6344,31 +6404,39 @@ function portRender(){
     const dec=portDecision(c,d);
     const catColor={muebles:'var(--blu)',electronica:'var(--org)',hogar:'var(--grn)',exterior:'var(--acc)',otro:'var(--t3)'}[d.cat]||'var(--t3)';
     const quiebreColor=h?.pctQuiebre>0.3?'var(--red)':h?.pctQuiebre>0.1?'var(--org)':'var(--grn)';
-    html+=`<tr>
+    const roiC=c?.roiAnual>=80?'var(--grn)':c?.roiAnual>=40?'var(--org)':c?.roiAnual>0?'var(--red)':'var(--t3)';
+    const mgVC=c?.rentPct>=15?'var(--grn)':c?.rentPct>=8?'var(--org)':'var(--red)';
+    const mgCC=c?.mgSCosto>=20?'var(--grn)':c?.mgSCosto>=10?'var(--org)':'var(--red)';
+    const mesesStockC=c?.mesesPedido>=3?'var(--grn)':c?.mesesPedido>=1?'var(--org)':'var(--red)';
+    html+=`<tr style="opacity:${d.estado==='inactivo'?0.4:1}">
       <td style="font-weight:700;color:${rank<3?'var(--acc)':'var(--t3)'}">${rank+1}</td>
-      <td>
-        <div style="font-weight:500;font-size:12px">${esc(d.nombre)}</div>
-        <div style="font-size:10px;color:${catColor}">${d.cat||''}</div>
-        ${h?`<div style="font-size:10px;color:var(--t3)">${h.primerVenta?.substring(0,7)||''} → ${h.ultimaVenta?.substring(0,7)||''}</div>`:''}
+      <td style="min-width:130px">
+        <div style="font-weight:600;font-size:12px">${esc(d.nombre)}</div>
+        <div style="font-size:10px;color:var(--t3)">${esc(d.desc?.substring(0,35)||'')}</div>
+        <div style="display:flex;gap:4px;margin-top:2px;flex-wrap:wrap">
+          <span style="font-size:9px;padding:1px 5px;border-radius:8px;background:${catColor}22;color:${catColor}">${d.cat||'?'}</span>
+          <span style="font-size:9px;color:var(--t3)">${h?.primerVenta?.substring(0,7)||''} → ${h?.ultimaVenta?.substring(0,7)||''}</span>
+          ${h?.variantes?.length>1?`<span style="font-size:9px;color:var(--t3)">${h.variantes.length} variantes</span>`:''}
+        </div>
       </td>
-      <td class="mono">${d.costoUnitUSD>0?'USD '+d.costoUnitUSD.toFixed(2)+'/u':d.fob>0?'USD '+d.fob.toLocaleString('en-US'):'<span style=\"color:var(--org)\">Sin costo</span>'}</td>
-      <td class="mono" style="font-weight:600;color:${(d.rent||0)>=15?'var(--grn)':(d.rent||0)>=8?'var(--org)':'var(--red)'}">${d.rent||0}%</td>
-      <td class="mono">${h?.diasRotReal||d.dias||'—'}d</td>
-      <td class="mono" style="font-weight:700;color:${c&&d.fob>0?c.roiAnual>=80?'var(--grn)':c.roiAnual>=40?'var(--org)':'var(--red)':'var(--t3)'}">
-        ${c&&d.fob>0?c.roiAnual.toFixed(0)+'%':'—'}</td>
-      <td class="mono" style="color:var(--t3)">${c&&d.fob>0?c.roiPes.toFixed(0)+'%':'—'}</td>
-      <td class="mono" style="color:var(--acc)">${h?.unidadesPorMes?.toFixed(1)||'—'}</td>
-      <td class="mono" style="color:var(--grn)">${h?.potencialAnual||'—'}</td>
+      <td>
+        <div class="mono" style="font-size:11px">${d.costoUnitARS>0?fS(Math.round(d.costoUnitARS)):'<span style="color:var(--org)">Sin costo</span>'}</div>
+        ${d.costoUnitUSD>0?`<div style="font-size:9px;color:var(--t3)">USD ${d.costoUnitUSD.toFixed(2)}</div>`:''}
+      </td>
+      <td style="color:${mgVC};font-weight:700">${c?.rentPct?.toFixed(1)||h?.rentReal?.toFixed(1)||d.rent||'—'}%</td>
+      <td style="color:${mgCC};font-weight:600">${c?.mgSCosto?.toFixed(1)||'—'}%</td>
+      <td class="mono" style="color:var(--acc);font-weight:700">${h?.unidadesPorMes?.toFixed(1)||'—'}</td>
+      <td class="mono" style="color:var(--t3)">${d.ucontenedor||'<span style="color:var(--org);font-size:10px">Sin cargar</span>'}</td>
+      <td style="color:${mesesStockC};font-weight:600">${c?.mesesPedido>0?c.mesesPedido.toFixed(1)+' m':'—'}</td>
+      <td class="mono" style="color:var(--grn)">${c?.ganMensual>0?fS(c.ganMensual):'—'}</td>
+      <td style="font-weight:700;color:${roiC}">${c?.roiAnual>0?c.roiAnual.toFixed(0)+'%':'—'}</td>
+      <td style="color:var(--t3)">${c?.roiAnualPes>0?c.roiAnualPes.toFixed(0)+'%':'—'}</td>
       <td style="color:${quiebreColor};font-weight:600">${h?Math.round((h.pctQuiebre||0)*100)+'%':'—'}</td>
-      <td>
-        ${h?.variantes?.length>1?`<span style="font-size:10px;color:var(--t3)">${h.variantes.length} col.</span> `:''}
-        <span style="font-size:11px;font-weight:600;color:${dec.color}">${dec.label}</span>
-      </td>
+      <td><span style="font-size:11px;font-weight:700;color:${dec.color}">${dec.label}</span></td>
       <td style="white-space:nowrap">
         ${h?`<button class="btn-g btn-sm" onclick="portVerHistorico(${d.idx})" title="Plan de compras">📊</button> `:''}
         <button class="btn-g btn-sm" onclick="portEditar(${d.idx})" title="Editar">✏</button>
-        <button class="btn-g btn-sm" onclick="portInactivar(${d.idx})" 
-          title="${d.estado==='inactivo'?'Activar':'Inhabilitar'}"
+        <button class="btn-g btn-sm" onclick="portInactivar(${d.idx})"
           style="color:${d.estado==='inactivo'?'var(--grn)':'var(--t3)'}">
           ${d.estado==='inactivo'?'▶':'⏸'}
         </button>
