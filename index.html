@@ -2241,23 +2241,9 @@ window.doRefresh=async()=>{
   const sbTxt=document.getElementById("refreshTxt");
   if(sbTxt)sbTxt.textContent="Cargando...";
 
-  // Sincronizar hasta AYER (hoy puede tener órdenes incompletas)
-  const ayer=new Date(new Date().getTime()-24*60*60*1000-3*60*60*1000);
-  const fmt=d=>d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
-  // Desde: última sincronización o rango seleccionado
-  const meta=await fb.get('orders_meta').catch(()=>null);
-  let from,to;
-  if(meta?.hasta&&meta.version===2){
-    // Incremental: desde el día siguiente al último guardado
-    const ultimoGuardado=new Date(meta.hasta);
-    ultimoGuardado.setDate(ultimoGuardado.getDate()+1);
-    from=fmt(ultimoGuardado)+"T00:00:00.000-03:00";
-    to=fmt(ayer)+"T23:59:59.999-03:00";
-    toast("Cargando desde "+fmt(ultimoGuardado)+" hasta "+fmt(ayer));
-  } else {
-    const r=getRange();
-    from=r.from; to=r.to;
-  }
+  // Usar siempre el rango seleccionado en la toolbar
+  // El merge incremental en saveCache garantiza que no se borren datos históricos
+  const{from,to}=getRange();
   const all=[];
 
   for(const acct of S.accounts){
