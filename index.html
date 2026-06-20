@@ -168,6 +168,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="importacion"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 7l4 4 4-4"/><path d="M1 13h14"/></svg>Importación</div>
     <div class="ni" data-p="historial"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M5 8h6M5 5h6M5 11h3"/></svg>Historial</div>
     <div class="ni" data-p="inteligencia"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>Inteligencia</div>
+    <div class="ni" data-p="rubros"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Por Rubro</div>
     <div class="ni" data-p="portafolio"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Portafolio</div>
     <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
@@ -815,6 +816,57 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
             <div class="ch" style="margin-bottom:10px"><span class="ct">Top SKUs acumulado histórico</span></div>
             <div id="hist_skus_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
           </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- POR RUBRO -->
+    <div class="page" id="page-rubros">
+      <div style="max-width:1200px;margin:0 auto">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800">Análisis por Rubro</div>
+            <div style="font-size:11px;color:var(--t3)">Comparativa de rentabilidad entre líneas de negocio</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <input type="date" id="rub_date_from" class="inp" style="font-size:11px;padding:4px 6px" onchange="renderRubros()">
+            <span style="font-size:11px;color:var(--t3)">→</span>
+            <input type="date" id="rub_date_to" class="inp" style="font-size:11px;padding:4px 6px" onchange="renderRubros()">
+            <button class="btn-g btn-sm" onclick="rubAutoClasificar()" style="font-size:11px;color:var(--acc)">🏷 Auto-clasificar desde ML</button>
+            <button class="btn-g btn-sm" onclick="renderRubros()" style="font-size:11px">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <div id="rub_sin_clasificar" style="margin-bottom:12px"></div>
+
+        <!-- Ranking de rubros -->
+        <div class="card" style="padding:12px;margin-bottom:12px">
+          <div class="ch" style="margin-bottom:10px"><span class="ct">Ranking de rubros — ¿cuál es más rentable?</span></div>
+          <div id="rub_ranking" style="font-size:11px;color:var(--t3)">Cargando...</div>
+        </div>
+
+        <!-- Comparativa visual -->
+        <div class="card" style="padding:12px;margin-bottom:12px">
+          <div class="ch" style="margin-bottom:10px"><span class="ct">Comparativa de margen por rubro</span></div>
+          <div id="rub_chart" style="min-height:100px"></div>
+        </div>
+
+        <!-- Evolución mensual -->
+        <div class="card" style="padding:12px;margin-bottom:12px">
+          <div class="ch" style="margin-bottom:10px"><span class="ct">Evolución mensual por rubro</span></div>
+          <div id="rub_evolucion" style="font-size:11px;color:var(--t3)">Cargando...</div>
+        </div>
+
+        <!-- Detalle por rubro seleccionado -->
+        <div class="card" style="padding:12px">
+          <div class="ch" style="margin-bottom:10px">
+            <span class="ct">Detalle de SKUs</span>
+            <select id="rub_filtro" class="inp" onchange="rubRenderDetalle()" style="padding:3px 8px;font-size:11px">
+              <option value="">Todos los rubros</option>
+            </select>
+          </div>
+          <div id="rub_detalle_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
         </div>
 
       </div>
@@ -1927,6 +1979,16 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     </div>
     <label class="lbl">Paga publicidad ML</label>
     <select class="inp" id="mp_pub" style="margin-bottom:10px"><option value="si">Sí (5%)</option><option value="no">No</option></select>
+    <label class="lbl">Rubro</label>
+    <select class="inp" id="mp_rubro" style="margin-bottom:10px">
+      <option value="">— Auto-detectar desde ML —</option>
+      <option value="sillas_oficina">Sillas de oficina/gamer</option>
+      <option value="soportes_tv">Soportes TV</option>
+      <option value="tecnologia">Tecnología (notebooks, tablets)</option>
+      <option value="electrodomesticos">Electrodomésticos</option>
+      <option value="accesorios">Accesorios/electrónica</option>
+      <option value="otro">Otro</option>
+    </select>
     <div class="macts"><button class="btn-g" onclick="closeModal('mProd')">Cancelar</button><button class="btn" id="saveProdBtn" onclick="saveProd()">Guardar</button></div>
   </div>
 </div>
@@ -2098,7 +2160,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -3313,6 +3375,9 @@ window.editProd=sku=>{
   document.getElementById("mp_iva").value=p.iva;
   document.getElementById("mp_pub").value=p.pub===false?"no":"si";
   document.getElementById("mp_pack").value=p.pack||packFromSku(p.sku);
+  const udsEl=document.getElementById("mp_uds_pedido"); if(udsEl) udsEl.value=p.uds_pedido||'';
+  const cbmEl=document.getElementById("mp_cbm"); if(cbmEl) cbmEl.value=p.cbm||'';
+  const rubroEl=document.getElementById("mp_rubro"); if(rubroEl) rubroEl.value=p.rubro||'';
   openModal("mProd");
 };
 window.delProd=async sku=>{
@@ -3331,7 +3396,8 @@ window.saveProd=async()=>{
   if(ars<=0){toast("Ingresá el costo ARS","err");return;}
   const udsPedido=parseInt(document.getElementById("mp_uds_pedido")?.value)||0;
   const cbm=parseFloat(document.getElementById("mp_cbm")?.value)||0;
-  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{})};
+  const rubro=document.getElementById("mp_rubro")?.value||'';
+  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{}),...(rubro?{rubro}:{})};
   S.prodEdits[sku]=prod;
   const idx=S.products.findIndex(x=>x.sku===sku);
   if(idx>=0)S.products[idx]={...S.products[idx],...prod};else S.products.push(prod);
@@ -10477,5 +10543,345 @@ window.intelRecargarML=async function(){
   // Recalcular panel
   await intelCargar();
 };
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ANÁLISIS POR RUBRO
+// Auto-clasifica SKUs desde mlCategoryId, compara rentabilidad entre rubros
+// ══════════════════════════════════════════════════════════════════════════════
+
+const RUBRO_LABELS={
+  sillas_oficina:'Sillas de oficina/gamer',
+  soportes_tv:'Soportes TV',
+  tecnologia:'Tecnología',
+  electrodomesticos:'Electrodomésticos',
+  accesorios:'Accesorios/electrónica',
+  otro:'Otro',
+  sin_clasificar:'Sin clasificar'
+};
+const RUBRO_COLORS={
+  sillas_oficina:'#4DA3FF', soportes_tv:'#A78BFA', tecnologia:'#FF8A4D',
+  electrodomesticos:'#47E87F', accesorios:'#E8FF47', otro:'#8B8A84',
+  sin_clasificar:'#5A5954'
+};
+
+window.renderRubros=async function(){
+  // Inicializar fechas si están vacías
+  const fromEl=document.getElementById('rub_date_from');
+  const toEl=document.getElementById('rub_date_to');
+  if(fromEl&&!fromEl.value){
+    const d90=new Date(Date.now()-90*864e5).toISOString().split('T')[0];
+    fromEl.value=d90;
+  }
+  if(toEl&&!toEl.value) toEl.value=new Date().toISOString().split('T')[0];
+
+  const dateFrom=fromEl?.value;
+  const dateTo=toEl?.value;
+
+  const ords=(S.orders||[]).filter(o=>
+    o.fecha>=dateFrom && o.fecha<=dateTo && o.estado!=='cancelled'
+  );
+
+  // Verificar SKUs sin clasificar
+  const skusUnicos=[...new Set(ords.map(o=>o.sku).filter(s=>s&&s!=='—'))];
+  const sinClasificar=skusUnicos.filter(sku=>{
+    const p=S.products.find(x=>x.sku===sku);
+    return !p?.rubro && !p?.rubroAuto;
+  });
+
+  const avisoEl=document.getElementById('rub_sin_clasificar');
+  if(avisoEl){
+    if(sinClasificar.length>0){
+      avisoEl.innerHTML=`<div class="card" style="border-left:3px solid var(--org);background:rgba(255,138,77,.04);padding:10px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:var(--org)">⚠ ${sinClasificar.length} SKU(s) sin rubro asignado. Usá "Auto-clasificar desde ML" o cargalo manualmente en Productos.</span>
+          <button class="btn-g btn-sm" onclick="rubAutoClasificar()" style="font-size:10px">🏷 Auto-clasificar</button>
+        </div>
+      </div>`;
+    } else {
+      avisoEl.innerHTML='';
+    }
+  }
+
+  // Agrupar por rubro
+  const porRubro={};
+  ords.forEach(o=>{
+    const p=S.products.find(x=>x.sku===o.sku);
+    const rubro=p?.rubro||p?.rubroAuto||'sin_clasificar';
+    if(!porRubro[rubro]) porRubro[rubro]={
+      rubro,ventas:0,ganancia:0,unidades:0,ordenes:0,skus:new Set(),
+      fechaMin:o.fecha,fechaMax:o.fecha
+    };
+    porRubro[rubro].ventas+=o.venta||0;
+    porRubro[rubro].ganancia+=o.ganancia||0;
+    porRubro[rubro].unidades+=o.unidades||1;
+    porRubro[rubro].ordenes++;
+    porRubro[rubro].skus.add(o.sku);
+    if(o.fecha<porRubro[rubro].fechaMin) porRubro[rubro].fechaMin=o.fecha;
+    if(o.fecha>porRubro[rubro].fechaMax) porRubro[rubro].fechaMax=o.fecha;
+  });
+
+  const rubros=Object.values(porRubro).map(r=>{
+    const margen=r.ventas>0?(r.ganancia/r.ventas*100):0;
+    const costo=r.ventas-r.ganancia;
+    const margenCosto=costo>0?(r.ganancia/costo*100):0;
+    return {...r,skus:r.skus.size,margen,margenCosto};
+  }).sort((a,b)=>b.ganancia-a.ganancia);
+
+  window._rubrosData={rubros,ords,dateFrom,dateTo};
+
+  rubRenderRanking(rubros);
+  rubRenderChart(rubros);
+  rubRenderEvolucion(ords);
+  rubPopulateFiltro(rubros);
+  rubRenderDetalle();
+};
+
+function rubRenderRanking(rubros){
+  const el=document.getElementById('rub_ranking'); if(!el) return;
+  if(!rubros.length){el.innerHTML='<p style="color:var(--t3)">Sin datos en el período.</p>';return;}
+
+  const totVentas=rubros.reduce((s,r)=>s+r.ventas,0);
+
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>#</th><th>Rubro</th><th>SKUs</th><th>Unidades</th><th>Ventas</th>
+    <th>% del total</th><th>Ganancia</th><th>Margen s/venta</th><th>Margen s/costo</th>
+    <th>Período activo</th>
+  </tr></thead><tbody>`;
+
+  rubros.forEach((r,i)=>{
+    const color=RUBRO_COLORS[r.rubro]||'var(--t3)';
+    const label=RUBRO_LABELS[r.rubro]||r.rubro;
+    const pctTotal=totVentas>0?(r.ventas/totVentas*100):0;
+    const mgC=r.margen>=15?'var(--grn)':r.margen>=8?'var(--org)':'var(--red)';
+    const mgCC=r.margenCosto>=20?'var(--grn)':r.margenCosto>=10?'var(--org)':'var(--red)';
+    h+=`<tr style="cursor:pointer" onclick="document.getElementById('rub_filtro').value='${r.rubro}';rubRenderDetalle();document.getElementById('rub_detalle_tabla').scrollIntoView({behavior:'smooth'})">
+      <td style="font-weight:700;color:${i<3?'var(--acc)':'var(--t3)'}">${i+1}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:${color}"></span>${esc(label)}</span></td>
+      <td>${r.skus}</td>
+      <td class="mono" style="font-weight:600">${r.unidades.toLocaleString('es-AR')}</td>
+      <td class="mono">${fS(Math.round(r.ventas))}</td>
+      <td style="color:var(--t3)">${pctTotal.toFixed(1)}%</td>
+      <td class="mono" style="color:${r.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(r.ganancia))}</td>
+      <td style="color:${mgC};font-weight:700">${r.margen.toFixed(1)}%</td>
+      <td style="color:${mgCC};font-weight:600">${r.margenCosto.toFixed(1)}%</td>
+      <td style="font-size:10px;color:var(--t3)">${r.fechaMin} → ${r.fechaMax}</td>
+    </tr>`;
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+}
+
+function rubRenderChart(rubros){
+  const el=document.getElementById('rub_chart'); if(!el) return;
+  if(!rubros.length){el.innerHTML='';return;}
+
+  const maxMargen=Math.max(...rubros.map(r=>Math.abs(r.margen)),10);
+
+  let h='<div style="display:flex;flex-direction:column;gap:10px">';
+  rubros.forEach(r=>{
+    const color=RUBRO_COLORS[r.rubro]||'var(--t3)';
+    const label=RUBRO_LABELS[r.rubro]||r.rubro;
+    const widthPct=Math.max((Math.abs(r.margen)/maxMargen)*100,2);
+    h+=`<div style="display:flex;align-items:center;gap:10px">
+      <div style="width:140px;font-size:11px;text-align:right;flex-shrink:0">${esc(label)}</div>
+      <div style="flex:1;background:var(--s3);border-radius:4px;overflow:hidden;height:22px;position:relative">
+        <div style="width:${widthPct}%;height:100%;background:${color};opacity:.8;border-radius:4px;display:flex;align-items:center;padding-left:8px;transition:width .5s">
+          <span style="font-size:10px;color:#000;font-weight:700">${r.margen.toFixed(1)}%</span>
+        </div>
+      </div>
+      <div style="width:90px;font-size:10px;color:var(--t3);text-align:right;flex-shrink:0">${fS(Math.round(r.ventas))}</div>
+    </div>`;
+  });
+  h+='</div>';
+  el.innerHTML=h;
+}
+
+function rubRenderEvolucion(ords){
+  const el=document.getElementById('rub_evolucion'); if(!el) return;
+
+  // Agrupar por mes Y rubro
+  const porMesRubro={};
+  ords.forEach(o=>{
+    const p=S.products.find(x=>x.sku===o.sku);
+    const rubro=p?.rubro||p?.rubroAuto||'sin_clasificar';
+    const mes=o.fecha.substring(0,7);
+    const key=mes+'|'+rubro;
+    if(!porMesRubro[key]) porMesRubro[key]={mes,rubro,ventas:0,ganancia:0};
+    porMesRubro[key].ventas+=o.venta||0;
+    porMesRubro[key].ganancia+=o.ganancia||0;
+  });
+
+  const meses=[...new Set(Object.values(porMesRubro).map(x=>x.mes))].sort();
+  const rubrosActivos=[...new Set(Object.values(porMesRubro).map(x=>x.rubro))];
+
+  if(!meses.length){el.innerHTML='<p style="color:var(--t3)">Sin datos</p>';return;}
+
+  let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Rubro</th>';
+  meses.forEach(m=>{h+=`<th style="text-align:center">${m}</th>`;});
+  h+='</tr></thead><tbody>';
+
+  rubrosActivos.forEach(rubro=>{
+    const color=RUBRO_COLORS[rubro]||'var(--t3)';
+    const label=RUBRO_LABELS[rubro]||rubro;
+    h+=`<tr><td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${color}"></span>${esc(label)}</span></td>`;
+    meses.forEach(mes=>{
+      const d=porMesRubro[mes+'|'+rubro];
+      if(d){
+        const mg=d.ventas>0?(d.ganancia/d.ventas*100):0;
+        const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+        h+=`<td style="text-align:center"><div class="mono" style="font-size:10px">${fS(Math.round(d.ventas))}</div><div style="font-size:9px;color:${mgC}">${mg.toFixed(0)}%</div></td>`;
+      } else {
+        h+='<td style="text-align:center;color:var(--t3)">—</td>';
+      }
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+}
+
+function rubPopulateFiltro(rubros){
+  const sel=document.getElementById('rub_filtro'); if(!sel) return;
+  const current=sel.value;
+  sel.innerHTML='<option value="">Todos los rubros</option>'+
+    rubros.map(r=>`<option value="${r.rubro}">${RUBRO_LABELS[r.rubro]||r.rubro} (${r.skus} SKUs)</option>`).join('');
+  sel.value=current;
+}
+
+window.rubRenderDetalle=function(){
+  const el=document.getElementById('rub_detalle_tabla'); if(!el) return;
+  const data=window._rubrosData; if(!data) return;
+  const filtro=document.getElementById('rub_filtro')?.value||'';
+
+  // Agrupar por SKU dentro del filtro
+  const porSku={};
+  data.ords.forEach(o=>{
+    if(!o.sku||o.sku==='—') return;
+    const p=S.products.find(x=>x.sku===o.sku);
+    const rubro=p?.rubro||p?.rubroAuto||'sin_clasificar';
+    if(filtro&&rubro!==filtro) return;
+    if(!porSku[o.sku]) porSku[o.sku]={sku:o.sku,desc:o.desc,rubro,ventas:0,ganancia:0,unidades:0,ordenes:0};
+    porSku[o.sku].ventas+=o.venta||0;
+    porSku[o.sku].ganancia+=o.ganancia||0;
+    porSku[o.sku].unidades+=o.unidades||1;
+    porSku[o.sku].ordenes++;
+  });
+
+  const skus=Object.values(porSku).sort((a,b)=>b.ganancia-a.ganancia);
+
+  if(!skus.length){el.innerHTML='<p style="color:var(--t3)">Sin SKUs para el filtro seleccionado.</p>';return;}
+
+  let h='<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Rubro</th><th>Unidades</th><th>Ventas</th><th>Ganancia</th><th>Margen s/venta</th><th>Margen s/costo</th></tr></thead><tbody>';
+  skus.slice(0,50).forEach(s=>{
+    const mg=s.ventas>0?(s.ganancia/s.ventas*100):0;
+    const costo=s.ventas-s.ganancia;
+    const mgCosto=costo>0?(s.ganancia/costo*100):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    const color=RUBRO_COLORS[s.rubro]||'var(--t3)';
+    h+=`<tr>
+      <td><span class="sku" title="${esc(s.desc)}">${esc(s.sku)}</span></td>
+      <td><span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${color}22;color:${color}">${RUBRO_LABELS[s.rubro]||s.rubro}</span></td>
+      <td class="mono">${s.unidades.toLocaleString('es-AR')}</td>
+      <td class="mono">${fS(Math.round(s.ventas))}</td>
+      <td class="mono" style="color:${s.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(s.ganancia))}</td>
+      <td style="color:${mgC};font-weight:600">${mg.toFixed(1)}%</td>
+      <td style="color:${mgCosto>=20?'var(--grn)':mgCosto>=10?'var(--org)':'var(--red)'}">${mgCosto.toFixed(1)}%</td>
+    </tr>`;
+  });
+  if(skus.length>50) h+=`<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:6px">... y ${skus.length-50} más</td></tr>`;
+  h+='</tbody></table>';
+  el.innerHTML=h;
+};
+
+// ── AUTO-CLASIFICACIÓN DESDE ML category_id ──────────────────────────────────
+// Mapeo de category_id de ML a rubro NIVIKO — se completa con uso real
+const ML_CATEGORY_MAP={
+  // Sillas de oficina (MLA categorías típicas de sillas)
+  'MLA409432':'sillas_oficina', 'MLA1574':'sillas_oficina',
+  // Soportes TV
+  'MLA1000':'soportes_tv',
+  // Se completa dinámicamente con IA si no hay match directo
+};
+
+window.rubAutoClasificar=async function(){
+  toast('🏷 Analizando categorías de ML...');
+  const ords=S.orders||[];
+
+  // Recolectar category_id únicos de SKUs sin clasificar
+  const skuCategoria={};
+  ords.forEach(o=>{
+    if(o.mlCategoryId && o.sku && o.sku!=='—'){
+      if(!skuCategoria[o.sku]) skuCategoria[o.sku]=o.mlCategoryId;
+    }
+  });
+
+  const skusSinRubro=Object.keys(skuCategoria).filter(sku=>{
+    const p=S.products.find(x=>x.sku===sku);
+    return p && !p.rubro && !p.rubroAuto;
+  });
+
+  if(!skusSinRubro.length){
+    toast('No hay SKUs con category_id pendientes de clasificar','ok');
+    return;
+  }
+
+  // Categorías únicas a resolver
+  const catIds=[...new Set(skusSinRubro.map(sku=>skuCategoria[sku]))];
+
+  try{
+    const r=await fetch(`${PROXY}/ml/categorias-batch`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ids:catIds})
+    });
+    const d=await r.json();
+    if(!d.ok){toast('Error consultando categorías ML','err');return;}
+
+    // Usar IA para mapear nombre de categoría → rubro NIVIKO
+    const catNames=Object.entries(d.categorias).filter(([,v])=>v).map(([id,v])=>`${id}: ${v.name} (${v.path})`);
+
+    const aiR=await fetch(`${PROXY}/ai/chat`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:800,
+        system:`Mapeás categorías de MercadoLibre a rubros internos de NIVIKO. Los rubros disponibles son EXACTAMENTE estos códigos: sillas_oficina, soportes_tv, tecnologia, electrodomesticos, accesorios, otro.
+Respondé SOLO con un JSON válido, sin texto adicional, formato: {"MLA123":"sillas_oficina","MLA456":"otro"}`,
+        messages:[{role:'user',content:'Categorías a mapear:\\n'+catNames.join('\\n')}]
+      })
+    });
+    const aiD=await aiR.json();
+    let mapeo={};
+    try{
+      const txt=aiD.content?.[0]?.text||'{}';
+      const jsonMatch=txt.match(/\{[\s\S]*\}/);
+      mapeo=jsonMatch?JSON.parse(jsonMatch[0]):{};
+    }catch(e){console.warn('Error parseando mapeo IA',e);}
+
+    // Aplicar a productos
+    let actualizados=0;
+    skusSinRubro.forEach(sku=>{
+      const catId=skuCategoria[sku];
+      const rubro=mapeo[catId]||ML_CATEGORY_MAP[catId];
+      if(rubro){
+        const p=S.products.find(x=>x.sku===sku);
+        if(p){p.rubroAuto=rubro;actualizados++;}
+      }
+    });
+
+    if(actualizados>0){
+      await fb.set('products',S.products).catch(()=>{});
+      toast(`✓ ${actualizados} SKUs auto-clasificados por categoría ML`,'ok');
+      renderRubros();
+    } else {
+      toast('No se pudo determinar el rubro automáticamente. Cargalo manualmente.','err');
+    }
+  }catch(e){
+    toast('Error en auto-clasificación: '+e.message,'err');
+  }
+};
+
 
 </script>
