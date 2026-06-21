@@ -309,10 +309,27 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
             <button class="btn-g btn-sm" onclick="exportProds()">CSV</button>
           </div>
         </div>
-        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
           <input class="srch" placeholder="Buscar SKU..." oninput="filterP(this.value)" style="flex:1;min-width:120px">
+          <select class="inp" id="prodFiltroRubro" onchange="renderProds()" style="font-size:11px;padding:4px 8px">
+            <option value="">Todos los rubros</option>
+          </select>
         </div>
-        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>SKU</th><th>Descripción</th><th>USD</th><th>ARS</th><th>IVA</th><th>Pub.</th><th>Ventas</th><th>Ganancia</th><th>%</th><th></th></tr></thead><tbody id="prodBody"></tbody></table></div>
+
+        <!-- Barra de acción masiva -->
+        <div id="prod_bulk_bar" style="display:none;background:rgba(232,255,71,.06);border:1px solid rgba(232,255,71,.2);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;align-items:center;gap:10px">
+          <span id="prod_bulk_count" style="font-size:12px;font-weight:600;color:var(--acc)">0 seleccionados</span>
+          <select class="inp" id="prod_bulk_rubro" style="font-size:11px;padding:4px 8px;flex:1;max-width:220px">
+            <option value="">Seleccionar rubro...</option>
+          </select>
+          <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar a selección</button>
+          <button class="btn-g btn-sm" onclick="prodLimpiarSeleccion()" style="font-size:11px;color:var(--t3)">✕ Limpiar selección</button>
+        </div>
+
+        <div class="tbl-wrap"><table class="tbl"><thead><tr>
+          <th style="width:24px"><input type="checkbox" id="prod_check_all" onchange="prodToggleAll(this.checked)"></th>
+          <th>SKU</th><th>Descripción</th><th>Rubro</th><th>USD</th><th>ARS</th><th>IVA</th><th>Pub.</th><th>Ventas</th><th>Ganancia</th><th>%</th><th></th>
+        </tr></thead><tbody id="prodBody"></tbody></table></div>
       </div>
     </div>
 
@@ -1946,6 +1963,18 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <button class="btn" onclick="saveConfig()" style="margin-top:12px">Guardar todo</button>
         </div>
       </div>
+
+      <!-- GESTIÓN DE RUBROS -->
+      <div class="card" style="margin-top:14px">
+        <div class="ch">
+          <span class="ct">Rubros de productos</span>
+          <button class="btn btn-sm" onclick="cfgAgregarRubro()">+ Agregar rubro</button>
+        </div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:12px">
+          Definí las categorías de negocio para clasificar tus productos. Se usan en el módulo "Por Rubro" y al editar productos.
+        </p>
+        <div id="cfg_rubros_lista" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
     </div>
 
   </div>
@@ -1982,12 +2011,6 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <label class="lbl">Rubro</label>
     <select class="inp" id="mp_rubro" style="margin-bottom:10px">
       <option value="">— Auto-detectar desde ML —</option>
-      <option value="sillas_oficina">Sillas de oficina/gamer</option>
-      <option value="soportes_tv">Soportes TV</option>
-      <option value="tecnologia">Tecnología (notebooks, tablets)</option>
-      <option value="electrodomesticos">Electrodomésticos</option>
-      <option value="accesorios">Accesorios/electrónica</option>
-      <option value="otro">Otro</option>
     </select>
     <div class="macts"><button class="btn-g" onclick="closeModal('mProd')">Cancelar</button><button class="btn" id="saveProdBtn" onclick="saveProd()">Guardar</button></div>
   </div>
@@ -2135,7 +2158,15 @@ async function init(){
     }
   }
 
+  // Cargar rubros personalizados desde Firebase (si existen)
+  try{
+    const rubrosCfg=await fb.get('rubros_config').catch(()=>null);
+    if(rubrosCfg?.rubros?.length) window.RUBROS_NIVIKO=rubrosCfg.rubros;
+    const catMap=await fb.get('ml_category_map').catch(()=>null);
+    if(catMap) window._mlCategoryMapCache=catMap;
+  }catch(e){}
   setupNav();renderAll();
+  populateRubroSelects();
   // Auto-refresh cada 30min
   setInterval(()=>{if(S.accounts.length&&!S.loading)doRefresh();},30*60*1000);
 }
@@ -3312,37 +3343,128 @@ function renderEnvios(){
 }
 
 // ── PRODUCTOS ─────────────────────────────────────────────────
+window._prodSeleccionados=window._prodSeleccionados||new Set();
+
 function renderProds(){
   const pf=S.pFilter.toLowerCase();
-  const p=S.products.filter(x=>!pf||(x.sku||"").toLowerCase().includes(pf)||(x.desc||"").toLowerCase().includes(pf));
+  const filtroRubro=document.getElementById('prodFiltroRubro')?.value||'';
+  let p=S.products.filter(x=>!pf||(x.sku||"").toLowerCase().includes(pf)||(x.desc||"").toLowerCase().includes(pf));
+  if(filtroRubro) p=p.filter(x=>(x.rubro||x.rubroAuto||'')===filtroRubro);
+
   const gm={},vm={},um={};
   S.orders.forEach(o=>{gm[o.sku]=(gm[o.sku]||0)+o.ganancia;vm[o.sku]=(vm[o.sku]||0)+o.venta;um[o.sku]=(um[o.sku]||0)+o.unidades;});
   const el=document.getElementById("prodCount");if(el)el.textContent=S.products.length;
+
   let h="";
   p.forEach(x=>{
     const g=gm[x.sku]||0,v=vm[x.sku]||0;
     const gc=g>=0?"g":"r",pc=v>0&&g/v>.15?"g":g<0?"r":"m";
+    const rubroId=x.rubro||x.rubroAuto||'';
+    const rubroInfo=(window.RUBROS_NIVIKO||[]).find(r=>r.id===rubroId);
+    const rubroLabel=rubroInfo?rubroInfo.label:(rubroId?rubroId:'—');
+    const rubroColor=rubroInfo?rubroInfo.color:'var(--t3)';
+    const esAuto=!x.rubro&&x.rubroAuto;
+    const checked=window._prodSeleccionados.has(x.sku)?'checked':'';
     h+="<tr>"+
+      "<td><input type=\"checkbox\" class=\"prod_check\" data-sku=\""+esc(x.sku)+"\" "+checked+" onchange=\"prodToggleCheck('"+esc(x.sku)+"',this.checked)\"></td>"+
       "<td><span class=\"sku\">"+esc(x.sku)+"</span></td>"+
-      "<td style=\"max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)\" title=\""+esc(x.desc)+"\">"+esc(x.desc)+"</td>"+
+      "<td style=\"max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)\" title=\""+esc(x.desc)+"\">"+esc(x.desc)+"</td>"+
+      "<td>"+(rubroId?"<span style=\"font-size:9px;padding:2px 7px;border-radius:8px;background:"+rubroColor+"22;color:"+rubroColor+"\">"+esc(rubroLabel)+(esAuto?" 🤖":"")+"</span>":"<span style=\"font-size:10px;color:var(--org)\">Sin asignar</span>")+"</td>"+
       "<td class=\"mono\">USD "+x.usd+"</td>"+
       "<td class=\"mono\">$"+Math.round(x.ars).toLocaleString("es-AR")+"</td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.iva==21?"rgba(77,163,255,.1)":"rgba(255,138,77,.1)")+";color:"+(x.iva==21?"var(--blu)":"var(--org)")+"\">"+x.iva+"%</span></td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.pub===false?"rgba(255,77,77,.08)":"rgba(71,232,127,.1)")+";color:"+(x.pub===false?"var(--red)":"var(--grn)")+"\">"+(x.pub===false?"No":"Sí")+"</span></td>"+
-      "<td style=\"text-align:center\">"+
-        "<span style=\"font-size:11px;font-weight:600;color:"+((x.pack||packFromSku(x.sku))>1?"var(--acc)":"var(--t3)")+"\">"+
-          "x"+(x.pack||packFromSku(x.sku))+
-        "</span>"+
-      "</td>"+
       "<td>"+(um[x.sku]||0)+"</td>"+
       "<td class=\"mono "+gc+"\">"+fS(g)+"</td>"+
       "<td class=\""+pc+"\">"+(v>0?pct(g/v):"—")+"</td>"+
       "<td><div style=\"display:flex;gap:4px\"><button class=\"btn-icon\" onclick=\"editProd('"+esc(x.sku)+"')\">✎</button><button class=\"btn-icon\" onclick=\"delProd('"+esc(x.sku)+"')\" style=\"color:var(--red)\">✕</button></div></td>"+
       "</tr>";
   });
-  document.getElementById("prodBody").innerHTML=h||'<tr><td colspan="10" style="text-align:center;color:var(--t3);padding:16px">Sin productos</td></tr>';
+  document.getElementById("prodBody").innerHTML=h||'<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:16px">Sin productos</td></tr>';
+  prodActualizarBulkBar();
 }
 window.filterP=v=>{S.pFilter=v;renderProds();};
+
+// ── SELECCIÓN MASIVA + APLICAR RUBRO ─────────────────────────────────────────
+window.prodToggleCheck=function(sku,checked){
+  if(checked) window._prodSeleccionados.add(sku);
+  else window._prodSeleccionados.delete(sku);
+  prodActualizarBulkBar();
+};
+
+window.prodToggleAll=function(checked){
+  document.querySelectorAll('.prod_check').forEach(cb=>{
+    cb.checked=checked;
+    const sku=cb.dataset.sku;
+    if(checked) window._prodSeleccionados.add(sku);
+    else window._prodSeleccionados.delete(sku);
+  });
+  prodActualizarBulkBar();
+};
+
+window.prodLimpiarSeleccion=function(){
+  window._prodSeleccionados.clear();
+  const allCb=document.getElementById('prod_check_all');
+  if(allCb) allCb.checked=false;
+  renderProds();
+};
+
+function prodActualizarBulkBar(){
+  const bar=document.getElementById('prod_bulk_bar');
+  const countEl=document.getElementById('prod_bulk_count');
+  const n=window._prodSeleccionados.size;
+  if(bar) bar.style.display=n>0?'flex':'none';
+  if(countEl) countEl.textContent=n+' seleccionado'+(n!==1?'s':'');
+}
+
+window.prodAplicarRubroMasivo=async function(){
+  const rubro=document.getElementById('prod_bulk_rubro')?.value;
+  if(!rubro){toast('Seleccioná un rubro primero','err');return;}
+  if(!window._prodSeleccionados.size){toast('No hay productos seleccionados','err');return;}
+
+  let actualizados=0;
+  window._prodSeleccionados.forEach(sku=>{
+    const p=S.products.find(x=>x.sku===sku);
+    if(p){p.rubro=rubro;delete p.rubroAuto;actualizados++;}
+  });
+
+  await fb.set('products',S.products).catch(()=>{});
+  const rubroInfo=(window.RUBROS_NIVIKO||[]).find(r=>r.id===rubro);
+  toast(`✓ ${actualizados} productos asignados a "${rubroInfo?.label||rubro}"`,'ok');
+
+  window._prodSeleccionados.clear();
+  const allCb=document.getElementById('prod_check_all');
+  if(allCb) allCb.checked=false;
+  renderProds();
+};
+
+// ── Llenar todos los <select> de rubro dinámicamente desde RUBROS_NIVIKO ────
+window.populateRubroSelects=function(){
+  const lista=window.RUBROS_NIVIKO||[];
+  const opciones=lista.map(r=>`<option value="${r.id}">${esc(r.label)}</option>`).join('');
+
+  // Modal de producto (con opción auto-detectar)
+  const mpRubro=document.getElementById('mp_rubro');
+  if(mpRubro){
+    const cur=mpRubro.value;
+    mpRubro.innerHTML='<option value="">— Auto-detectar desde ML —</option>'+opciones;
+    mpRubro.value=cur;
+  }
+
+  // Barra de selección masiva (sin opción vacía real, fuerza elegir)
+  const bulkRubro=document.getElementById('prod_bulk_rubro');
+  if(bulkRubro){
+    bulkRubro.innerHTML='<option value="">Seleccionar rubro...</option>'+opciones;
+  }
+
+  // Filtro de la tabla de productos
+  const filtroRubro=document.getElementById('prodFiltroRubro');
+  if(filtroRubro){
+    const cur=filtroRubro.value;
+    filtroRubro.innerHTML='<option value="">Todos los rubros</option>'+opciones;
+    filtroRubro.value=cur;
+  }
+};
 window.calcARS=()=>{const u=parseFloat(document.getElementById("mp_usd").value)||0;if(u>0)document.getElementById("mp_ars").value=Math.round(u*S.cfg.dolar);};
 
 // Detecta automáticamente unidades por pack desde el SKU
@@ -5525,6 +5647,79 @@ function loadCfgUI(){
   const c=S.cfg;
   ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship","bonif_bajo_c1","bonif_bajo_c2","bonif_bajo_c3","bonif_alto_c1","bonif_alto_c2","bonif_alto_c3","cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
   updateEnvioToggleUI();
+  cfgRenderRubros();
+}
+
+// ── GESTIÓN DE RUBROS (Configuración) ────────────────────────────────────────
+function cfgRenderRubros(){
+  const el=document.getElementById('cfg_rubros_lista'); if(!el) return;
+  const lista=window.RUBROS_NIVIKO||[];
+
+  // Contar productos por rubro
+  const counts={};
+  S.products.forEach(p=>{
+    const r=p.rubro||p.rubroAuto;
+    if(r) counts[r]=(counts[r]||0)+1;
+  });
+
+  el.innerHTML=lista.map((r,idx)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r)">
+      <span style="width:14px;height:14px;border-radius:4px;background:${r.color};flex-shrink:0"></span>
+      <input class="inp" value="${esc(r.label)}" style="flex:1;font-size:12px;padding:5px 8px" onchange="cfgRenombrarRubro(${idx},this.value)">
+      <input type="color" value="${r.color}" style="width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;background:none" onchange="cfgColorRubro(${idx},this.value)">
+      <span style="font-size:10px;color:var(--t3);min-width:70px;text-align:right">${counts[r.id]||0} SKUs</span>
+      <button class="btn-icon" onclick="cfgEliminarRubro(${idx})" style="color:var(--red)" title="Eliminar rubro">✕</button>
+    </div>`).join('');
+}
+
+window.cfgAgregarRubro=async function(){
+  const label=prompt('Nombre del nuevo rubro:');
+  if(!label||!label.trim()) return;
+  const id=label.trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'') // quitar acentos
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+  if((window.RUBROS_NIVIKO||[]).find(r=>r.id===id)){
+    toast('Ya existe un rubro con ese nombre','err');return;
+  }
+  const colores=['#4DA3FF','#A78BFA','#FF8A4D','#47E87F','#E8FF47','#FF6B9D','#5AC8FA','#C77DFF','#00E5A0','#FFB347'];
+  const color=colores[window.RUBROS_NIVIKO.length%colores.length];
+  window.RUBROS_NIVIKO.push({id,label:label.trim(),color});
+  await cfgGuardarRubros();
+  populateRubroSelects();
+  cfgRenderRubros();
+  toast('✓ Rubro "'+label.trim()+'" agregado','ok');
+};
+
+window.cfgRenombrarRubro=async function(idx,nuevoLabel){
+  if(!window.RUBROS_NIVIKO[idx]||!nuevoLabel.trim()) return;
+  window.RUBROS_NIVIKO[idx].label=nuevoLabel.trim();
+  await cfgGuardarRubros();
+  populateRubroSelects();
+};
+
+window.cfgColorRubro=async function(idx,nuevoColor){
+  if(!window.RUBROS_NIVIKO[idx]) return;
+  window.RUBROS_NIVIKO[idx].color=nuevoColor;
+  await cfgGuardarRubros();
+  cfgRenderRubros();
+};
+
+window.cfgEliminarRubro=async function(idx){
+  const r=window.RUBROS_NIVIKO[idx]; if(!r) return;
+  const enUso=S.products.filter(p=>(p.rubro||p.rubroAuto)===r.id).length;
+  const msg=enUso>0
+    ? `"${r.label}" está asignado a ${enUso} producto(s). Si lo eliminás, esos productos quedarán sin rubro. ¿Continuar?`
+    : `¿Eliminar el rubro "${r.label}"?`;
+  if(!confirm(msg)) return;
+  window.RUBROS_NIVIKO.splice(idx,1);
+  await cfgGuardarRubros();
+  populateRubroSelects();
+  cfgRenderRubros();
+  toast('Rubro eliminado','ok');
+};
+
+async function cfgGuardarRubros(){
+  await fb.set('rubros_config',{rubros:window.RUBROS_NIVIKO,ts:new Date().toISOString()}).catch(()=>{});
 }
 window.clearOrdersCache=async()=>{
   if(!confirm("Esto borra el caché de órdenes y fuerza una recarga completa desde ML. ¿Continuar?"))return;
@@ -10550,20 +10745,25 @@ window.intelRecargarML=async function(){
 // Auto-clasifica SKUs desde mlCategoryId, compara rentabilidad entre rubros
 // ══════════════════════════════════════════════════════════════════════════════
 
-const RUBRO_LABELS={
-  sillas_oficina:'Sillas de oficina/gamer',
-  soportes_tv:'Soportes TV',
-  tecnologia:'Tecnología',
-  electrodomesticos:'Electrodomésticos',
-  accesorios:'Accesorios/electrónica',
-  otro:'Otro',
-  sin_clasificar:'Sin clasificar'
-};
-const RUBRO_COLORS={
-  sillas_oficina:'#4DA3FF', soportes_tv:'#A78BFA', tecnologia:'#FF8A4D',
-  electrodomesticos:'#47E87F', accesorios:'#E8FF47', otro:'#8B8A84',
-  sin_clasificar:'#5A5954'
-};
+// ── RUBROS NIVIKO — fuente única de verdad ──────────────────────────────────
+// Se puede ampliar desde Config sin tocar código (ver renderRubrosConfig)
+window.RUBROS_NIVIKO=[
+  {id:'sillas_hogar',     label:'Sillas de Hogar',      color:'#4DA3FF'},
+  {id:'tender',           label:'Tender',                color:'#A78BFA'},
+  {id:'parrilla',         label:'Parrilla',              color:'#FF8A4D'},
+  {id:'inflables',        label:'Inflables',             color:'#47E87F'},
+  {id:'soportes_tv',      label:'Soportes de TV',        color:'#E8FF47'},
+  {id:'notebooks',        label:'Notebooks',             color:'#FF6B9D'},
+  {id:'tablets',          label:'Tablets',               color:'#5AC8FA'},
+  {id:'electronica',      label:'Electrónica',           color:'#C77DFF'},
+  {id:'electrodomesticos',label:'Electrodomésticos',     color:'#00E5A0'},
+  {id:'mesas_plegables',  label:'Mesas Plegables',       color:'#FFB347'},
+  {id:'otro',             label:'Otro',                  color:'#8B8A84'},
+];
+const RUBRO_LABELS=Object.fromEntries(window.RUBROS_NIVIKO.map(r=>[r.id,r.label]));
+RUBRO_LABELS.sin_clasificar='Sin clasificar';
+const RUBRO_COLORS=Object.fromEntries(window.RUBROS_NIVIKO.map(r=>[r.id,r.color]));
+RUBRO_COLORS.sin_clasificar='#5A5954';
 
 window.renderRubros=async function(){
   // Inicializar fechas si están vacías
@@ -10795,14 +10995,8 @@ window.rubRenderDetalle=function(){
 };
 
 // ── AUTO-CLASIFICACIÓN DESDE ML category_id ──────────────────────────────────
-// Mapeo de category_id de ML a rubro NIVIKO — se completa con uso real
-const ML_CATEGORY_MAP={
-  // Sillas de oficina (MLA categorías típicas de sillas)
-  'MLA409432':'sillas_oficina', 'MLA1574':'sillas_oficina',
-  // Soportes TV
-  'MLA1000':'soportes_tv',
-  // Se completa dinámicamente con IA si no hay match directo
-};
+// Cache de mapeos confirmados category_id → rubro, se completa con uso real y persiste
+window._mlCategoryMapCache=window._mlCategoryMapCache||{};
 
 window.rubAutoClasificar=async function(){
   toast('🏷 Analizando categorías de ML...');
@@ -10847,8 +11041,8 @@ window.rubAutoClasificar=async function(){
       body:JSON.stringify({
         model:'claude-sonnet-4-5',
         max_tokens:800,
-        system:`Mapeás categorías de MercadoLibre a rubros internos de NIVIKO. Los rubros disponibles son EXACTAMENTE estos códigos: sillas_oficina, soportes_tv, tecnologia, electrodomesticos, accesorios, otro.
-Respondé SOLO con un JSON válido, sin texto adicional, formato: {"MLA123":"sillas_oficina","MLA456":"otro"}`,
+        system:`Mapeás categorías de MercadoLibre a rubros internos de NIVIKO. Los rubros disponibles son EXACTAMENTE estos códigos: ${(window.RUBROS_NIVIKO||[]).map(r=>r.id).join(', ')}.
+Respondé SOLO con un JSON válido, sin texto adicional, formato: {"MLA123":"${(window.RUBROS_NIVIKO||[{id:'otro'}])[0].id}","MLA456":"otro"}`,
         messages:[{role:'user',content:'Categorías a mapear:\\n'+catNames.join('\\n')}]
       })
     });
@@ -10864,7 +11058,7 @@ Respondé SOLO con un JSON válido, sin texto adicional, formato: {"MLA123":"sil
     let actualizados=0;
     skusSinRubro.forEach(sku=>{
       const catId=skuCategoria[sku];
-      const rubro=mapeo[catId]||ML_CATEGORY_MAP[catId];
+      const rubro=mapeo[catId]||window._mlCategoryMapCache[catId];
       if(rubro){
         const p=S.products.find(x=>x.sku===sku);
         if(p){p.rubroAuto=rubro;actualizados++;}
@@ -10872,6 +11066,9 @@ Respondé SOLO con un JSON válido, sin texto adicional, formato: {"MLA123":"sil
     });
 
     if(actualizados>0){
+      // Persistir el mapeo de IA en cache + Firebase para no re-consultar
+      window._mlCategoryMapCache={...window._mlCategoryMapCache,...mapeo};
+      await fb.set('ml_category_map',window._mlCategoryMapCache).catch(()=>{});
       await fb.set('products',S.products).catch(()=>{});
       toast(`✓ ${actualizados} SKUs auto-clasificados por categoría ML`,'ok');
       renderRubros();
