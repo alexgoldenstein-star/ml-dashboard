@@ -170,6 +170,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="inteligencia"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>Inteligencia</div>
     <div class="ni" data-p="rubros"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Por Rubro</div>
     <div class="ni" data-p="portafolio"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Portafolio</div>
+    <div class="ni" data-p="fulljaus"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 6h14"/><circle cx="4.5" cy="9.5" r="1"/><path d="M7 9.5h5"/></svg>Fulljaus</div>
     <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
     <div class="ns">Sistema</div>
@@ -1157,6 +1158,152 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           </button>
         </div>
         <div id="nuevo_resultado" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <!-- FULLJAUS -->
+    <div class="page" id="page-fulljaus">
+      <div style="max-width:1200px;margin:0 auto">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800">Fulljaus Marketplaces</div>
+            <div style="font-size:11px;color:var(--t3)" id="fj_status_hdr">Conectando...</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="date" id="fj_date_from" class="inp" style="font-size:11px;padding:4px 6px">
+            <span style="font-size:11px;color:var(--t3)">→</span>
+            <input type="date" id="fj_date_to" class="inp" style="font-size:11px;padding:4px 6px">
+            <select class="inp" id="fj_mkt_sel" style="font-size:11px;padding:4px 6px" onchange="fjCargar()">
+              <option value="">Todos los marketplaces</option>
+            </select>
+            <button class="btn-g btn-sm" onclick="fjCargar()" style="font-size:11px">↻ Actualizar</button>
+            <button class="btn-g btn-sm" onclick="fjSync()" style="font-size:11px;color:var(--acc)">⬇ Sync histórico</button>
+          </div>
+        </div>
+
+        <!-- Estado diagnóstico -->
+        <div id="fj_diag_banner" style="margin-bottom:12px"></div>
+
+        <!-- KPIs globales -->
+        <div class="g4" id="fj_kpis" style="margin-bottom:14px">
+          <div class="kpi"><div class="kl">Total ventas</div><div class="kv" id="fjk_ventas">—</div><div class="ks" id="fjk_ventas_s"></div></div>
+          <div class="kpi"><div class="kl">Ganancia neta</div><div class="kv" id="fjk_gan">—</div><div class="ks" id="fjk_gan_s"></div></div>
+          <div class="kpi"><div class="kl">Margen s/venta</div><div class="kv" id="fjk_mg">—</div><div class="ks" id="fjk_mg_s"></div></div>
+          <div class="kpi"><div class="kl">Órdenes</div><div class="kv" id="fjk_ords">—</div><div class="ks" id="fjk_ords_s"></div></div>
+        </div>
+
+        <!-- Sub-tabs -->
+        <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn-g" id="fjtab_resumen" onclick="fjTab('resumen')" style="font-size:11px;font-weight:600">📊 Resumen</button>
+          <button class="btn-g" id="fjtab_ordenes" onclick="fjTab('ordenes')" style="font-size:11px">📋 Órdenes</button>
+          <button class="btn-g" id="fjtab_rentabilidad" onclick="fjTab('rentabilidad')" style="font-size:11px">💰 Rentabilidad</button>
+          <button class="btn-g" id="fjtab_liquidaciones" onclick="fjTab('liquidaciones')" style="font-size:11px">🧾 Liquidaciones</button>
+          <button class="btn-g" id="fjtab_config" onclick="fjTab('config')" style="font-size:11px">⚙ Config costos</button>
+        </div>
+
+        <!-- PANEL RESUMEN -->
+        <div id="fjpanel_resumen">
+          <div class="g2" style="margin-bottom:10px">
+            <div class="card" style="padding:12px">
+              <div class="ch" style="margin-bottom:8px"><span class="ct">Por marketplace</span></div>
+              <div id="fj_por_mkt" style="font-size:11px;color:var(--t3)">Cargando...</div>
+            </div>
+            <div class="card" style="padding:12px">
+              <div class="ch" style="margin-bottom:8px"><span class="ct">Evolución mensual</span></div>
+              <div id="fj_evolucion" style="font-size:11px;color:var(--t3)">Cargando...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL ÓRDENES -->
+        <div id="fjpanel_ordenes" style="display:none">
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:8px">
+              <span class="ct">Órdenes</span>
+              <div style="display:flex;gap:6px">
+                <input class="inp" id="fj_ord_search" placeholder="Buscar referencia/SKU..." oninput="fjRenderOrdenes()" style="font-size:11px;padding:4px 8px;width:180px">
+                <select class="inp" id="fj_ord_estado" onchange="fjRenderOrdenes()" style="font-size:11px;padding:4px 6px">
+                  <option value="">Todos los estados</option>
+                  <option value="APRO">Aprobado</option>
+                  <option value="ENV">Enviado</option>
+                  <option value="ENT">Entregado</option>
+                  <option value="PROC">En proceso</option>
+                  <option value="DEVTOT">Devolución</option>
+                  <option value="ANUL">Anulado</option>
+                </select>
+              </div>
+            </div>
+            <div id="fj_ordenes_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- PANEL RENTABILIDAD -->
+        <div id="fjpanel_rentabilidad" style="display:none">
+          <div class="card" style="padding:12px;margin-bottom:10px">
+            <div class="ch" style="margin-bottom:8px"><span class="ct">Rentabilidad por marketplace</span><span style="font-size:10px;color:var(--t3)">Usando configuración de costos</span></div>
+            <div id="fj_rent_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:8px"><span class="ct">Rentabilidad por SKU</span></div>
+            <div id="fj_sku_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- PANEL LIQUIDACIONES -->
+        <div id="fjpanel_liquidaciones" style="display:none">
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:8px">
+              <span class="ct">Liquidación por marketplace</span>
+              <select class="inp" id="fj_liq_mkt" onchange="fjRenderLiquidacion()" style="font-size:11px;padding:4px 6px">
+                <option value="">Seleccionar marketplace</option>
+              </select>
+            </div>
+            <div id="fj_liq_detalle" style="font-size:11px;color:var(--t3)">Seleccioná un marketplace</div>
+          </div>
+        </div>
+
+        <!-- PANEL CONFIG COSTOS -->
+        <div id="fjpanel_config" style="display:none">
+          <div class="card" style="padding:12px;margin-bottom:10px">
+            <div class="ch" style="margin-bottom:6px"><span class="ct">Configuración de costos por marketplace</span></div>
+            <p style="font-size:11px;color:var(--t3);margin-bottom:14px">Todos los valores se guardan automáticamente en Firebase y se aplican a los cálculos de rentabilidad.</p>
+            <div id="fj_config_grid" style="display:flex;flex-direction:column;gap:10px"></div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:8px"><span class="ct">Costos globales (aplican a todos)</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;font-size:11px">
+              <div>
+                <label class="lbl">IVA sobre comisión %</label>
+                <input class="inp" id="fjg_iva_com" type="number" value="21" step="0.1">
+              </div>
+              <div>
+                <label class="lbl">Fee Fulljaus % (fijo)</label>
+                <input class="inp" id="fjg_fee_fj" type="number" value="1" readonly style="color:var(--t3)">
+                <div style="font-size:9px;color:var(--t3);margin-top:2px">No editable</div>
+              </div>
+              <div>
+                <label class="lbl">Retenciones IVA %</label>
+                <input class="inp" id="fjg_ret_iva" type="number" value="0" step="0.1">
+              </div>
+              <div>
+                <label class="lbl">Retenciones Gan. %</label>
+                <input class="inp" id="fjg_ret_gan" type="number" value="0" step="0.1">
+              </div>
+              <div>
+                <label class="lbl">IIBB %</label>
+                <input class="inp" id="fjg_iibb" type="number" value="4" step="0.1">
+              </div>
+              <div>
+                <label class="lbl">TC (ARS/USD)</label>
+                <input class="inp" id="fjg_tc" type="number" value="1000">
+              </div>
+            </div>
+            <button class="btn" onclick="fjGuardarConfig()" style="margin-top:12px;font-size:12px">💾 Guardar configuración</button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -2191,7 +2338,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,fulljaus:renderFulljaus};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -11079,6 +11226,594 @@ Respondé SOLO con un JSON válido, sin texto adicional, formato: {"MLA123":"${(
     toast('Error en auto-clasificación: '+e.message,'err');
   }
 };
+
+
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FULLJAUS — Módulo completo del dashboard
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Marketplaces NIVIKO — código Fulljaus → config
+window.FJ_MARKETS_CFG = {
+  fravegasc: {nombre:'Frávega',        color:'#FF4D4D'},
+  megatone:  {nombre:'Megatone',       color:'#FF8A4D'},
+  cetrogar:  {nombre:'Cetrogar',       color:'#FFB347'},
+  oncity:    {nombre:'Oncity',         color:'#E8FF47'},
+  pardo:     {nombre:'Pardo',          color:'#47E87F'},
+  carrefour: {nombre:'Carrefour',      color:'#4DA3FF'},
+  tiendabna: {nombre:'Tienda BNA',     color:'#A78BFA'},
+  credicoop: {nombre:'Tienda Credicoop',color:'#FF6B9D'},
+  bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
+};
+
+// Config de costos por defecto (se pisa con lo guardado en Firebase)
+window.FJ_CONFIG = {
+  global: {iva_com:21, fee_fulljaus:1, ret_iva:0, ret_gan:0, iibb:4, tc:1000},
+  markets: {}
+};
+
+// Cache de órdenes cargadas
+window._fjOrdenes = [];
+window._fjTab = 'resumen';
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+window.renderFulljaus = async function(){
+  // Cargar config de Firebase
+  try{
+    const cfg = await fb.get('fulljaus_config').catch(()=>null);
+    if(cfg) window.FJ_CONFIG = {...window.FJ_CONFIG, ...cfg};
+  }catch(e){}
+
+  // Inicializar fechas
+  const fromEl=document.getElementById('fj_date_from');
+  const toEl=document.getElementById('fj_date_to');
+  if(fromEl&&!fromEl.value){ fromEl.value=new Date(Date.now()-30*864e5).toISOString().split('T')[0]; }
+  if(toEl&&!toEl.value){ toEl.value=new Date().toISOString().split('T')[0]; }
+
+  // Diagnóstico de conexión
+  fjDiagnostico();
+  fjRenderConfig();
+  fjTab('resumen');
+};
+
+// ── DIAGNÓSTICO ──────────────────────────────────────────────────────────────
+async function fjDiagnostico(){
+  const bannerEl=document.getElementById('fj_diag_banner');
+  const hdrEl=document.getElementById('fj_status_hdr');
+  try{
+    const r=await fetch(`${PROXY}/fulljaus/diagnostico`);
+    const d=await r.json();
+    if(d.ok){
+      if(hdrEl) hdrEl.textContent=`✓ Conectado · ${d.marketplaces_activos_niviko} marketplaces activos`;
+      if(bannerEl) bannerEl.innerHTML='';
+      // Poblar selects de marketplace
+      fjPopularSelects();
+      // Cargar datos
+      await fjCargar();
+    } else {
+      const msg=d.error||'Error de conexión';
+      if(hdrEl) hdrEl.textContent='⚠ Sin conexión';
+      if(bannerEl) bannerEl.innerHTML=`
+        <div class="card" style="border-left:3px solid var(--red);background:rgba(255,77,77,.04);padding:12px">
+          <div style="font-weight:600;font-size:12px;margin-bottom:4px">⚠ Fulljaus no conectado</div>
+          <div style="font-size:11px;color:var(--t3)">${esc(msg)}</div>
+          ${msg.includes('FULLJAUS_TOKEN')?'<div style="margin-top:8px;font-size:11px;color:var(--acc)">→ Ir a Vercel → Settings → Environment Variables → Agregar <code>FULLJAUS_TOKEN</code></div>':''}
+        </div>`;
+      fjMostrarDemo();
+    }
+  }catch(e){
+    if(hdrEl) hdrEl.textContent='⚠ Error de red';
+    if(bannerEl) bannerEl.innerHTML=`<div class="card" style="border-left:3px solid var(--org);padding:10px"><p style="font-size:11px;color:var(--org)">Error conectando con el proxy: ${e.message}</p></div>`;
+  }
+}
+
+function fjMostrarDemo(){
+  // Mostrar panel vacío con instrucciones
+  ['fj_por_mkt','fj_evolucion','fj_ordenes_tabla','fj_rent_tabla','fj_sku_tabla'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML='<p style="color:var(--t3);font-size:11px;padding:12px;text-align:center">Sin datos — configurá el token en Vercel para conectar</p>';
+  });
+  ['fjk_ventas','fjk_gan','fjk_mg','fjk_ords'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.textContent='—';
+  });
+}
+
+// ── CARGAR DATOS ─────────────────────────────────────────────────────────────
+window.fjCargar = async function(){
+  const fromEl=document.getElementById('fj_date_from');
+  const toEl=document.getElementById('fj_date_to');
+  const mktSel=document.getElementById('fj_mkt_sel');
+  const hdrEl=document.getElementById('fj_status_hdr');
+
+  const from=fromEl?.value;
+  const to=toEl?.value;
+  const mkt=mktSel?.value||'';
+
+  if(!from||!to){ return; }
+  if(hdrEl) hdrEl.textContent='⏳ Cargando órdenes...';
+
+  try{
+    let url=`${PROXY}/fulljaus/sync?inicio=${encodeURIComponent(from+'T00:00:00-03:00')}&fin=${encodeURIComponent(to+'T23:59:59-03:00')}`;
+    if(mkt) url+=`&marketplace=${mkt}`;
+
+    const r=await fetch(url);
+    const d=await r.json();
+
+    if(!d.ok) throw new Error(d.error||'Error al cargar');
+
+    window._fjOrdenes = d.orders||[];
+
+    // Cruzar con S.products para enrichment
+    window._fjOrdenes = window._fjOrdenes.map(o=>{
+      const items=o.items.map(it=>{
+        const prod=S.products.find(p=>p.sku===it.sku);
+        return {...it, _prod:prod||null, _costoARS:prod?.ars||0};
+      });
+      const costoTotal=items.reduce((s,it)=>s+(it._costoARS*it.qty),0);
+      const costosFJ=fjCalcularCostos(o);
+      const ganancia=o.venta - costoTotal - costosFJ.total;
+      return {...o, items, _costos:costosFJ, _costo_prod:costoTotal, _ganancia:ganancia};
+    });
+
+    if(hdrEl) hdrEl.textContent=`✓ ${window._fjOrdenes.length} órdenes · ${from} → ${to}`;
+
+    fjActualizarKPIs();
+    fjRenderResumen();
+    fjRenderOrdenes();
+    fjRenderRentabilidad();
+    fjRenderLiquidacion();
+
+  }catch(e){
+    if(hdrEl) hdrEl.textContent=`⚠ ${e.message}`;
+  }
+};
+
+// ── SYNC HISTÓRICO ────────────────────────────────────────────────────────────
+window.fjSync = async function(){
+  const desde=prompt('Fecha de inicio del sync (YYYY-MM-DD):', new Date(Date.now()-90*864e5).toISOString().split('T')[0]);
+  if(!desde) return;
+  toast('⬇ Sincronizando Fulljaus...');
+  document.getElementById('fj_date_from').value=desde;
+  document.getElementById('fj_date_to').value=new Date().toISOString().split('T')[0];
+  await fjCargar();
+  toast(`✓ Sync completo: ${window._fjOrdenes.length} órdenes`,'ok');
+};
+
+// ── CALCULAR COSTOS (con config configurable) ─────────────────────────────────
+function fjCalcularCostos(orden){
+  const mkt=orden.marketplace||'';
+  const cfg=window.FJ_CONFIG;
+  const global=cfg.global||{};
+  const mktCfg=cfg.markets?.[mkt]||{};
+
+  const venta=orden.venta||0;
+  const cuotas=orden.cuotas||1;
+
+  // 1. Comisión marketplace
+  const pctCom=(mktCfg.comision||0)/100;
+  const comision=venta*pctCom;
+
+  // 2. Gasto por cuotas (tabla por cantidad)
+  const tabCuotas=mktCfg.cuotas_tabla||{1:0, 3:3, 6:6, 12:12, 18:18};
+  const pctCuotas=(tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).reverse().find(k=>parseInt(k)<=cuotas)]||0)/100;
+  const gastoCuotas=venta*pctCuotas;
+
+  // 3. Fee logístico (por peso o fijo)
+  const feeLogis=mktCfg.fee_logistico_fijo||0; // ARS fijo por orden
+
+  // 4. Publicidad / gastos extras
+  const pctPub=(mktCfg.publicidad||0)/100;
+  const gastoExtra=venta*pctPub + (mktCfg.gastos_extra||0);
+
+  // 5. Fee Fulljaus (siempre 1%)
+  const feeFulljaus=venta*((global.fee_fulljaus||1)/100);
+
+  // 6. IVA sobre comisión
+  const ivaComision=comision*((global.iva_com||21)/100);
+
+  // 7. IIBB
+  const iibb=venta*((global.iibb||4)/100);
+
+  // 8. Retenciones
+  const retIVA=venta*((global.ret_iva||0)/100);
+  const retGan=venta*((global.ret_gan||0)/100);
+
+  const total=comision+gastoCuotas+feeLogis+gastoExtra+feeFulljaus+ivaComision+iibb+retIVA+retGan;
+
+  return {
+    comision:    Math.round(comision),
+    gastoCuotas: Math.round(gastoCuotas),
+    feeLogis:    Math.round(feeLogis),
+    gastoExtra:  Math.round(gastoExtra),
+    feeFulljaus: Math.round(feeFulljaus),
+    ivaComision: Math.round(ivaComision),
+    iibb:        Math.round(iibb),
+    retIVA:      Math.round(retIVA),
+    retGan:      Math.round(retGan),
+    total:       Math.round(total),
+    pctTotal:    venta>0?(total/venta*100).toFixed(1)+'%':'—'
+  };
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+function fjActualizarKPIs(){
+  const ords=window._fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+  const totV=ords.reduce((s,o)=>s+(o.venta||0),0);
+  const totG=ords.reduce((s,o)=>s+(o._ganancia||0),0);
+  const mg=totV>0?(totG/totV*100):0;
+
+  const sk=(id,v,c)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(c)el.style.color=c;}};
+  sk('fjk_ventas', fS(Math.round(totV)));
+  sk('fjk_ventas_s').textContent=ords.length+' órdenes';
+  sk('fjk_gan', fS(Math.round(totG)), totG>=0?'var(--grn)':'var(--red)');
+  sk('fjk_gan_s', 'excl. anuladas/dev.');
+  sk('fjk_mg', mg.toFixed(1)+'%', mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)');
+  const costosFJ=ords.reduce((s,o)=>s+(o._costos?.feeFulljaus||0),0);
+  sk('fjk_mg_s', `Fulljaus: ${fS(Math.round(costosFJ))}`);
+  sk('fjk_ords', ords.length.toString());
+  const mkts=new Set(ords.map(o=>o.marketplace)).size;
+  sk('fjk_ords_s', `${mkts} marketplace${mkts!==1?'s':''}`);
+}
+
+// ── RESUMEN ───────────────────────────────────────────────────────────────────
+function fjRenderResumen(){
+  // Por marketplace
+  const el=document.getElementById('fj_por_mkt'); if(!el) return;
+  const porMkt={};
+  window._fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)).forEach(o=>{
+    const m=o.marketplace||'?';
+    if(!porMkt[m]) porMkt[m]={nombre:o.marketplaceNombre||FJ_MARKETS_CFG[m]?.nombre||m, venta:0, ganancia:0, ords:0, costos:0};
+    porMkt[m].venta+=o.venta||0;
+    porMkt[m].ganancia+=o._ganancia||0;
+    porMkt[m].ords++;
+    porMkt[m].costos+=o._costos?.total||0;
+  });
+
+  const sorted=Object.entries(porMkt).sort((a,b)=>b[1].venta-a[1].venta);
+  if(!sorted.length){el.innerHTML='<p style="color:var(--t3);padding:12px;text-align:center">Sin ventas en el período</p>';return;}
+
+  let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Marketplace</th><th>Ventas</th><th>Costos totales</th><th>Ganancia</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
+  sorted.forEach(([mkt,d])=>{
+    const mg=d.venta>0?(d.ganancia/d.venta*100):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    const color=FJ_MARKETS_CFG[mkt]?.color||'var(--t3)';
+    h+=`<tr>
+      <td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:${color}"></span>${esc(d.nombre)}</span></td>
+      <td class="mono">${fS(Math.round(d.venta))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(d.costos))}</td>
+      <td class="mono" style="color:${d.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(d.ganancia))}</td>
+      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
+      <td>${d.ords}</td>
+    </tr>`;
+  });
+  h+='</tbody></table>';
+  el.innerHTML=h;
+
+  // Evolución mensual
+  const evolEl=document.getElementById('fj_evolucion');
+  if(!evolEl) return;
+  const porMes={};
+  window._fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)).forEach(o=>{
+    const mes=o.fecha?.substring(0,7)||'?';
+    if(!porMes[mes]) porMes[mes]={mes,venta:0,ganancia:0,ords:0};
+    porMes[mes].venta+=o.venta||0;
+    porMes[mes].ganancia+=o._ganancia||0;
+    porMes[mes].ords++;
+  });
+  const meses=Object.values(porMes).sort((a,b)=>a.mes.localeCompare(b.mes));
+  if(!meses.length){evolEl.innerHTML='<p style="color:var(--t3)">—</p>';return;}
+  let eh='<table class="tbl" style="font-size:11px"><thead><tr><th>Mes</th><th>Ventas</th><th>Ganancia</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
+  [...meses].reverse().forEach(m=>{
+    const mg=m.venta>0?(m.ganancia/m.venta*100):0;
+    eh+=`<tr><td>${m.mes}</td><td class="mono">${fS(Math.round(m.venta))}</td><td class="mono" style="color:${m.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(m.ganancia))}</td><td style="color:${mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';font-weight:600}">${mg.toFixed(1)}%</td><td>${m.ords}</td></tr>`;
+  });
+  evolEl.innerHTML=eh+'</tbody></table>';
+}
+
+// ── ÓRDENES ───────────────────────────────────────────────────────────────────
+window.fjRenderOrdenes = function(){
+  const el=document.getElementById('fj_ordenes_tabla'); if(!el) return;
+  const q=(document.getElementById('fj_ord_search')?.value||'').toLowerCase();
+  const est=document.getElementById('fj_ord_estado')?.value||'';
+
+  let ords=window._fjOrdenes;
+  if(q) ords=ords.filter(o=>String(o.referencia).toLowerCase().includes(q)||String(o.sku).toLowerCase().includes(q)||(o.desc||'').toLowerCase().includes(q));
+  if(est) ords=ords.filter(o=>o.estado===est);
+
+  if(!ords.length){el.innerHTML='<p style="color:var(--t3);padding:12px;text-align:center">Sin órdenes para los filtros seleccionados</p>';return;}
+
+  const estadoColor={APRO:'var(--grn)',ENV:'var(--acc)',ENT:'var(--grn)',PROC:'var(--org)',DEVTOT:'var(--red)',DEVPARC:'var(--org)',ANUL:'var(--red)',PEND:'var(--t3)',NOAPRO:'var(--red)'};
+
+  let h='<table class="tbl" style="font-size:11px"><thead><tr><th>Ref.</th><th>Marketplace</th><th>Fecha</th><th>SKU</th><th>Descripción</th><th>Uds</th><th>Venta</th><th>Costos</th><th>Ganancia</th><th>Margen</th><th>Cuotas</th><th>Estado</th></tr></thead><tbody>';
+  ords.slice(0,100).forEach(o=>{
+    const mg=o.venta>0?(o._ganancia/o.venta*100):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    const color=FJ_MARKETS_CFG[o.marketplace]?.color||'var(--t3)';
+    h+=`<tr>
+      <td class="mono" style="font-size:10px">${esc(o.referencia)}</td>
+      <td><span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${color}22;color:${color}">${esc(o.marketplaceNombre||o.marketplace)}</span></td>
+      <td style="font-size:10px">${o.fecha||'—'}</td>
+      <td><span class="sku">${esc(o.sku||'—')}</span></td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px" title="${esc(o.desc||'')}">${esc(o.desc||'—')}</td>
+      <td>${o.unidades||1}</td>
+      <td class="mono">${fS(Math.round(o.venta||0))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(o._costos?.total||0))}</td>
+      <td class="mono" style="color:${(o._ganancia||0)>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(o._ganancia||0))}</td>
+      <td style="color:${mgC};font-weight:600">${o.venta?mg.toFixed(1)+'%':'—'}</td>
+      <td>${o.cuotas||1}c</td>
+      <td><span style="font-size:10px;color:${estadoColor[o.estado]||'var(--t3)'};font-weight:600">${o.estado||'—'}</span></td>
+    </tr>`;
+  });
+  if(ords.length>100) h+=`<tr><td colspan="12" style="text-align:center;color:var(--t3);padding:6px">... y ${ords.length-100} más. Filtrá para ver más.</td></tr>`;
+  el.innerHTML=h+'</tbody></table>';
+};
+
+// ── RENTABILIDAD ──────────────────────────────────────────────────────────────
+function fjRenderRentabilidad(){
+  // Por marketplace
+  const rentEl=document.getElementById('fj_rent_tabla'); if(!rentEl) return;
+  const ords=window._fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+
+  const porMkt={};
+  ords.forEach(o=>{
+    const m=o.marketplace||'?';
+    if(!porMkt[m]) porMkt[m]={nombre:FJ_MARKETS_CFG[m]?.nombre||m,venta:0,gan:0,costo_prod:0,costos:{}};
+    porMkt[m].venta+=o.venta||0;
+    porMkt[m].gan+=o._ganancia||0;
+    porMkt[m].costo_prod+=o._costo_prod||0;
+    const c=o._costos||{};
+    Object.keys(c).forEach(k=>{porMkt[m].costos[k]=(porMkt[m].costos[k]||0)+(c[k]||0);});
+  });
+
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>Marketplace</th><th>Ventas</th><th>Costo prod.</th><th>Comisión</th><th>Cuotas</th><th>Fee logís.</th><th>Fee FJ (1%)</th><th>IIBB</th><th>IVA com.</th><th>Extras</th><th>Total costos</th><th>Ganancia</th><th>Mg s/venta</th><th>Mg s/costo</th>
+  </tr></thead><tbody>`;
+
+  Object.entries(porMkt).sort((a,b)=>b[1].venta-a[1].venta).forEach(([mkt,d])=>{
+    const mg=d.venta>0?(d.gan/d.venta*100):0;
+    const costoTotal=d.costo_prod+(d.costos.total||0);
+    const mgCosto=costoTotal>0?(d.gan/costoTotal*100):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    const color=FJ_MARKETS_CFG[mkt]?.color||'var(--t3)';
+    h+=`<tr>
+      <td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:${color}"></span>${esc(d.nombre)}</span></td>
+      <td class="mono">${fS(Math.round(d.venta))}</td>
+      <td class="mono" style="color:var(--org)">${fS(Math.round(d.costo_prod))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(d.costos.comision||0))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(d.costos.gastoCuotas||0))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(d.costos.feeLogis||0))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(d.costos.feeFulljaus||0))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(d.costos.iibb||0))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(d.costos.ivaComision||0))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round((d.costos.gastoExtra||0)+(d.costos.retIVA||0)+(d.costos.retGan||0)))}</td>
+      <td class="mono" style="font-weight:700;color:var(--red)">${fS(Math.round(costoTotal))}</td>
+      <td class="mono" style="color:${d.gan>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(d.gan))}</td>
+      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
+      <td style="color:${mgCosto>=20?'var(--grn)':mgCosto>=10?'var(--org)':'var(--red)'}">${mgCosto.toFixed(1)}%</td>
+    </tr>`;
+  });
+  rentEl.innerHTML=h+'</tbody></table>';
+
+  // Por SKU
+  const skuEl=document.getElementById('fj_sku_tabla'); if(!skuEl) return;
+  const porSku={};
+  ords.forEach(o=>{
+    if(!o.sku||o.sku==='—') return;
+    if(!porSku[o.sku]) porSku[o.sku]={sku:o.sku,desc:o.desc,venta:0,gan:0,unidades:0,ords:0};
+    porSku[o.sku].venta+=o.venta||0;
+    porSku[o.sku].gan+=o._ganancia||0;
+    porSku[o.sku].unidades+=o.unidades||1;
+    porSku[o.sku].ords++;
+  });
+
+  let sh='<table class="tbl" style="font-size:11px"><thead><tr><th>SKU</th><th>Ventas</th><th>Ganancia</th><th>Margen s/venta</th><th>Margen s/costo</th><th>Unidades</th><th>Órdenes</th></tr></thead><tbody>';
+  Object.values(porSku).sort((a,b)=>b.gan-a.gan).slice(0,30).forEach(s=>{
+    const mg=s.venta>0?(s.gan/s.venta*100):0;
+    const costo=s.venta-s.gan;
+    const mgC2=costo>0?(s.gan/costo*100):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    sh+=`<tr><td><span class="sku" title="${esc(s.desc||'')}">${esc(s.sku)}</span></td><td class="mono">${fS(Math.round(s.venta))}</td><td class="mono" style="color:${s.gan>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(s.gan))}</td><td style="color:${mgC};font-weight:600">${mg.toFixed(1)}%</td><td>${mgC2.toFixed(1)}%</td><td>${s.unidades}</td><td>${s.ords}</td></tr>`;
+  });
+  skuEl.innerHTML=sh+'</tbody></table>';
+}
+
+// ── LIQUIDACIONES ─────────────────────────────────────────────────────────────
+window.fjRenderLiquidacion = function(){
+  const mkt=document.getElementById('fj_liq_mkt')?.value||'';
+  const el=document.getElementById('fj_liq_detalle'); if(!el) return;
+  if(!mkt){el.innerHTML='<p style="color:var(--t3);padding:12px">Seleccioná un marketplace para ver el detalle de liquidación</p>';return;}
+
+  const ords=window._fjOrdenes.filter(o=>o.marketplace===mkt&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+  if(!ords.length){el.innerHTML='<p style="color:var(--t3);padding:12px">Sin órdenes para este marketplace en el período</p>';return;}
+
+  const totV=ords.reduce((s,o)=>s+(o.venta||0),0);
+  const totCom=ords.reduce((s,o)=>s+(o._costos?.comision||0),0);
+  const totCuotas=ords.reduce((s,o)=>s+(o._costos?.gastoCuotas||0),0);
+  const totFeeLog=ords.reduce((s,o)=>s+(o._costos?.feeLogis||0),0);
+  const totFJ=ords.reduce((s,o)=>s+(o._costos?.feeFulljaus||0),0);
+  const totExtra=ords.reduce((s,o)=>s+(o._costos?.gastoExtra||0),0);
+  const totIVACom=ords.reduce((s,o)=>s+(o._costos?.ivaComision||0),0);
+  const totIIBB=ords.reduce((s,o)=>s+(o._costos?.iibb||0),0);
+  const totRet=ords.reduce((s,o)=>s+((o._costos?.retIVA||0)+(o._costos?.retGan||0)),0);
+  const totCostosProd=ords.reduce((s,o)=>s+(o._costo_prod||0),0);
+  const totGan=ords.reduce((s,o)=>s+(o._ganancia||0),0);
+  const totalCostos=totCom+totCuotas+totFeeLog+totFJ+totExtra+totIVACom+totIIBB+totRet;
+  const neto=totV-totalCostos;
+
+  const nombre=FJ_MARKETS_CFG[mkt]?.nombre||mkt;
+  const color=FJ_MARKETS_CFG[mkt]?.color||'var(--acc)';
+
+  el.innerHTML=`
+    <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;margin-bottom:16px;color:${color}">${esc(nombre)}</div>
+
+    <!-- Resumen financiero -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+      <div class="kpi"><div class="kl">Facturado bruto</div><div class="kv">${fS(Math.round(totV))}</div></div>
+      <div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Total costos</div><div class="kv" style="color:var(--red)">${fS(Math.round(totalCostos))}</div></div>
+      <div class="kpi" style="border-left:3px solid var(--grn)"><div class="kl">Neto a cobrar</div><div class="kv" style="color:var(--grn)">${fS(Math.round(neto))}</div></div>
+    </div>
+
+    <!-- Desglose de costos -->
+    <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Desglose de costos</div>
+    <table class="tbl" style="font-size:11px;margin-bottom:16px">
+      <thead><tr><th>Concepto</th><th>Monto</th><th>% sobre facturado</th></tr></thead>
+      <tbody>
+        <tr><td>Costo de producto</td><td class="mono">${fS(Math.round(totCostosProd))}</td><td>${totV>0?(totCostosProd/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr><td>Comisión marketplace</td><td class="mono" style="color:var(--red)">${fS(Math.round(totCom))}</td><td style="color:var(--red)">${totV>0?(totCom/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr><td>IVA sobre comisión</td><td class="mono" style="color:var(--red)">${fS(Math.round(totIVACom))}</td><td style="color:var(--red)">${totV>0?(totIVACom/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr><td>Gastos por cuotas</td><td class="mono" style="color:var(--red)">${fS(Math.round(totCuotas))}</td><td style="color:var(--red)">${totV>0?(totCuotas/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr><td>Fee logístico</td><td class="mono" style="color:var(--red)">${fS(Math.round(totFeeLog))}</td><td style="color:var(--red)">${totV>0?(totFeeLog/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr><td>Fee Fulljaus (1%)</td><td class="mono" style="color:var(--red)">${fS(Math.round(totFJ))}</td><td style="color:var(--red)">${totV>0?(totFJ/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr><td>IIBB</td><td class="mono" style="color:var(--red)">${fS(Math.round(totIIBB))}</td><td style="color:var(--red)">${totV>0?(totIIBB/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr><td>Retenciones</td><td class="mono" style="color:var(--red)">${fS(Math.round(totRet))}</td><td style="color:var(--red)">${totV>0?(totRet/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr><td>Publicidad / extras</td><td class="mono" style="color:var(--red)">${fS(Math.round(totExtra))}</td><td style="color:var(--red)">${totV>0?(totExtra/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr style="font-weight:700;border-top:2px solid var(--b1)"><td>TOTAL COSTOS (sin prod.)</td><td class="mono" style="color:var(--red)">${fS(Math.round(totalCostos))}</td><td style="color:var(--red)">${totV>0?(totalCostos/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr style="font-weight:700"><td style="color:var(--grn)">GANANCIA NETA</td><td class="mono" style="color:${totGan>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(totGan))}</td><td style="color:${totGan>=0?'var(--grn)':'var(--red)'}">${totV>0?(totGan/totV*100).toFixed(1)+'%':'—'}</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Órdenes del marketplace -->
+    <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Órdenes (${ords.length})</div>
+    <table class="tbl" style="font-size:10px"><thead><tr><th>Ref</th><th>Fecha</th><th>SKU</th><th>Venta</th><th>Costos mkt</th><th>Ganancia</th><th>Cuotas</th><th>Estado</th></tr></thead><tbody>
+    ${ords.slice(0,50).map(o=>`<tr>
+      <td class="mono">${esc(o.referencia)}</td>
+      <td>${o.fecha||'—'}</td>
+      <td><span class="sku">${esc(o.sku||'—')}</span></td>
+      <td class="mono">${fS(Math.round(o.venta||0))}</td>
+      <td class="mono" style="color:var(--red)">${fS(Math.round(o._costos?.total||0))}</td>
+      <td class="mono" style="color:${(o._ganancia||0)>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(o._ganancia||0))}</td>
+      <td>${o.cuotas||1}c</td>
+      <td style="color:${o.estado==='ENT'?'var(--grn)':o.estado==='ENV'?'var(--acc)':'var(--t3)'}">${o.estado||'—'}</td>
+    </tr>`).join('')}
+    ${ords.length>50?`<tr><td colspan="8" style="text-align:center;color:var(--t3)">... y ${ords.length-50} más</td></tr>`:''}
+    </tbody></table>`;
+};
+
+// ── CONFIG COSTOS ─────────────────────────────────────────────────────────────
+function fjRenderConfig(){
+  const el=document.getElementById('fj_config_grid'); if(!el) return;
+  const mercados=Object.entries(window.FJ_MARKETS_CFG);
+
+  el.innerHTML=mercados.map(([cod,info])=>{
+    const cfg=window.FJ_CONFIG.markets?.[cod]||{};
+    const color=info.color||'var(--acc)';
+    return `<div style="border:1px solid var(--b1);border-left:3px solid ${color};border-radius:var(--r);padding:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${color}"></span>
+        <span style="font-weight:700;font-size:13px">${esc(info.nombre)}</span>
+        <span style="font-size:9px;color:var(--t3);margin-left:auto">${cod}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px">
+        <div>
+          <label class="lbl">Comisión %</label>
+          <input class="inp" id="fjm_${cod}_comision" type="number" value="${cfg.comision||0}" step="0.5" min="0" max="100" onchange="fjGuardarConfigMkt('${cod}')">
+        </div>
+        <div>
+          <label class="lbl">Fee logístico $ (fijo)</label>
+          <input class="inp" id="fjm_${cod}_fee_logistico_fijo" type="number" value="${cfg.fee_logistico_fijo||0}" step="10" onchange="fjGuardarConfigMkt('${cod}')">
+          <div style="font-size:9px;color:var(--t3);margin-top:2px">ARS por orden</div>
+        </div>
+        <div>
+          <label class="lbl">Publicidad %</label>
+          <input class="inp" id="fjm_${cod}_publicidad" type="number" value="${cfg.publicidad||0}" step="0.5" min="0" onchange="fjGuardarConfigMkt('${cod}')">
+        </div>
+        <div>
+          <label class="lbl">Gastos extra $ (fijo)</label>
+          <input class="inp" id="fjm_${cod}_gastos_extra" type="number" value="${cfg.gastos_extra||0}" step="10" onchange="fjGuardarConfigMkt('${cod}')">
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <label class="lbl">Gastos por cuotas (% por cantidad)</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px">
+          ${[1,3,6,12,18].map(q=>{
+            const val=(cfg.cuotas_tabla||{})[q]||(q===1?0:q===3?3:q===6?6:q===12?12:18);
+            return `<div style="display:flex;align-items:center;gap:4px">
+              <span style="color:var(--t3)">${q}c:</span>
+              <input class="inp" id="fjm_${cod}_cuotas_${q}" type="number" value="${val}" step="0.5" min="0" max="50" style="width:60px;padding:3px 6px" onchange="fjGuardarConfigMkt('${cod}')">
+              <span style="color:var(--t3)">%</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Cargar valores globales
+  const g=window.FJ_CONFIG.global||{};
+  ['iva_com','ret_iva','ret_gan','iibb','tc'].forEach(k=>{
+    const el=document.getElementById('fjg_'+k);
+    if(el) el.value=g[k]||0;
+  });
+}
+
+window.fjGuardarConfigMkt = function(cod){
+  if(!window.FJ_CONFIG.markets) window.FJ_CONFIG.markets={};
+  const cuotasTabla={};
+  [1,3,6,12,18].forEach(q=>{
+    const el=document.getElementById(`fjm_${cod}_cuotas_${q}`);
+    cuotasTabla[q]=parseFloat(el?.value||0);
+  });
+  window.FJ_CONFIG.markets[cod]={
+    comision:          parseFloat(document.getElementById(`fjm_${cod}_comision`)?.value||0),
+    fee_logistico_fijo:parseFloat(document.getElementById(`fjm_${cod}_fee_logistico_fijo`)?.value||0),
+    publicidad:        parseFloat(document.getElementById(`fjm_${cod}_publicidad`)?.value||0),
+    gastos_extra:      parseFloat(document.getElementById(`fjm_${cod}_gastos_extra`)?.value||0),
+    cuotas_tabla:      cuotasTabla
+  };
+};
+
+window.fjGuardarConfig = async function(){
+  // Leer todos los marketplaces
+  Object.keys(window.FJ_MARKETS_CFG).forEach(cod=>fjGuardarConfigMkt(cod));
+  // Leer globales
+  window.FJ_CONFIG.global={
+    iva_com:    parseFloat(document.getElementById('fjg_iva_com')?.value||21),
+    fee_fulljaus: 1,
+    ret_iva:    parseFloat(document.getElementById('fjg_ret_iva')?.value||0),
+    ret_gan:    parseFloat(document.getElementById('fjg_ret_gan')?.value||0),
+    iibb:       parseFloat(document.getElementById('fjg_iibb')?.value||4),
+    tc:         parseFloat(document.getElementById('fjg_tc')?.value||1000),
+  };
+  await fb.set('fulljaus_config', window.FJ_CONFIG).catch(()=>{});
+  toast('✓ Configuración de costos guardada','ok');
+  // Recalcular con nueva config
+  if(window._fjOrdenes.length){
+    window._fjOrdenes=window._fjOrdenes.map(o=>{
+      const costosFJ=fjCalcularCostos(o);
+      const ganancia=o.venta-(o._costo_prod||0)-costosFJ.total;
+      return {...o,_costos:costosFJ,_ganancia:ganancia};
+    });
+    fjActualizarKPIs();
+    fjRenderResumen();
+    fjRenderOrdenes();
+    fjRenderRentabilidad();
+    fjRenderLiquidacion();
+  }
+};
+
+// ── TAB / UTILS ───────────────────────────────────────────────────────────────
+window.fjTab = function(tab){
+  window._fjTab=tab;
+  ['resumen','ordenes','rentabilidad','liquidaciones','config'].forEach(t=>{
+    const p=document.getElementById('fjpanel_'+t);
+    const b=document.getElementById('fjtab_'+t);
+    if(p) p.style.display=t===tab?'':'none';
+    if(b){b.style.background=t===tab?'var(--acc)':'';b.style.color=t===tab?'#000':'';}
+  });
+};
+
+function fjPopularSelects(){
+  const mkts=Object.entries(window.FJ_MARKETS_CFG);
+  const opts=mkts.map(([cod,info])=>`<option value="${cod}">${esc(info.nombre)}</option>`).join('');
+  ['fj_mkt_sel','fj_liq_mkt'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    const cur=el.value;
+    if(id==='fj_mkt_sel') el.innerHTML='<option value="">Todos los marketplaces</option>'+opts;
+    else el.innerHTML='<option value="">Seleccionar marketplace</option>'+opts;
+    el.value=cur;
+  });
+}
 
 
 </script>
