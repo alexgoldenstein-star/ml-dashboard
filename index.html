@@ -2527,16 +2527,19 @@ window.doRefresh=async()=>{
 // Clave: orders_YYYY_MM (ej: orders_2024_03)
 
 function slimOrder(o){
-  return {
+  // Remover campos undefined para evitar error de Firebase
+  const raw={
     id:o.id,acct:o.acct,fecha:o.fecha,sku:o.sku,desc:o.desc,
-    unidades:o.unidades,ciudad:o.ciudad,estado:o.estado,modal:o.modal,cordon:o.cordon,
-    venta:o.venta,comision:o.comision,cuotas:o.cuotas||0,costo:o.costo,
-    iva:o.iva,ivaPct:o.ivaPct,pub:o.pub,iibb:o.iibb,
-    costoEnvio:o.costoEnvio,bonifEnvio:o.bonifEnvio||0,
-    ganancia:o.ganancia,pct:o.pct,
-    sinProducto:o.sinProducto,sinZona:o.sinZona,
-    mlItemId:o.mlItemId,userId:o.userId
+    unidades:o.unidades||1,ciudad:o.ciudad,estado:o.estado,modal:o.modal,cordon:o.cordon||0,
+    venta:o.venta||0,comision:o.comision||0,cuotas:o.cuotas||0,costo:o.costo||0,
+    iva:o.iva||0,ivaPct:o.ivaPct||21,pub:o.pub||0,iibb:o.iibb||0,
+    costoEnvio:o.costoEnvio||0,bonifEnvio:o.bonifEnvio||0,
+    ganancia:o.ganancia||0,pct:o.pct||0,
+    sinProducto:o.sinProducto||false,sinZona:o.sinZona||false,
+    mlItemId:o.mlItemId||null,userId:o.userId||null
   };
+  // Eliminar nulls y undefined antes de guardar en Firestore
+  return Object.fromEntries(Object.entries(raw).filter(([,v])=>v!==undefined&&v!==null||v===0||v===false));
 }
 
 async function saveCache(){
@@ -11506,7 +11509,8 @@ function fjRenderResumen(){
   let eh='<table class="tbl" style="font-size:11px"><thead><tr><th>Mes</th><th>Ventas</th><th>Ganancia</th><th>Margen</th><th>Órdenes</th></tr></thead><tbody>';
   [...meses].reverse().forEach(m=>{
     const mg=m.venta>0?(m.ganancia/m.venta*100):0;
-    eh+=`<tr><td>${m.mes}</td><td class="mono">${fS(Math.round(m.venta))}</td><td class="mono" style="color:${m.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(m.ganancia))}</td><td style="color:${mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';font-weight:600}">${mg.toFixed(1)}%</td><td>${m.ords}</td></tr>`;
+    const mgC2=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    eh+=`<tr><td>${m.mes}</td><td class="mono">${fS(Math.round(m.venta))}</td><td class="mono" style="color:${m.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(m.ganancia))}</td><td style="color:${mgC2};font-weight:600">${mg.toFixed(1)}%</td><td>${m.ords}</td></tr>`;
   });
   evolEl.innerHTML=eh+'</tbody></table>';
 }
