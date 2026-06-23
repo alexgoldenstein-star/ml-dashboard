@@ -324,8 +324,10 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <select class="inp" id="prod_bulk_rubro" style="font-size:11px;padding:4px 8px;flex:1;max-width:220px">
             <option value="">Seleccionar rubro...</option>
           </select>
-          <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar a selección</button>
-          <button class="btn-g btn-sm" onclick="prodLimpiarSeleccion()" style="font-size:11px;color:var(--t3)">✕ Limpiar selección</button>
+          <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar rubro</button>
+          <button class="btn-g btn-sm" onclick="prodDesactivarPubPorRubro()" style="font-size:11px;color:var(--red)" title="Desactivar pub en todos los productos del rubro seleccionado">❌ Sin pub (rubro)</button>
+          <button class="btn-g btn-sm" onclick="prodActivarPubPorRubro()" style="font-size:11px;color:var(--grn)" title="Activar pub en todos los productos del rubro seleccionado">✅ Con pub (rubro)</button>
+          <button class="btn-g btn-sm" onclick="prodLimpiarSeleccion()" style="font-size:11px;color:var(--t3)">✕ Limpiar</button>
         </div>
 
         <div class="tbl-wrap"><table class="tbl"><thead><tr>
@@ -2112,6 +2114,20 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         </div>
       </div>
 
+      <!-- PUBLICIDAD POR RUBRO -->
+      <div class="card" style="margin-top:14px">
+        <div class="ch">
+          <span class="ct">Publicidad por rubro</span>
+          <button class="btn btn-sm" onclick="cfgGuardarPubRubros()" style="font-size:11px">💾 Guardar</button>
+        </div>
+        <!-- Estado actual de la fuente de pub -->
+        <div id="cfg_pub_fuente_banner" style="margin-bottom:12px"></div>
+        <p style="font-size:11px;color:var(--t3);margin-bottom:12px">
+          Configurá excepciones por rubro. <strong>Vacío</strong> = usa el % activo (ML Ads real o global). <strong>0</strong> = sin publicidad (notebooks, tablets, etc.).
+        </p>
+        <div id="cfg_pub_rubros_grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+      </div>
+
       <!-- GESTIÓN DE RUBROS -->
       <div class="card" style="margin-top:14px">
         <div class="ch">
@@ -2391,19 +2407,48 @@ function getRange(){
 // de productos actualizada. Se llama al cargar del caché o de la API.
 // Resuelve el problema de órdenes cacheadas con costo=0.
 function applyProductCosts(orders){
-  // pubPct = tarifa de publicidad ML por venta (lo que ML cobra, default 5%)
-  // NUNCA usar adsRealPct acá — ese es el ACOS global, no el % por orden
-  const pubPct = (S.cfg.pub ?? 5) / 100;
+  // JERARQUÍA DE PUBLICIDAD (de mayor a menor prioridad):
+  // 1. pub:false en el producto  → 0%
+  // 2. rubros_pub[rubro] manual  → % que configuraste en Config por rubro
+  // 3. adsRealPct de ML Ads      → gasto real ÷ ventas con pub (tu fórmula exacta)
+  // 4. cfg.pub global            → 5% estimado como fallback
+  //
+  // Tu fórmula: adsRealPct = $ gastado en ads ÷ $ vendido (solo prod. con pub activa)
+  // Ese % se calcula en Ads Agent y se guarda en S.cfg.adsRealPct automáticamente.
+
+  // % efectivo para productos con pub: ML Ads real si existe, sino manual, sino global
+  const pubPctReal  = S.cfg.adsRealPct  ? S.cfg.adsRealPct/100  : null;
+  const pubPctGlobal= (S.cfg.pub ?? 5) / 100;
   const iibbPct = (S.cfg.iibb ?? 4) / 100;
+
   return orders.map(o=>{
     const p = S.products.find(x=>x.sku===o.sku);
     if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
-    const costo = p.ars * (o.unidades||1); // multiplicar por unidades
+    const costo = p.ars * (o.unidades||1);
     const ivaPct = p.iva/100;
-    // IVA CORRECTO: el precio YA incluye IVA → desglozar dividiendo
     const iva = Math.round(o.venta - o.venta/(1+ivaPct));
     const ventaSinIva = o.venta - iva;
-    const pub = p.pub===false ? 0 : o.venta*pubPct;
+
+    // Determinar % de pub para este producto/rubro
+    const rubroId = p.rubro||p.rubroAuto||'';
+    const rubroPubCfg = rubroId ? (S.cfg.rubros_pub||{})[rubroId] : undefined;
+
+    let pubUsada;
+    if(p.pub===false){
+      // Sin publicidad: costo 0
+      pubUsada = 0;
+    } else if(rubroPubCfg!==undefined){
+      // Tiene config manual por rubro (puede ser 0 si configuraste "sin pub")
+      pubUsada = o.venta*(rubroPubCfg/100);
+    } else if(pubPctReal!==null){
+      // Usar ACOS real de ML Ads: gasto real ÷ ventas con pub
+      // Es el % más preciso que tenés disponible
+      pubUsada = o.venta*pubPctReal;
+    } else {
+      // Fallback: % global de Config (estimado 5%)
+      pubUsada = o.venta*pubPctGlobal;
+    }
+    const pub = Math.round(pubUsada);
     // Corregir comisión para pack_order con múltiples unidades
     const comisionCache = o.comision||0;
     const comisionRatio = o.venta > 0 ? comisionCache/o.venta : 0;
@@ -5837,6 +5882,7 @@ function loadCfgUI(){
   ["dolar","com","pub","iibb","c1","c2","c3","umbral_ok","umbral_warn","umbral_free_ship","bonif_bajo_c1","bonif_bajo_c2","bonif_bajo_c3","bonif_alto_c1","bonif_alto_c2","bonif_alto_c3","cid","csec"].forEach(k=>{const el=document.getElementById("cfg_"+k);if(el)el.value=c[k]||"";});
   updateEnvioToggleUI();
   cfgRenderRubros();
+  cfgRenderPubRubros();
 }
 
 // ── GESTIÓN DE RUBROS (Configuración) ────────────────────────────────────────
@@ -6197,24 +6243,76 @@ function adsDesdeOrdenes(dias, dateFrom, dateTo, adsData){
   setK('ads_k_pct',(mgR*100).toFixed(1)+'%',mgR>=0.15?'var(--grn)':mgR>=0.08?'var(--org)':'var(--red)');
 
   // ── Panel KPI extra (datos reales ML Ads) ──
+  // Guardar ventasConPub y ventasSinPub en S.cfg para usarlos en otros módulos
+  S.cfg.ventasConPub   = Math.round(ventasConPub);
+  S.cfg.ventasSinPub   = Math.round(ventasSinPub);
+  S.cfg.ventasTotalPub = Math.round(totV);
+  fb.set('config',S.cfg).catch(()=>{});
+
   const kpiExtra=document.getElementById('ads_kpi_extra');
   if(kpiExtra){
     if(tieneAdsReales){
-      kpiExtra.style.display='grid';
+      kpiExtra.style.display='block';
       kpiExtra.innerHTML=`
-        <div class="kpi blu"><div class="kl">Clicks reales</div><div class="kv">${adsClicks.toLocaleString('es-AR')}</div><div class="ks">CPC: ${fS(Math.round(adsCpc))}</div></div>
-        <div class="kpi"><div class="kl">Impresiones</div><div class="kv">${adsPrints.toLocaleString('es-AR')}</div><div class="ks">CTR: ${(adsCtr*100).toFixed(2)}%</div></div>
-        <div class="kpi grn"><div class="kl">Ventas directas ads</div><div class="kv">${fS(Math.round(adsDirectSales))}</div><div class="ks">Atribuidas: ${adsDirectUnits.toLocaleString()} uds</div></div>
-        <div class="kpi acc"><div class="kl">Base ACOS real</div><div class="kv" style="font-size:11px">${fS(Math.round(ventasConPub))}</div><div class="ks">${pctOrdsConPub}% del total · sin canceladas ni sin-pub</div></div>
-        <div class="kpi" style="grid-column:1/-1;background:rgba(232,255,71,.04);border:1px solid rgba(232,255,71,.15)">
-          <div style="font-size:11px;color:var(--acc)">
-            ✅ <strong>ACOS real:</strong> ${fS(Math.round(adsSpent))} ÷ ${fS(Math.round(ventasConPub))} = <strong>${acosR!==null?(acosR*100).toFixed(2)+'%':'-'}</strong>
-            &nbsp;·&nbsp; <span style="color:var(--t3)">Período: ${dateFrom} → ${dateTo}</span>
+        <!-- Bloque principal: el desglose que necesitás para calcular el ACOS -->
+        <div style="background:rgba(232,255,71,.04);border:1px solid rgba(232,255,71,.2);border-radius:var(--r);padding:14px;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;color:var(--acc);margin-bottom:12px">📐 Base de cálculo del ACOS</div>
+
+          <!-- Fórmula visual -->
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+            <div style="text-align:center;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:10px 16px">
+              <div style="font-size:10px;color:var(--t3);margin-bottom:2px">Gasto en ML Ads</div>
+              <div style="font-size:18px;font-weight:800;color:var(--red)">${fS(Math.round(adsSpent))}</div>
+            </div>
+            <div style="font-size:24px;color:var(--t3)">÷</div>
+            <div style="text-align:center;background:var(--s2);border:1px solid var(--acc);border-radius:var(--r);padding:10px 16px">
+              <div style="font-size:10px;color:var(--acc);margin-bottom:2px">Ventas CON publicidad activa</div>
+              <div style="font-size:18px;font-weight:800;color:var(--acc)">${fS(Math.round(ventasConPub))}</div>
+              <div style="font-size:9px;color:var(--t3);margin-top:2px">${pctOrdsConPub}% del total facturado</div>
+            </div>
+            <div style="font-size:24px;color:var(--t3)">=</div>
+            <div style="text-align:center;background:var(--s2);border:2px solid var(--acc);border-radius:var(--r);padding:10px 16px">
+              <div style="font-size:10px;color:var(--t3);margin-bottom:2px">ACOS real</div>
+              <div style="font-size:22px;font-weight:800;color:${acosR!==null&&acosR<=0.15?'var(--grn)':acosR!==null&&acosR<=0.25?'var(--org)':'var(--red)'}">${acosR!==null?(acosR*100).toFixed(2)+'%':'—'}</div>
+              <div style="font-size:9px;color:var(--t3);margin-top:2px">se aplica a ventas con pub</div>
+            </div>
           </div>
-          ${skusSinPub.length?`<div style="margin-top:6px;font-size:10px;color:var(--t3)">
-            🚫 Excluidos del ACOS (pub:false): <strong style="color:var(--t2)">${skusSinPub.slice(0,8).join(', ')}${skusSinPub.length>8?' y '+(skusSinPub.length-8)+' más':''}</strong>
-            · Ventas excluidas: ${fS(Math.round(ventasSinPub))} (${totV>0?((ventasSinPub/totV)*100).toFixed(1)+'%':'0%'} del total)
-          </div>`:'<div style="margin-top:4px;font-size:10px;color:var(--org)">⚠ Ningún producto marcado con pub:false. Si tenés tecnología sin ads, marcalos en Productos & Costos.</div>'}
+
+          <!-- Desglose de ventas -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+            <div style="background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:8px">
+              <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Total facturado (período)</div>
+              <div style="font-size:14px;font-weight:700">${fS(Math.round(totV))}</div>
+            </div>
+            <div style="background:rgba(71,232,127,.04);border:1px solid rgba(71,232,127,.2);border-radius:var(--r);padding:8px">
+              <div style="font-size:10px;color:var(--grn);margin-bottom:3px">✅ Con publicidad activa</div>
+              <div style="font-size:14px;font-weight:700;color:var(--grn)">${fS(Math.round(ventasConPub))}</div>
+              <div style="font-size:9px;color:var(--t3)">${pctOrdsConPub}% del total · ${ordsConPub.length} órdenes</div>
+            </div>
+            <div style="background:rgba(255,77,77,.04);border:1px solid rgba(255,77,77,.15);border-radius:var(--r);padding:8px">
+              <div style="font-size:10px;color:var(--t3);margin-bottom:3px">🚫 Sin publicidad (excluidas)</div>
+              <div style="font-size:14px;font-weight:700;color:var(--t3)">${fS(Math.round(ventasSinPub))}</div>
+              <div style="font-size:9px;color:var(--t3)">${totV>0?((ventasSinPub/totV)*100).toFixed(1):'0'}% del total · ${ordsSinPub.length} órdenes</div>
+            </div>
+          </div>
+
+          ${skusSinPub.length
+            ? `<div style="font-size:10px;color:var(--t3);padding:6px 8px;background:var(--s2);border-radius:var(--r)">
+                🚫 <strong>Excluidos (pub:false):</strong> ${skusSinPub.slice(0,10).join(', ')}${skusSinPub.length>10?' y '+(skusSinPub.length-10)+' más':''}
+               </div>`
+            : `<div style="font-size:10px;color:var(--org);padding:6px 8px;background:rgba(255,138,77,.06);border-radius:var(--r)">
+                ⚠ Ningún producto marcado con pub:false — todos están incluyéndose en el cálculo.
+                Ir a <strong>Productos & Costos</strong> y marcar los que no tienen publicidad (notebooks, tablets, etc.).
+               </div>`
+          }
+        </div>
+
+        <!-- KPIs secundarios: datos reales de ML Ads -->
+        <div class="g4">
+          <div class="kpi blu"><div class="kl">Clicks reales</div><div class="kv">${adsClicks.toLocaleString('es-AR')}</div><div class="ks">CPC: ${fS(Math.round(adsCpc))}</div></div>
+          <div class="kpi"><div class="kl">Impresiones</div><div class="kv">${adsPrints.toLocaleString('es-AR')}</div><div class="ks">CTR: ${(adsCtr*100).toFixed(2)}%</div></div>
+          <div class="kpi grn"><div class="kl">Ventas atribuidas ads</div><div class="kv">${fS(Math.round(adsDirectSales))}</div><div class="ks">ROAS: ${roasR!==null?roasR.toFixed(1)+'x':'—'}</div></div>
+          <div class="kpi"><div class="kl">Período</div><div class="kv" style="font-size:11px">${dateFrom}</div><div class="ks">→ ${dateTo}</div></div>
         </div>`;
     } else {
       kpiExtra.style.display='block';
@@ -11876,6 +11974,147 @@ function fjPopularSelects(){
     el.value=cur;
   });
 }
+
+
+
+
+// ── PUBLICIDAD POR RUBRO (Configuración) ─────────────────────────────────────
+function cfgRenderPubRubros(){
+  const el=document.getElementById('cfg_pub_rubros_grid'); if(!el) return;
+  const lista=window.RUBROS_NIVIKO||[];
+  const pubRubros=S.cfg.rubros_pub||{};
+  const globalPub=S.cfg.pub??5;
+  const adsReal=S.cfg.adsRealPct;
+
+  // Banner mostrando la fuente activa de pub
+  const bannerEl=document.getElementById('cfg_pub_fuente_banner');
+  if(bannerEl){
+    if(adsReal){
+      const fecha=S.cfg.adsRealPctFecha||'';
+      const gasto=S.cfg.adsRealPctGasto?fS(S.cfg.adsRealPctGasto):'?';
+      const base=S.cfg.adsRealPctBase?fS(S.cfg.adsRealPctBase):'?';
+      bannerEl.innerHTML=`<div style="background:rgba(71,232,127,.06);border:1px solid rgba(71,232,127,.2);border-radius:var(--r);padding:10px 14px;font-size:11px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div>
+            <span style="color:var(--grn);font-weight:700">✅ Usando ACOS real de ML Ads: ${adsReal.toFixed(2)}%</span>
+            <span style="color:var(--t3);margin-left:8px">${gasto} gastados ÷ ${base} vendidos con pub${fecha?' · '+fecha:''}</span>
+          </div>
+          <button class="btn-g btn-sm" onclick="document.querySelector('[data-p=adsagente]').click()" style="font-size:10px">↻ Actualizar desde Ads Agent</button>
+        </div>
+        <div style="margin-top:4px;font-size:10px;color:var(--t3)">Los rubros sin configuración manual usan este % automáticamente. Configurá 0% abajo para rubros sin publicidad.</div>
+      </div>`;
+    } else {
+      bannerEl.innerHTML=`<div style="background:rgba(255,138,77,.06);border:1px solid rgba(255,138,77,.2);border-radius:var(--r);padding:10px 14px;font-size:11px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div><span style="color:var(--org);font-weight:600">⚠ Usando % estimado global: ${globalPub}%</span>
+          <span style="color:var(--t3);margin-left:8px">No hay datos reales de ML Ads todavía</span></div>
+          <button class="btn-g btn-sm" onclick="document.querySelector('[data-p=adsagente]').click()" style="font-size:10px">📊 Ir a Ads Agent</button>
+        </div>
+        <div style="margin-top:4px;font-size:10px;color:var(--t3)">Para obtener el % real: Ads Agent → seleccioná un período → los datos se guardan automáticamente acá.</div>
+      </div>`;
+    }
+  }
+
+  el.innerHTML=lista.map(r=>{
+    const val=pubRubros[r.id];
+    const hasVal=val!==undefined&&val!==null;
+    return `<div style="background:var(--s2);border:1px solid var(--b1);border-left:3px solid ${r.color};border-radius:var(--r);padding:10px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${r.color};flex-shrink:0"></span>
+        <span style="font-size:11px;font-weight:600">${esc(r.label)}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input class="inp" id="cfg_pubrub_${r.id}" type="number"
+          value="${hasVal?val:''}"
+          placeholder="Global (${globalPub}%)"
+          min="0" max="100" step="0.5"
+          style="flex:1;padding:4px 8px;font-size:12px">
+        <span style="font-size:11px;color:var(--t3)">%</span>
+        ${hasVal&&val===0?'<span style="font-size:10px;color:var(--grn);font-weight:600">Sin pub</span>':''}
+      </div>
+      <div style="display:flex;gap:4px;margin-top:6px">
+        <button class="btn-g btn-sm" onclick="cfgSetPubRubro('${r.id}',0)" style="font-size:10px;flex:1">❌ Sin pub</button>
+        <button class="btn-g btn-sm" onclick="cfgSetPubRubro('${r.id}',null)" style="font-size:10px;flex:1">↺ Global</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.cfgSetPubRubro=function(rubroId, val){
+  const input=document.getElementById('cfg_pubrub_'+rubroId);
+  if(!input) return;
+  if(val===null){ input.value=''; }
+  else { input.value=val; }
+};
+
+window.cfgGuardarPubRubros=async function(){
+  const lista=window.RUBROS_NIVIKO||[];
+  const rubros_pub={};
+  lista.forEach(r=>{
+    const el=document.getElementById('cfg_pubrub_'+r.id);
+    if(!el) return;
+    const v=el.value.trim();
+    if(v!=='') rubros_pub[r.id]=parseFloat(v);
+    // Si está vacío → hereda global (no guardamos nada para ese rubro)
+  });
+  S.cfg.rubros_pub=rubros_pub;
+  await fb.set('config',S.cfg).catch(()=>{});
+
+  // Recalcular TODAS las órdenes con los nuevos % de pub
+  if(S.orders.length){
+    S.orders=applyProductCosts(S.orders);
+    await saveCache();
+    renderAll();
+  }
+
+  toast('✓ Publicidad por rubro guardada y recalculada','ok');
+  cfgRenderPubRubros();
+
+  // Mostrar resumen de qué quedó configurado
+  const resumen=Object.entries(rubros_pub).map(([id,v])=>{
+    const r=(window.RUBROS_NIVIKO||[]).find(x=>x.id===id);
+    return `${r?.label||id}: ${v}%`;
+  }).join(' · ');
+  if(resumen) toast(`Config: ${resumen}`,'ok');
+};
+
+// ── BOTÓN MASIVO EN PRODUCTOS: desactivar pub por rubro ────────────────────
+window.prodDesactivarPubPorRubro=async function(){
+  const rubro=document.getElementById('prod_bulk_rubro')?.value;
+  if(!rubro){ toast('Seleccioná un rubro primero','err'); return; }
+
+  const rubroInfo=(window.RUBROS_NIVIKO||[]).find(r=>r.id===rubro);
+  const msg=`¿Desactivar publicidad (pub:false) para TODOS los productos del rubro "${rubroInfo?.label||rubro}"?`;
+  if(!confirm(msg)) return;
+
+  let actualizados=0;
+  S.products.forEach(p=>{
+    const r=p.rubro||p.rubroAuto;
+    if(r===rubro){ p.pub=false; actualizados++; }
+  });
+
+  await guardarRubroEnFirebase(S.products.filter(p=>(p.rubro||p.rubroAuto)===rubro).map(p=>p.sku));
+  toast(`✓ ${actualizados} productos sin publicidad en "${rubroInfo?.label||rubro}"`, 'ok');
+  renderProds();
+};
+
+window.prodActivarPubPorRubro=async function(){
+  const rubro=document.getElementById('prod_bulk_rubro')?.value;
+  if(!rubro){ toast('Seleccioná un rubro primero','err'); return; }
+
+  const rubroInfo=(window.RUBROS_NIVIKO||[]).find(r=>r.id===rubro);
+  if(!confirm(`¿Activar publicidad para TODOS los productos del rubro "${rubroInfo?.label||rubro}"?`)) return;
+
+  let actualizados=0;
+  S.products.forEach(p=>{
+    const r=p.rubro||p.rubroAuto;
+    if(r===rubro){ p.pub=true; actualizados++; }
+  });
+
+  await guardarRubroEnFirebase(S.products.filter(p=>(p.rubro||p.rubroAuto)===rubro).map(p=>p.sku));
+  toast(`✓ ${actualizados} productos con publicidad en "${rubroInfo?.label||rubro}"`, 'ok');
+  renderProds();
+};
 
 
 </script>
