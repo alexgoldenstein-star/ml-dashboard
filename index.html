@@ -314,6 +314,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <input class="srch" placeholder="Buscar SKU..." oninput="filterP(this.value)" style="flex:1;min-width:120px">
           <select class="inp" id="prodFiltroRubro" onchange="renderProds()" style="font-size:11px;padding:4px 8px">
             <option value="">Todos los rubros</option>
+            <option value="__sin_asignar__">⚠ Sin asignar</option>
           </select>
         </div>
 
@@ -3509,7 +3510,8 @@ function renderProds(){
   const pf=S.pFilter.toLowerCase();
   const filtroRubro=document.getElementById('prodFiltroRubro')?.value||'';
   let p=S.products.filter(x=>!pf||(x.sku||"").toLowerCase().includes(pf)||(x.desc||"").toLowerCase().includes(pf));
-  if(filtroRubro) p=p.filter(x=>(x.rubro||x.rubroAuto||'')===filtroRubro);
+  if(filtroRubro==='__sin_asignar__') p=p.filter(x=>!(x.rubro||x.rubroAuto));
+  else if(filtroRubro) p=p.filter(x=>(x.rubro||x.rubroAuto||'')===filtroRubro);
 
   const gm={},vm={},um={};
   S.orders.forEach(o=>{gm[o.sku]=(gm[o.sku]||0)+o.ganancia;vm[o.sku]=(vm[o.sku]||0)+o.venta;um[o.sku]=(um[o.sku]||0)+o.unidades;});
@@ -3646,7 +3648,7 @@ window.populateRubroSelects=function(){
   const filtroRubro=document.getElementById('prodFiltroRubro');
   if(filtroRubro){
     const cur=filtroRubro.value;
-    filtroRubro.innerHTML='<option value="">Todos los rubros</option>'+opciones;
+    filtroRubro.innerHTML='<option value="">Todos los rubros</option><option value="__sin_asignar__">⚠ Sin asignar</option>'+opciones;
     filtroRubro.value=cur;
   }
 };
@@ -10945,6 +10947,8 @@ window.RUBROS_NIVIKO=[
   {id:'electronica',      label:'Electrónica',           color:'#C77DFF'},
   {id:'electrodomesticos',label:'Electrodomésticos',     color:'#00E5A0'},
   {id:'mesas_plegables',  label:'Mesas Plegables',       color:'#FFB347'},
+  {id:'sillas_oficina',   label:'Sillas de Oficina',     color:'#38BDF8'},
+  {id:'pendrive_memorias',label:'Pendrive y Memorias',   color:'#FB923C'},
   {id:'otro',             label:'Otro',                  color:'#8B8A84'},
 ];
 const RUBRO_LABELS=Object.fromEntries(window.RUBROS_NIVIKO.map(r=>[r.id,r.label]));
