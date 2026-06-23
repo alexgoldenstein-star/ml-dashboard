@@ -3506,7 +3506,7 @@ function renderEnvios(){
 // ── PRODUCTOS ─────────────────────────────────────────────────
 window._prodSeleccionados=window._prodSeleccionados||new Set();
 
-function renderProds(){
+window.renderProds=function renderProds(){
   const pf=S.pFilter.toLowerCase();
   const filtroRubro=document.getElementById('prodFiltroRubro')?.value||'';
   let p=S.products.filter(x=>!pf||(x.sku||"").toLowerCase().includes(pf)||(x.desc||"").toLowerCase().includes(pf));
@@ -10973,6 +10973,10 @@ window.renderRubros=async function(){
     o.fecha>=dateFrom && o.fecha<=dateTo && o.estado!=='cancelled'
   );
 
+  // Debug: cuántos productos tienen rubro
+  const prodsConRubro=S.products.filter(p=>p.rubro||p.rubroAuto).length;
+  console.log(`[rubros] ${S.products.length} productos, ${prodsConRubro} con rubro, ${ords.length} órdenes en período`);
+
   // Verificar SKUs sin clasificar
   const skusUnicos=[...new Set(ords.map(o=>o.sku).filter(s=>s&&s!=='—'))];
   const sinClasificar=skusUnicos.filter(sku=>{
@@ -10996,8 +11000,20 @@ window.renderRubros=async function(){
 
   // Agrupar por rubro
   const porRubro={};
+  // Función para encontrar el producto de una orden (exact match o skuBase)
+  function findProd(sku){
+    if(!sku||sku==='—') return null;
+    // Exact match primero
+    let p=S.products.find(x=>x.sku===sku);
+    if(p) return p;
+    // skuBase match: quitar color/variante al final (ej: NVK-3000-N → NVK-3000)
+    const base=sku.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,'');
+    if(base!==sku) p=S.products.find(x=>x.sku===base||x.sku===sku.split('-').slice(0,-1).join('-'));
+    return p||null;
+  }
+
   ords.forEach(o=>{
-    const p=S.products.find(x=>x.sku===o.sku);
+    const p=findProd(o.sku);
     const rubro=p?.rubro||p?.rubroAuto||'sin_clasificar';
     if(!porRubro[rubro]) porRubro[rubro]={
       rubro,ventas:0,ganancia:0,unidades:0,ordenes:0,skus:new Set(),
@@ -11149,7 +11165,8 @@ window.rubRenderDetalle=function(){
   const porSku={};
   data.ords.forEach(o=>{
     if(!o.sku||o.sku==='—') return;
-    const p=S.products.find(x=>x.sku===o.sku);
+    let p=S.products.find(x=>x.sku===o.sku);
+    if(!p){const base=o.sku.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,'');p=S.products.find(x=>x.sku===base);}
     const rubro=p?.rubro||p?.rubroAuto||'sin_clasificar';
     if(filtro&&rubro!==filtro) return;
     if(!porSku[o.sku]) porSku[o.sku]={sku:o.sku,desc:o.desc,rubro,ventas:0,ganancia:0,unidades:0,ordenes:0};
