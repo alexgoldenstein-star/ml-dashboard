@@ -237,6 +237,16 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <div class="donut-wrap"><canvas id="donut" width="100" height="100"></canvas><div class="leg" id="donutLeg"></div></div>
         </div>
       </div>
+      <!-- CANALES INTEGRADOS -->
+      <div class="card" style="margin-top:0">
+        <div class="ch" style="margin-bottom:10px">
+          <span class="ct">Todos los canales</span>
+          <span id="ov_canales_periodo" style="font-size:10px;color:var(--t3)"></span>
+        </div>
+        <div id="ov_canales_kpis" class="g4" style="margin-bottom:12px"></div>
+        <div id="ov_canales_tabla" style="font-size:11px"></div>
+      </div>
+
       <div class="card"><div class="ch"><span class="ct">Top productos</span></div>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>SKU</th><th>Producto</th><th>Unid.</th><th>Venta</th><th>Ganancia</th><th>%</th></tr></thead><tbody id="topProds"></tbody></table></div>
       </div>
@@ -3328,6 +3338,7 @@ function renderOverview(){
   });
   document.getElementById("topProds").innerHTML=tH||'<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">Sin datos — apretá ↺ para cargar ventas</td></tr>';
   renderAlertPanel();
+  renderCanalesIntegrados();
 }
 function drawDonut(accts){
   const c=document.getElementById("donut");if(!c)return;
@@ -7045,8 +7056,8 @@ function portRenderChart(items){
   if(_portChart){ _portChart.destroy(); _portChart=null; }
   const top=items.slice(0,15); // max 15 en el gráfico
   const labels=top.map(d=>d.nombre.length>18?d.nombre.substring(0,18)+'…':d.nombre);
-  const rois=top.map(d=>d.calc?+d.calc.roiAnual.toFixed(1):0);
-  const roisPes=top.map(d=>d.calc?+d.calc.roiPes.toFixed(1):0);
+  const rois=top.map(d=>d.calc&&d.calc.roiAnual!=null?+d.calc.roiAnual.toFixed(1):0);
+  const roisPes=top.map(d=>d.calc&&(d.calc.roiAnualPes??d.calc.roiPes)!=null?+((d.calc.roiAnualPes??d.calc.roiPes)).toFixed(1):0);
   const colors=rois.map(r=>r>=80?'#1D9E75':r>=40?'#EF9F27':'#E24B4A');
   _portChart=new Chart(canvas,{
     type:'bar',
@@ -7074,8 +7085,13 @@ window.portComparar = function(){
   const cA=portCalc(A), cB=portCalc(B);
   if(!cA||!cB){ el.innerHTML='<p style="color:var(--t3);font-size:12px">Completá FOB, rentabilidad y días de los dos productos para comparar.</p>'; return; }
 
+  // Compatibilidad con ambas versiones de portCalc
+  if(!cA.roiPes) cA.roiPes=cA.roiAnualPes||0;
+  if(!cB.roiPes) cB.roiPes=cB.roiAnualPes||0;
+  if(!cA.ganAnual) cA.ganAnual=cA.ganMensual?cA.ganMensual*12:0;
+  if(!cB.ganAnual) cB.ganAnual=cB.ganMensual?cB.ganMensual*12:0;
   const winner=cA.roiAnual>=cB.roiAnual?'A':'B';
-  const ratio=cA.roiAnual/cB.roiAnual;
+  const ratio=cB.roiAnual>0?cA.roiAnual/cB.roiAnual:1;
   const capital=parseFloat(document.getElementById('port_capital')?.value)||50000;
   const lotesA=Math.max(1,Math.floor(capital/A.fob));
   const lotesB=Math.max(1,Math.floor(capital/B.fob));
@@ -12150,5 +12166,134 @@ window.prodActivarPubPorRubro=async function(){
   renderProds();
 };
 
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CANALES INTEGRADOS — Overview consolidado ML + Mayorista + Fulljaus
+// ══════════════════════════════════════════════════════════════════════════════
+window.renderCanalesIntegrados = function(){
+  const el=document.getElementById('ov_canales_tabla');
+  const kpiEl=document.getElementById('ov_canales_kpis');
+  const perEl=document.getElementById('ov_canales_periodo');
+  if(!el) return;
+
+  const ordsML=getOrders(); // órdenes ML filtradas por período activo
+
+  // ── ML ──
+  const ml={
+    nombre:'MercadoLibre', color:'#E8FF47', icono:'📦',
+    ventas:  ordsML.reduce((s,o)=>s+(o.venta||0),0),
+    ganancia:ordsML.reduce((s,o)=>s+(o.ganancia||0),0),
+    unidades:ordsML.reduce((s,o)=>s+(o.unidades||1),0),
+    ordenes: ordsML.length,
+    costo:   ordsML.reduce((s,o)=>s+(o.costo||0),0),
+  };
+
+  // ── MAYORISTA — leer _mayPedidos si están disponibles ──
+  let may={nombre:'Mayorista',color:'#4DA3FF',icono:'🏪',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
+  try{
+    const peds=typeof _mayPedidos!=='undefined'?_mayPedidos:[];
+    peds.forEach(p=>{
+      may.ventas   +=(p.venta_siva||p.total_siva||0);
+      may.ganancia +=(p.ganancia||0);
+      may.unidades +=(p.items||[]).reduce((s,i)=>s+(i.qty||1),0);
+      may.ordenes  ++;
+      may.costo    +=(p.items||[]).reduce((s,i)=>s+(i.costo||0)*(i.qty||1),0);
+    });
+  }catch(e){}
+
+  // ── FULLJAUS — leer _fjOrdenes si están disponibles ──
+  let fj={nombre:'Fulljaus',color:'#FF8A4D',icono:'🛒',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
+  try{
+    const fjOrds=typeof _fjOrdenes!=='undefined'?_fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)):[];
+    fjOrds.forEach(o=>{
+      fj.ventas   +=(o.venta||0);
+      fj.ganancia +=(o._ganancia||0);
+      fj.unidades +=(o.unidades||1);
+      fj.ordenes  ++;
+      fj.costo    +=(o._costo_prod||0);
+    });
+  }catch(e){}
+
+  const canales=[ml,may,fj].filter(c=>c.ventas>0||c.ordenes>0);
+  const totVentas  =canales.reduce((s,c)=>s+c.ventas,0);
+  const totGanancia=canales.reduce((s,c)=>s+c.ganancia,0);
+  const totUnidades=canales.reduce((s,c)=>s+c.unidades,0);
+  const totOrdenes =canales.reduce((s,c)=>s+c.ordenes,0);
+  const mgGlobal   =totVentas>0?(totGanancia/totVentas*100):0;
+
+  // KPIs globales
+  if(kpiEl){
+    const mgCostoGlobal=totVentas-totGanancia>0?(totGanancia/(totVentas-totGanancia)*100):0;
+    kpiEl.innerHTML=`
+      <div class="kpi acc"><div class="kl">Ventas totales</div><div class="kv">${fS(Math.round(totVentas))}</div><div class="ks">${totOrdenes.toLocaleString()} operaciones · ${totUnidades.toLocaleString()} uds</div></div>
+      <div class="kpi grn"><div class="kl">Ganancia total</div><div class="kv" style="color:${totGanancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(totGanancia))}</div><div class="ks">Todos los canales</div></div>
+      <div class="kpi"><div class="kl">Margen s/venta</div><div class="kv" style="color:${mgGlobal>=15?'var(--grn)':mgGlobal>=8?'var(--org)':'var(--red)'}">${mgGlobal.toFixed(1)}%</div><div class="ks">Margen s/costo: ${mgCostoGlobal.toFixed(1)}%</div></div>
+      <div class="kpi"><div class="kl">Canales activos</div><div class="kv">${canales.length}</div><div class="ks">${canales.map(c=>c.icono+' '+c.nombre).join(', ')}</div></div>`;
+  }
+
+  if(perEl){
+    const{from,to}=getRange();
+    perEl.textContent=from.split('T')[0]+' → '+(to.split('T')[0]);
+  }
+
+  if(!canales.length){
+    el.innerHTML='<p style="color:var(--t3);text-align:center;padding:12px">Sin datos en el período</p>';
+    return;
+  }
+
+  // Tabla comparativa por canal
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>Canal</th><th>Ventas</th><th>% del total</th>
+    <th>Ganancia</th><th>Margen s/venta</th><th>Margen s/costo</th>
+    <th>Operaciones</th><th>Unidades</th><th>Ticket prom.</th>
+  </tr></thead><tbody>`;
+
+  canales.forEach(c=>{
+    const pctTotal=totVentas>0?(c.ventas/totVentas*100):0;
+    const mg=c.ventas>0?(c.ganancia/c.ventas*100):0;
+    const costoTotal=c.ventas-c.ganancia;
+    const mgCosto=costoTotal>0?(c.ganancia/costoTotal*100):0;
+    const ticket=c.ordenes>0?(c.ventas/c.ordenes):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    const barW=totVentas>0?(c.ventas/totVentas*100).toFixed(0):0;
+
+    h+=`<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span>${c.icono}</span>
+          <span style="font-weight:600">${esc(c.nombre)}</span>
+        </div>
+        <div style="margin-top:4px;height:4px;border-radius:2px;background:var(--s3);overflow:hidden">
+          <div style="width:${barW}%;height:100%;background:${c.color};border-radius:2px"></div>
+        </div>
+      </td>
+      <td class="mono" style="font-weight:700">${fS(Math.round(c.ventas))}</td>
+      <td style="font-weight:600;color:${c.color}">${pctTotal.toFixed(1)}%</td>
+      <td class="mono" style="color:${c.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(c.ganancia))}</td>
+      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
+      <td style="color:${mgCosto>=20?'var(--grn)':mgCosto>=10?'var(--org)':'var(--red)'}">${mgCosto.toFixed(1)}%</td>
+      <td>${c.ordenes.toLocaleString()}</td>
+      <td>${c.unidades.toLocaleString()}</td>
+      <td class="mono" style="color:var(--t3)">${fS(Math.round(ticket))}</td>
+    </tr>`;
+  });
+
+  // Fila TOTAL
+  const mgTotCosto=totVentas-totGanancia>0?(totGanancia/(totVentas-totGanancia)*100):0;
+  h+=`<tr style="font-weight:700;border-top:2px solid var(--b1)">
+    <td>TOTAL</td>
+    <td class="mono">${fS(Math.round(totVentas))}</td>
+    <td>100%</td>
+    <td class="mono" style="color:${totGanancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(totGanancia))}</td>
+    <td style="color:${mgGlobal>=15?'var(--grn)':mgGlobal>=8?'var(--org)':'var(--red)'}">${mgGlobal.toFixed(1)}%</td>
+    <td>${mgTotCosto.toFixed(1)}%</td>
+    <td>${totOrdenes.toLocaleString()}</td>
+    <td>${totUnidades.toLocaleString()}</td>
+    <td class="mono" style="color:var(--t3)">${fS(Math.round(totOrdenes>0?totVentas/totOrdenes:0))}</td>
+  </tr>`;
+
+  el.innerHTML=h+'</tbody></table>';
+};
 
 </script>
