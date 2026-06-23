@@ -7085,13 +7085,18 @@ window.portComparar = function(){
   const cA=portCalc(A), cB=portCalc(B);
   if(!cA||!cB){ el.innerHTML='<p style="color:var(--t3);font-size:12px">Completá FOB, rentabilidad y días de los dos productos para comparar.</p>'; return; }
 
-  // Compatibilidad con ambas versiones de portCalc
-  if(!cA.roiPes) cA.roiPes=cA.roiAnualPes||0;
-  if(!cB.roiPes) cB.roiPes=cB.roiAnualPes||0;
-  if(!cA.ganAnual) cA.ganAnual=cA.ganMensual?cA.ganMensual*12:0;
-  if(!cB.ganAnual) cB.ganAnual=cB.ganMensual?cB.ganMensual*12:0;
-  const winner=cA.roiAnual>=cB.roiAnual?'A':'B';
-  const ratio=cB.roiAnual>0?cA.roiAnual/cB.roiAnual:1;
+  // Shim: portCalc nuevo no tiene rotaciones/ganLote/ganAnual
+  const shimCalc=(c,d)=>{
+    if(!c) return c;
+    c.roiPes    = c.roiPes    ?? c.roiAnualPes ?? 0;
+    c.ganAnual  = c.ganAnual  ?? (c.ganMensual?c.ganMensual*12:0);
+    c.ganLote   = c.ganLote   ?? (c.costoPedidoARS?(c.ganAnual/12):0);
+    c.rotaciones= c.rotaciones?? (c.mesesPedido>0?12/c.mesesPedido:0);
+    return c;
+  };
+  shimCalc(cA,A); shimCalc(cB,B);
+  const winner=(cA.roiAnual||0)>=(cB.roiAnual||0)?'A':'B';
+  const ratio=(cB.roiAnual||0)>0?(cA.roiAnual||0)/(cB.roiAnual||0):1;
   const capital=parseFloat(document.getElementById('port_capital')?.value)||50000;
   const lotesA=Math.max(1,Math.floor(capital/A.fob));
   const lotesB=Math.max(1,Math.floor(capital/B.fob));
@@ -12171,7 +12176,7 @@ window.prodActivarPubPorRubro=async function(){
 // ══════════════════════════════════════════════════════════════════════════════
 // CANALES INTEGRADOS — Overview consolidado ML + Mayorista + Fulljaus
 // ══════════════════════════════════════════════════════════════════════════════
-window.renderCanalesIntegrados = function(){
+window.renderCanalesIntegrados = async function(){
   const el=document.getElementById('ov_canales_tabla');
   const kpiEl=document.getElementById('ov_canales_kpis');
   const perEl=document.getElementById('ov_canales_periodo');
@@ -12192,7 +12197,12 @@ window.renderCanalesIntegrados = function(){
   // ── MAYORISTA — leer _mayPedidos si están disponibles ──
   let may={nombre:'Mayorista',color:'#4DA3FF',icono:'🏪',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    const peds=typeof _mayPedidos!=='undefined'?_mayPedidos:[];
+    // Intentar cargar desde Firebase si no está en memoria
+    if((typeof _mayPedidos==='undefined'||!_mayPedidos?.length)&&typeof fb!=='undefined'){
+      const mayData=await fb.get('mayorista').catch(()=>null);
+      if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
+    }
+    const peds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
     peds.forEach(p=>{
       may.ventas   +=(p.venta_siva||p.total_siva||0);
       may.ganancia +=(p.ganancia||0);
@@ -12292,8 +12302,53 @@ window.renderCanalesIntegrados = function(){
     <td>${totUnidades.toLocaleString()}</td>
     <td class="mono" style="color:var(--t3)">${fS(Math.round(totOrdenes>0?totVentas/totOrdenes:0))}</td>
   </tr>`;
-
   el.innerHTML=h+'</tbody></table>';
+
+  // ── Por rubro integrado (ML + Mayorista) ──
+  const rubroMap={};
+  // ML por rubro
+  ordsML.forEach(o=>{
+    const p=S.products.find(x=>x.sku===o.sku||x.sku===o.sku?.replace(/-[NBRGPSMA](-X\d+)?$/i,''));
+    const r=p?.rubro||p?.rubroAuto||'sin_clasificar';
+    if(!rubroMap[r]) rubroMap[r]={rubro:r,ventas:0,ganancia:0,unidades:0,canales:new Set()};
+    rubroMap[r].ventas+=o.venta||0; rubroMap[r].ganancia+=o.ganancia||0;
+    rubroMap[r].unidades+=o.unidades||1; rubroMap[r].canales.add('ML');
+  });
+  // Mayorista por rubro
+  (typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[])).forEach(p=>{
+    (p.items||[]).forEach(it=>{
+      const prod=S.products.find(x=>x.sku===it.sku);
+      const r=prod?.rubro||prod?.rubroAuto||'sin_clasificar';
+      if(!rubroMap[r]) rubroMap[r]={rubro:r,ventas:0,ganancia:0,unidades:0,canales:new Set()};
+      const vSiva=(it.lista||0)*(it.qty||1)*(1-(it.dcom_pct||0)/100)*(1-(it.dfin_pct||0)/100);
+      rubroMap[r].ventas+=vSiva; rubroMap[r].unidades+=it.qty||1; rubroMap[r].canales.add('May');
+    });
+  });
+
+  if(Object.keys(rubroMap).length>0){
+    const rubros=Object.values(rubroMap).sort((a,b)=>b.ganancia-a.ganancia);
+    let rh=`<div style="margin-top:14px">
+      <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Por rubro — todos los canales</div>
+      <table class="tbl" style="font-size:11px"><thead><tr>
+        <th>Rubro</th><th>Canales</th><th>Ventas</th><th>Ganancia</th><th>Margen</th><th>Unidades</th>
+      </tr></thead><tbody>`;
+    rubros.forEach(r=>{
+      const rubroInfo=(window.RUBROS_NIVIKO||[]).find(x=>x.id===r.rubro);
+      const label=rubroInfo?.label||r.rubro;
+      const color=rubroInfo?.color||'var(--t3)';
+      const mg=r.ventas>0?(r.ganancia/r.ventas*100):0;
+      const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+      rh+=`<tr>
+        <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${color}22;color:${color}">${esc(label)}</span></td>
+        <td style="font-size:10px;color:var(--t3)">${[...r.canales].join(', ')}</td>
+        <td class="mono">${fS(Math.round(r.ventas))}</td>
+        <td class="mono" style="color:${r.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(r.ganancia))}</td>
+        <td style="color:${mgC};font-weight:600">${mg.toFixed(1)}%</td>
+        <td>${r.unidades.toLocaleString()}</td>
+      </tr>`;
+    });
+    el.parentElement.insertAdjacentHTML('beforeend',rh+'</tbody></table></div>');
+  }
 };
 
 </script>
