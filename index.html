@@ -2245,7 +2245,17 @@ async function init(){
       fb.get("products")
     ]);
     const base=pr.products||[];
-    const edits=fp?.edits||{};
+    // Detectar y migrar si Firebase tiene formato roto (array en vez de {edits:{}})
+    let edits=fp?.edits||{};
+    if(!fp?.edits && Array.isArray(fp)){
+      // Formato roto: guardar rubros del array antes de perderlos
+      console.warn('[init] Detectado formato roto de products en Firebase, migrando...');
+      fp.forEach(p=>{ if(p.sku&&(p.rubro||p.rubroAuto)){ edits[p.sku]={...(edits[p.sku]||{}),rubro:p.rubro,rubroAuto:p.rubroAuto}; } });
+      if(Object.keys(edits).length>0){ await fb.set('products',{edits}).catch(()=>{}); }
+    } else if(fp && !fp.edits && typeof fp==='object' && !Array.isArray(fp)){
+      // Formato roto: objeto plano con SKUs como keys (otro caso posible)
+      Object.entries(fp).forEach(([k,v])=>{ if(typeof v==='object'&&v.sku) edits[k]={...v}; });
+    }
     S.prodEdits=edits;
     const merged={};
     base.forEach(p=>{merged[p.sku]=p;});
@@ -3567,6 +3577,31 @@ function prodActualizarBulkBar(){
   if(countEl) countEl.textContent=n+' seleccionado'+(n!==1?'s':'');
 }
 
+
+// ── GUARDAR RUBRO CORRECTAMENTE EN FIREBASE ──────────────────────────────────
+// El sistema usa {edits: {sku: {...campos editados...}}} — NO guardar S.products completo
+async function guardarRubroEnFirebase(skus){
+  // Leer edits actuales
+  const fp = await fb.get('products').catch(()=>null);
+  const edits = fp?.edits || {};
+  // Para cada SKU actualizar solo el campo rubro en sus edits
+  skus.forEach(sku=>{
+    const p = S.products.find(x=>x.sku===sku);
+    if(!p) return;
+    if(!edits[sku]) edits[sku]={};
+    if(p.rubro)       edits[sku].rubro    = p.rubro;
+    else              delete edits[sku].rubro;
+    if(p.rubroAuto)   edits[sku].rubroAuto = p.rubroAuto;
+    else              delete edits[sku].rubroAuto;
+    // Preservar otros campos editados que ya existen
+    ['ars','usd','iva','pub','uds_pedido','cbm','desc','pack'].forEach(k=>{
+      if(p[k]!==undefined) edits[sku][k]=p[k];
+    });
+  });
+  S.prodEdits = edits;
+  await fb.set('products', {edits}).catch(()=>{});
+}
+
 window.prodAplicarRubroMasivo=async function(){
   const rubro=document.getElementById('prod_bulk_rubro')?.value;
   if(!rubro){toast('Seleccioná un rubro primero','err');return;}
@@ -3578,7 +3613,7 @@ window.prodAplicarRubroMasivo=async function(){
     if(p){p.rubro=rubro;delete p.rubroAuto;actualizados++;}
   });
 
-  await fb.set('products',S.products).catch(()=>{});
+  await guardarRubroEnFirebase([...window._prodSeleccionados]);
   const rubroInfo=(window.RUBROS_NIVIKO||[]).find(r=>r.id===rubro);
   toast(`✓ ${actualizados} productos asignados a "${rubroInfo?.label||rubro}"`,'ok');
 
@@ -3669,7 +3704,9 @@ window.saveProd=async()=>{
   const udsPedido=parseInt(document.getElementById("mp_uds_pedido")?.value)||0;
   const cbm=parseFloat(document.getElementById("mp_cbm")?.value)||0;
   const rubro=document.getElementById("mp_rubro")?.value||'';
-  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{}),...(rubro?{rubro}:{})};
+  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{}),...(rubro?{rubro}:{rubro:undefined})};
+  // Limpiar rubroAuto si se asignó rubro manual
+  if(rubro){ const p=S.products.find(x=>x.sku===sku); if(p) delete p.rubroAuto; }
   S.prodEdits[sku]=prod;
   const idx=S.products.findIndex(x=>x.sku===sku);
   if(idx>=0)S.products[idx]={...S.products[idx],...prod};else S.products.push(prod);
@@ -11219,7 +11256,7 @@ Respondé SOLO con un JSON válido, sin texto adicional, formato: {"MLA123":"${(
       // Persistir el mapeo de IA en cache + Firebase para no re-consultar
       window._mlCategoryMapCache={...window._mlCategoryMapCache,...mapeo};
       await fb.set('ml_category_map',window._mlCategoryMapCache).catch(()=>{});
-      await fb.set('products',S.products).catch(()=>{});
+      await guardarRubroEnFirebase(skusSinRubro);
       toast(`✓ ${actualizados} SKUs auto-clasificados por categoría ML`,'ok');
       renderRubros();
     } else {
