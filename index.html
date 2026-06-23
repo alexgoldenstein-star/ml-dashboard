@@ -2625,13 +2625,30 @@ async function saveCache(){
   for(const mes of meses){
     try{
       const existing=await fb.get('orders_'+mes).catch(()=>null);
-      const existingOrds=existing?.orders||[];
-      // Merge: el nuevo reemplaza al viejo por ID
+      // Merge existentes con nuevos
       const byId={};
-      existingOrds.forEach(o=>{byId[o.id]=o;});
-      porMes[mes].forEach(o=>{byId[o.id]=o;}); // nuevo sobreescribe
+      // Leer de chunks si existen (para meses grandes)
+      if(existing?.chunks){
+        for(let ci=0;ci<existing.chunks;ci++){
+          const ch=await fb.get('orders_'+mes+'_'+ci).catch(()=>null);
+          (ch?.orders||[]).forEach(o=>{byId[o.id]=o;});
+        }
+      } else {
+        (existing?.orders||[]).forEach(o=>{byId[o.id]=o;});
+      }
+      porMes[mes].forEach(o=>{byId[o.id]=o;});
       const merged=Object.values(byId);
-      await fb.set('orders_'+mes,{orders:merged,ts,mes});
+      // Dividir en chunks de 300 órdenes si el mes es grande
+      const CHUNK_SIZE=300;
+      if(merged.length>CHUNK_SIZE){
+        const numChunks=Math.ceil(merged.length/CHUNK_SIZE);
+        for(let ci=0;ci<numChunks;ci++){
+          await fb.set('orders_'+mes+'_'+ci,{orders:merged.slice(ci*CHUNK_SIZE,(ci+1)*CHUNK_SIZE),ts});
+        }
+        await fb.set('orders_'+mes,{chunks:numChunks,total:merged.length,ts,mes});
+      } else {
+        await fb.set('orders_'+mes,{orders:merged,ts,mes});
+      }
     }catch(e){console.warn('[saveCache] Error guardando mes',mes,e.message);}
   }
 
@@ -2714,7 +2731,15 @@ async function loadCacheAcumulativo(){
   for(const mes of meses){
     try{
       const data=await fb.get('orders_'+mes);
-      if(data?.orders?.length) all.push(...data.orders);
+      if(data?.chunks){
+        // Mes dividido en chunks
+        for(let ci=0;ci<data.chunks;ci++){
+          const ch=await fb.get('orders_'+mes+'_'+ci).catch(()=>null);
+          if(ch?.orders?.length) all.push(...ch.orders);
+        }
+      } else if(data?.orders?.length){
+        all.push(...data.orders);
+      }
     }catch(e){console.warn('[loadCache] Error leyendo mes',mes);}
   }
 
@@ -6587,6 +6612,30 @@ let _portChart = null;
 async function renderPortafolio(){
   const saved = await fb.get('portafolio_db').catch(()=>null);
   _portData = saved?.items || [];
+
+  // Cargar historial completo desde Firebase para el análisis
+  if(!window._allHistoricalOrders?.length){
+    try{
+      const meta=await fb.get('orders_meta').catch(()=>null);
+      if(meta?.meses_guardados?.length){
+        const allOrds=[];
+        for(const mes of meta.meses_guardados){
+          const d=await fb.get('orders_'+mes).catch(()=>null);
+          if(d?.chunks){
+            for(let ci=0;ci<d.chunks;ci++){
+              const ch=await fb.get('orders_'+mes+'_'+ci).catch(()=>null);
+              if(ch?.orders) allOrds.push(...ch.orders);
+            }
+          } else if(d?.orders) allOrds.push(...d.orders);
+        }
+        if(allOrds.length>0){
+          window._allHistoricalOrders=applyProductCosts(allOrds);
+          console.log(`[portafolio] Historial: ${allOrds.length} órdenes`);
+        }
+      }
+    }catch(e){console.warn('[portafolio] Error cargando historial',e.message);}
+  }
+
   portConstruirAnalisis();
   portRender();
 }
@@ -6647,17 +6696,17 @@ window.portEditar = function(idx){
 
 // Construir análisis automático cruzando S.products + S.orders + _mayPedidos
 function portConstruirAnalisis(){
-  if(!S.orders?.length) return;
+  // Usar historial completo si está disponible, sino S.orders
+  const ordersSource=window._allHistoricalOrders?.length?window._allHistoricalOrders:S.orders;
+  if(!ordersSource?.length) return;
   const ahora=new Date();
   const hace2anos=new Date(ahora); hace2anos.setFullYear(hace2anos.getFullYear()-2);
   const dateFrom=hace2anos.toISOString().split('T')[0];
   const tcambio=parseFloat(document.getElementById('port_tc')?.value)||parseFloat(S.cfg?.tcambio||1200)||1200;
 
-  // Agrupar órdenes por SKU BASE (sin variante de color)
-  // NVK-3000-N + NVK-3000-B + NVK-3000-R → NVK-3000
   const skuData={};
 
-  S.orders.filter(o=>o.sku&&o.sku!=='—'&&o.estado!=='cancelled'&&o.fecha>=dateFrom).forEach(o=>{
+  ordersSource.filter(o=>o.sku&&o.sku!=='—'&&o.estado!=='cancelled'&&o.fecha>=dateFrom).forEach(o=>{
     const base=skuBase(o.sku);
     if(!skuData[base]) skuData[base]={
       skuBase:base,
@@ -6848,27 +6897,24 @@ window.portActualizarUds=async function(idx,valor){
   const uds=parseInt(valor)||0;
   if(!_portData[idx]) return;
 
-  // Actualizar en portafolio
-  _portData[idx].ucontenedor=uds;
-
-  // Si el SKU tiene producto en S.products, actualizar también ahí
   const sku=_portData[idx].nombre;
-  const prod=S.products.find(p=>p.sku===sku||p.sku===sku?.split('-').slice(0,-1).join('-'));
-  if(prod){
+
+  // Actualizar en _portData
+  _portData[idx].ucontenedor=uds;
+  _portData[idx].updated=new Date().toISOString().split('T')[0];
+
+  // Guardar en portafolio Firebase PRIMERO
+  await fb.set('portafolio',{items:_portData}).catch(e=>console.warn('portafolio save error',e));
+
+  // Si el SKU existe en S.products, actualizar también uds_pedido
+  const prod=S.products.find(p=>p.sku===sku);
+  if(prod&&prod.sku){
     prod.uds_pedido=uds;
-    await guardarRubroEnFirebase([prod.sku]);
+    await guardarRubroEnFirebase([prod.sku]).catch(()=>{});
   }
 
-  // Guardar en portafolio Firebase
-  await fb.set('portafolio',{items:_portData}).catch(()=>{});
-
-  // Recalcular solo esa fila sin re-renderizar toda la tabla
-  const calc=portCalc(_portData[idx]);
-  _portData[idx]._calc=calc;
-
-  // Actualizar las celdas afectadas sin re-renderizar todo
   toast(`✓ ${sku}: ${uds} uds/pedido`,'ok');
-  portRender(); // re-render para actualizar meses stock y ROI
+  portRender();
 };
 
 function portCalc(d){
@@ -7117,27 +7163,27 @@ window.portComparar = function(){
       <div class="card" style="${winner==='A'?'border:2px solid var(--grn)':''}">
         <div style="font-size:11px;font-weight:600;margin-bottom:8px">${winner==='A'?'🏆 ':''} ${esc(A.nombre)}</div>
         <div style="font-size:11px;display:flex;flex-direction:column;gap:4px">
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">FOB</span><span>USD ${A.fob.toLocaleString('es-AR')}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Rentabilidad</span><span>${A.rent}%</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Días rotación</span><span>${A.dias}–${A.diasMax}d</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Rotaciones/año</span><span>${cA.rotaciones.toFixed(1)}x</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Ganancia/lote</span><span>USD ${Math.round(cA.ganLote).toLocaleString('es-AR')}</span></div>
-          <div style="display:flex;justify-content:space-between;font-weight:600"><span>ROI anualizado</span><span style="color:${cA.roiAnual>=80?'var(--grn)':cA.roiAnual>=40?'var(--org)':'var(--red)'}">${cA.roiAnual.toFixed(0)}%</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Gan. anual</span><span>USD ${Math.round(cA.ganAnual).toLocaleString('es-AR')}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Con USD ${(capital/1000).toFixed(0)}k cap.</span><span>USD ${Math.round(cA.ganAnual*lotesA).toLocaleString('es-AR')}/año</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Costo unitario</span><span>${fS(Math.round(cA.costoUnitARS||A.fob||0))}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Margen s/venta</span><span>${(cA.rentPct||A.rent||0).toFixed(1)}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">u/mes</span><span>${(cA._historico?.unidadesPorMes||0).toFixed(1)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Meses de stock</span><span>${cA.mesesPedido>0?cA.mesesPedido.toFixed(1)+' m':'—'}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Gan. mensual</span><span>${fS(Math.round(cA.ganMensual||0))}</span></div>
+          <div style="display:flex;justify-content:space-between;font-weight:600"><span>ROI anualizado</span><span style="color:${(cA.roiAnual||0)>=80?'var(--grn)':(cA.roiAnual||0)>=40?'var(--org)':'var(--red)'}">${(cA.roiAnual||0).toFixed(0)}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Gan. anual</span><span>${fS(Math.round(cA.ganAnual||0))}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Costo del pedido</span><span>${fS(Math.round(cA.costoPedidoARS||0))}</span></div>
         </div>
       </div>
       <div class="card" style="${winner==='B'?'border:2px solid var(--grn)':''}">
         <div style="font-size:11px;font-weight:600;margin-bottom:8px">${winner==='B'?'🏆 ':''} ${esc(B.nombre)}</div>
         <div style="font-size:11px;display:flex;flex-direction:column;gap:4px">
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">FOB</span><span>USD ${B.fob.toLocaleString('es-AR')}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Rentabilidad</span><span>${B.rent}%</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Días rotación</span><span>${B.dias}–${B.diasMax}d</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Rotaciones/año</span><span>${cB.rotaciones.toFixed(1)}x</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Ganancia/lote</span><span>USD ${Math.round(cB.ganLote).toLocaleString('es-AR')}</span></div>
-          <div style="display:flex;justify-content:space-between;font-weight:600"><span>ROI anualizado</span><span style="color:${cB.roiAnual>=80?'var(--grn)':cB.roiAnual>=40?'var(--org)':'var(--red)'}">${cB.roiAnual.toFixed(0)}%</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Gan. anual</span><span>USD ${Math.round(cB.ganAnual).toLocaleString('es-AR')}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Con USD ${(capital/1000).toFixed(0)}k cap.</span><span>USD ${Math.round(cB.ganAnual*lotesB).toLocaleString('es-AR')}/año</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Costo unitario</span><span>${fS(Math.round(cB.costoUnitARS||B.fob||0))}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Margen s/venta</span><span>${(cB.rentPct||B.rent||0).toFixed(1)}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">u/mes</span><span>${(cB._historico?.unidadesPorMes||0).toFixed(1)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Meses de stock</span><span>${cB.mesesPedido>0?cB.mesesPedido.toFixed(1)+' m':'—'}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Gan. mensual</span><span>${fS(Math.round(cB.ganMensual||0))}</span></div>
+          <div style="display:flex;justify-content:space-between;font-weight:600"><span>ROI anualizado</span><span style="color:${(cB.roiAnual||0)>=80?'var(--grn)':(cB.roiAnual||0)>=40?'var(--org)':'var(--red)'}">${(cB.roiAnual||0).toFixed(0)}%</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Gan. anual</span><span>${fS(Math.round(cB.ganAnual||0))}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">Costo del pedido</span><span>${fS(Math.round(cB.costoPedidoARS||0))}</span></div>
         </div>
       </div>
     </div>
