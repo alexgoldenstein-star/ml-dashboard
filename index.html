@@ -2435,7 +2435,14 @@ window.setPeriod=(p,el)=>{
   S.period=p;S.vPage=0;
   document.querySelectorAll(".pb").forEach(b=>b.classList.remove("on"));el.classList.add("on");
   if(p!=="custom"){S.dateFrom=null;S.dateTo=null;}
-  updateCalLabel();renderAll();
+  updateCalLabel();
+  // Renderizar inmediatamente con datos en memoria
+  renderAll();
+  // Si hay cuentas conectadas, hacer refresh silencioso para datos frescos
+  // Solo si el período cambió y hay token
+  if(S.accounts.some(a=>a.token)){
+    setTimeout(()=>{ doRefresh(); }, 100);
+  }
 };
 function updateCalLabel(){
   const lbl=document.getElementById("calLabel"),btn=document.getElementById("calBtn");
@@ -3400,12 +3407,14 @@ function renderOverview(){
   const pctVenta=v>0?g/v:0;
   const pctCosto=costo>0?g/costo:0;
   const bc=g>=0?'up':'dn';
+  const{from:ovF,to:ovT}=getRange();
+  const periodoLabel=ovF.split('T')[0]+' → '+ovT.split('T')[0];
   document.getElementById('kpis').innerHTML=
-    '<div class="kpi acc"><div class="kl">Ganancia neta</div><div class="kv">'+fS(g)+'</div>'+
+    '<div class="kpi acc"><div class="kl">Ganancia neta <span style="font-size:9px;color:var(--t3)">'+periodoLabel+'</span></div><div class="kv">'+fS(g)+'</div>'+
       '<div class="badge '+(pctVenta>=0?'up':'dn')+'">'+pct(Math.abs(pctVenta))+' s/venta</div>'+
       '<div class="ks" style="margin-top:4px;color:'+(pctCosto>=0?'var(--grn)':'var(--red)')+'">'+pct(Math.abs(pctCosto))+' s/costo</div>'+
     '</div>'+
-    '<div class="kpi grn"><div class="kl">Facturación</div><div class="kv">'+fS(v)+'</div><div class="ks">'+o.length+' órdenes</div></div>'+
+    '<div class="kpi grn"><div class="kl">Facturación</div><div class="kv">'+fS(v)+'</div><div class="ks">'+o.length+' órdenes · '+periodoLabel+'</div></div>'+
     '<div class="kpi red"><div class="kl">Costo mercadería</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+' de la facturación</div></div>'+
     '<div class="kpi org"><div class="kl">Unidades</div><div class="kv">'+u.toLocaleString('es-AR')+'</div><div class="ks">Ticket prom: '+fS(o.length?v/o.length:0)+'</div></div>';
   const accts=["GBA","BHO","IURA","GBS"];
@@ -12302,11 +12311,19 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  // Usar getOrdersFiltered para que respete el período activo de la toolbar
+  // Capturar fechas ANTES del await
   const{from:rf,to:rt}=getRange();
   const dateFrom=rf.split('T')[0];
   const dateTo=rt.split('T')[0];
-  const ordsML=getOrdersFiltered();
+
+  // Mostrar loading + período inmediatamente (antes del await)
+  if(perEl) perEl.textContent=dateFrom+' → '+dateTo;
+  el.innerHTML='<div style="color:var(--t3);font-size:11px;padding:8px">⏳ Calculando...</div>';
+  if(kpiEl) kpiEl.innerHTML='<div class="kpi"><div class="kl">Cargando...</div></div>';
+
+  // Filtrar órdenes ML con el período actual (operación síncrona, rápida)
+  const byAcct=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
+  const ordsML=byAcct.filter(o=>o.fecha&&o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
 
   // ── ML ──
   const ml={
@@ -12321,8 +12338,8 @@ window.renderCanalesIntegrados = async function(){
   // ── MAYORISTA — leer _mayPedidos si están disponibles ──
   let may={nombre:'Mayorista',color:'#4DA3FF',icono:'🏪',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    // Intentar cargar desde Firebase si no está en memoria
-    if((typeof _mayPedidos==='undefined'||!_mayPedidos?.length)&&typeof fb!=='undefined'){
+    // Cargar mayorista desde Firebase solo si no está en cache todavía
+    if(!window._mayPedidosCache?.length&&typeof fb!=='undefined'){
       const mayData=await fb.get('mayorista').catch(()=>null);
       if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
     }
@@ -12374,9 +12391,7 @@ window.renderCanalesIntegrados = async function(){
       <div class="kpi"><div class="kl">Canales activos</div><div class="kv">${canales.length}</div><div class="ks">${canales.map(c=>c.icono+' '+c.nombre).join(', ')}</div></div>`;
   }
 
-  if(perEl){
-    perEl.textContent=dateFrom+' → '+dateTo;
-  }
+  // perEl ya fue actualizado al inicio de la función
 
   if(!canales.length){
     el.innerHTML='<p style="color:var(--t3);text-align:center;padding:12px">Sin datos en el período</p>';
