@@ -2449,6 +2449,14 @@ function updateCalLabel(){
   }
 }
 function getOrders(){return S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);}
+// getOrdersFiltered: aplica filtro de cuenta + filtro de fecha activo en la toolbar
+function getOrdersFiltered(){
+  const{from,to}=getRange();
+  const dateFrom=from.split('T')[0];
+  const dateTo=to.split('T')[0];
+  const byAcct=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
+  return byAcct.filter(o=>o.fecha&&o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
+}
 function getRange(){
   const argNow=new Date(new Date().getTime()-3*60*60*1000);
   const fmt=d=>d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
@@ -3385,7 +3393,8 @@ function renderAlertasPage(){
 
 // ── OVERVIEW ──────────────────────────────────────────────────
 function renderOverview(){
-  const o=getOrders();
+  // getOrdersFiltered aplica filtro de cuenta Y de fecha activa en la toolbar
+  const o=getOrdersFiltered();
   const v=o.reduce((s,x)=>s+x.venta,0),g=o.reduce((s,x)=>s+x.ganancia,0),u=o.reduce((s,x)=>s+x.unidades,0);
   const costo=o.reduce((s,x)=>s+(x.costo||0),0);
   const pctVenta=v>0?g/v:0;
@@ -3400,10 +3409,10 @@ function renderOverview(){
     '<div class="kpi red"><div class="kl">Costo mercadería</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+' de la facturación</div></div>'+
     '<div class="kpi org"><div class="kl">Unidades</div><div class="kv">'+u.toLocaleString('es-AR')+'</div><div class="ks">Ticket prom: '+fS(o.length?v/o.length:0)+'</div></div>';
   const accts=["GBA","BHO","IURA","GBS"];
-  const gA={};accts.forEach(a=>{gA[a]=S.orders.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
+  const gA={};accts.forEach(a=>{gA[a]=o.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
   const maxG=Math.max(...Object.values(gA).map(Math.abs),1);
   document.getElementById("acctBars").innerHTML=accts.map(a=>'<div class="br"><div class="bl">'+a+'</div><div class="bt"><div class="bf" style="width:'+Math.abs(gA[a])/maxG*100+'%;background:'+ac(a)+'"></div></div><div class="bv" style="color:'+(gA[a]>=0?"var(--grn)":"var(--red)")+'">'+fS(gA[a])+"</div></div>").join("");
-  drawDonut(accts);
+  drawDonut(accts,o);
   const sm={};o.forEach(x=>{if(!sm[x.sku])sm[x.sku]={desc:x.desc,u:0,v:0,g:0};sm[x.sku].u+=x.unidades;sm[x.sku].v+=x.venta;sm[x.sku].g+=x.ganancia;});
   const top=Object.entries(sm).sort((a,b)=>b[1].g-a[1].g).slice(0,10);
   let tH="";
@@ -3414,10 +3423,11 @@ function renderOverview(){
   renderAlertPanel();
   renderCanalesIntegrados();
 }
-function drawDonut(accts){
+function drawDonut(accts,filteredOrders){
+  const ords=filteredOrders||S.orders;
   const c=document.getElementById("donut");if(!c)return;
   const ctx=c.getContext("2d");
-  const vals=accts.map(a=>S.orders.filter(x=>x.acct===a).reduce((s,x)=>s+x.venta,0));
+  const vals=accts.map(a=>ords.filter(x=>x.acct===a).reduce((s,x)=>s+x.venta,0));
   const total=vals.reduce((a,b)=>a+b,0);
   ctx.clearRect(0,0,100,100);
   if(!total){ctx.beginPath();ctx.arc(50,50,40,0,2*Math.PI);ctx.fillStyle="#1E1E24";ctx.fill();}
@@ -3430,7 +3440,7 @@ function drawDonut(accts){
 
 // ── VENTAS ────────────────────────────────────────────────────
 function getFilteredV(){
-  let o=getOrders();
+  let o=getOrdersFiltered();
   if(S.vFilter){const f=S.vFilter.toLowerCase();o=o.filter(x=>(x.sku||"").toLowerCase().includes(f)||(x.desc||"").toLowerCase().includes(f)||(x.ciudad||"").toLowerCase().includes(f));}
   if(S.vModal)o=o.filter(x=>x.modal===S.vModal);
   const{col,dir}=S.vSort;
@@ -12292,7 +12302,11 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  const ordsML=getOrders(); // órdenes ML filtradas por período activo
+  // Usar getOrdersFiltered para que respete el período activo de la toolbar
+  const{from:rf,to:rt}=getRange();
+  const dateFrom=rf.split('T')[0];
+  const dateTo=rt.split('T')[0];
+  const ordsML=getOrdersFiltered();
 
   // ── ML ──
   const ml={
@@ -12313,12 +12327,10 @@ window.renderCanalesIntegrados = async function(){
       if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
     }
     const allPeds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
-    // Filtrar por período activo
-    const{from:rf,to:rt}=getRange();
-    const fromDate=rf.split('T')[0]; const toDate=rt.split('T')[0];
+    // Usar las mismas fechas que ML (ya definidas arriba)
     const peds=allPeds.filter(p=>{
-      if(!p.fecha) return true; // si no tiene fecha incluir siempre
-      return p.fecha>=fromDate && p.fecha<=toDate;
+      if(!p.fecha) return false; // excluir si no tiene fecha
+      return p.fecha>=dateFrom && p.fecha<=dateTo;
     });
     peds.forEach(p=>{
       may.ventas   +=(p.venta_siva||p.total_siva||0);
@@ -12332,11 +12344,9 @@ window.renderCanalesIntegrados = async function(){
   // ── FULLJAUS — leer _fjOrdenes si están disponibles ──
   let fj={nombre:'Fulljaus',color:'#FF8A4D',icono:'🛒',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    const{from:fjf,to:fjt}=getRange();
-    const fjFrom=fjf.split('T')[0]; const fjTo=fjt.split('T')[0];
     const fjOrds=(typeof _fjOrdenes!=='undefined'?_fjOrdenes:[]).filter(o=>
       !['DEVTOT','ANUL','NOAPRO'].includes(o.estado) &&
-      (!o.fecha || (o.fecha>=fjFrom && o.fecha<=fjTo))
+      o.fecha && o.fecha>=dateFrom && o.fecha<=dateTo
     );
     fjOrds.forEach(o=>{
       fj.ventas   +=(o.venta||0);
@@ -12365,8 +12375,7 @@ window.renderCanalesIntegrados = async function(){
   }
 
   if(perEl){
-    const{from,to}=getRange();
-    perEl.textContent=from.split('T')[0]+' → '+(to.split('T')[0]);
+    perEl.textContent=dateFrom+' → '+dateTo;
   }
 
   if(!canales.length){
@@ -12437,7 +12446,8 @@ window.renderCanalesIntegrados = async function(){
     rubroMap[r].unidades+=o.unidades||1; rubroMap[r].canales.add('ML');
   });
   // Mayorista por rubro
-  (typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[])).forEach(p=>{
+  ((typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]))
+    .filter(p=>p.fecha&&p.fecha>=dateFrom&&p.fecha<=dateTo)).forEach(p=>{
     (p.items||[]).forEach(it=>{
       const prod=S.products.find(x=>x.sku===it.sku);
       const r=prod?.rubro||prod?.rubroAuto||'sin_clasificar';
