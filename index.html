@@ -166,6 +166,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="calc"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>Calculadora</div>
     <div class="ni" data-p="container"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="14" height="8" rx="1.5"/><path d="M4 5V3a1 1 0 011-1h6a1 1 0 011 1v2M6 9h4"/></svg>Contenedor</div>
     <div class="ni" data-p="importacion"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 7l4 4 4-4"/><path d="M1 13h14"/></svg>Importación</div>
+    <div class="ni" data-p="resumen"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><path d="M4 8h8M4 5h8M4 11h5"/></svg>Resumen</div>
     <div class="ni" data-p="historial"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M5 8h6M5 5h6M5 11h3"/></svg>Historial</div>
     <div class="ni" data-p="inteligencia"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>Inteligencia</div>
     <div class="ni" data-p="rubros"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Por Rubro</div>
@@ -788,6 +789,54 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- RESUMEN INTEGRAL -->
+    <div class="page" id="page-resumen">
+      <div style="max-width:1200px;margin:0 auto">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800">Resumen Integral</div>
+            <div style="font-size:11px;color:var(--t3)">Todos los canales · ML + Mayorista + Fulljaus</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="date" id="res_date_from" class="inp" style="font-size:11px;padding:4px 6px" onchange="renderResumen()">
+            <span style="font-size:11px;color:var(--t3)">→</span>
+            <input type="date" id="res_date_to" class="inp" style="font-size:11px;padding:4px 6px" onchange="renderResumen()">
+            <button class="btn-g btn-sm" onclick="renderResumen()" style="font-size:11px">↻ Actualizar</button>
+          </div>
+        </div>
+
+        <!-- KPIs globales -->
+        <div class="g4" id="res_kpis" style="margin-bottom:14px"></div>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn-g" id="restab_canales" onclick="resTab('canales')" style="font-size:11px;font-weight:600">📊 Por canal</button>
+          <button class="btn-g" id="restab_rubros" onclick="resTab('rubros')" style="font-size:11px">🏷 Por rubro</button>
+          <button class="btn-g" id="restab_skus" onclick="resTab('skus')" style="font-size:11px">📦 Por SKU</button>
+          <button class="btn-g" id="restab_mensual" onclick="resTab('mensual')" style="font-size:11px">📅 Evolución</button>
+        </div>
+
+        <div id="res_panel_canales"><div class="card" style="padding:12px"><div id="res_canales_body" style="font-size:11px;color:var(--t3)">Cargando...</div></div></div>
+        <div id="res_panel_rubros" style="display:none"><div class="card" style="padding:12px"><div id="res_rubros_body" style="font-size:11px;color:var(--t3)">Cargando...</div></div></div>
+        <div id="res_panel_skus" style="display:none"><div class="card" style="padding:12px">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input class="inp" id="res_sku_search" placeholder="Buscar SKU..." oninput="resRenderSkus()" style="font-size:11px;padding:4px 8px;width:160px">
+            <select class="inp" id="res_sku_canal" onchange="resRenderSkus()" style="font-size:11px;padding:4px 6px">
+              <option value="">Todos los canales</option>
+              <option value="ml">ML</option>
+              <option value="mayorista">Mayorista</option>
+              <option value="fulljaus">Fulljaus</option>
+            </select>
+            <select class="inp" id="res_sku_rubro" onchange="resRenderSkus()" style="font-size:11px;padding:4px 6px">
+              <option value="">Todos los rubros</option>
+            </select>
+          </div>
+          <div id="res_skus_body" style="font-size:11px;color:var(--t3)">Cargando...</div>
+        </div></div>
+        <div id="res_panel_mensual" style="display:none"><div class="card" style="padding:12px"><div id="res_mensual_body" style="font-size:11px;color:var(--t3)">Cargando...</div></div></div>
       </div>
     </div>
 
@@ -2375,7 +2424,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,fulljaus:renderFulljaus};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,resumen:renderResumen,historial:renderHistorial,rubros:renderRubros,fulljaus:renderFulljaus};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -3614,7 +3663,7 @@ window.renderProds=function renderProds(){
       "<td style=\"max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)\" title=\""+esc(x.desc)+"\">"+esc(x.desc)+"</td>"+
       "<td>"+(rubroId?"<span style=\"font-size:9px;padding:2px 7px;border-radius:8px;background:"+rubroColor+"22;color:"+rubroColor+"\">"+esc(rubroLabel)+(esAuto?" 🤖":"")+"</span>":"<span style=\"font-size:10px;color:var(--org)\">Sin asignar</span>")+"</td>"+
       "<td class=\"mono\">USD "+x.usd+"</td>"+
-      "<td class=\"mono\">$"+Math.round(x.ars).toLocaleString("es-AR")+"</td>"+
+      "<td class=\"mono\">"+(x.ars>0?"$"+Math.round(x.ars).toLocaleString("es-AR"):"<span style=\"color:var(--red);font-weight:600\">Sin costo</span>")+"</td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.iva==21?"rgba(77,163,255,.1)":"rgba(255,138,77,.1)")+";color:"+(x.iva==21?"var(--blu)":"var(--org)")+"\">"+x.iva+"%</span></td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.pub===false?"rgba(255,77,77,.08)":"rgba(71,232,127,.1)")+";color:"+(x.pub===false?"var(--red)":"var(--grn)")+"\">"+(x.pub===false?"No":"Sí")+"</span></td>"+
       "<td>"+(um[x.sku]||0)+"</td>"+
@@ -6729,22 +6778,32 @@ function portConstruirAnalisis(){
     if((o.unidades||1)>0 && o.desc) s.desc=o.desc;
   });
 
-  // Mayorista
-  if(_mayPedidos?.length){
-    _mayPedidos.forEach(ped=>{
-      if(!ped.fecha||ped.fecha<dateFrom) return;
-      (ped.items||[]).forEach(it=>{
-        const sku=it.codigo||it.sku; if(!sku) return;
-        const base=skuBase(sku);
-        if(!skuData[base]) skuData[base]={skuBase:base,variantes:new Set(),desc:it.descripcion||base,ml:{u:0,venta:0,gan:0,pub:0,ords:[]},may:{u:0,venta:0,gan:0},meses:{}};
-        skuData[base].variantes.add(sku);
-        skuData[base].may.u+=(it.cantidad||0);
-        skuData[base].may.venta+=(it.precio_total_siva||0);
-        const mes=ped.fecha.substring(0,7);
-        skuData[base].meses[mes]=(skuData[base].meses[mes]||0)+(it.cantidad||0);
-      });
+  // Mayorista — usar _mayPedidos o cache de Firebase
+  const maySource=(typeof _mayPedidos!=='undefined'&&_mayPedidos?.length)
+    ?_mayPedidos:(window._mayPedidosCache||[]);
+  maySource.filter(ped=>ped.fecha&&ped.fecha>=dateFrom).forEach(ped=>{
+    (ped.items||[]).forEach(it=>{
+      const sku=it.codigo||it.sku||it.sku_code; if(!sku) return;
+      const base=skuBase(sku);
+      if(!skuData[base]) skuData[base]={
+        skuBase:base,variantes:new Set(),desc:it.descripcion||it.desc||base,
+        ml:{u:0,venta:0,gan:0,pub:0,ords:[]},
+        may:{u:0,venta:0,gan:0,ords:0},meses:{}
+      };
+      skuData[base].variantes.add(sku);
+      // Cantidad y venta
+      const qty=it.cantidad||it.qty||0;
+      const vtaSiva=it.precio_total_siva||it.venta_siva||((it.lista||it.precio||0)*qty*(1-(it.dcom_pct||0)/100));
+      const costo=(it.costo||0)*qty;
+      const gan=vtaSiva-costo;
+      skuData[base].may.u+=qty;
+      skuData[base].may.venta+=vtaSiva;
+      skuData[base].may.gan+=gan;
+      skuData[base].may.ords++;
+      const mes=ped.fecha.substring(0,7);
+      skuData[base].meses[mes]=(skuData[base].meses[mes]||0)+qty;
     });
-  }
+  });
 
   Object.values(skuData).forEach(s=>{
     // Buscar costo: usar cualquier variante del producto
@@ -6895,25 +6954,28 @@ function portConstruirAnalisis(){
 // ── EDICIÓN INLINE DE U/PEDIDO EN PORTAFOLIO ─────────────────────────────────
 window.portActualizarUds=async function(idx,valor){
   const uds=parseInt(valor)||0;
-  if(!_portData[idx]) return;
+  // idx puede ser el índice en _portData o el campo .idx del item
+  const item=_portData.find(d=>d.idx===idx)||_portData[idx];
+  if(!item){ console.warn('[portActualizarUds] item not found for idx',idx); return; }
 
-  const sku=_portData[idx].nombre;
+  const sku=item.nombre||item.sku||'';
+  item.ucontenedor=uds;
 
-  // Actualizar en _portData
-  _portData[idx].ucontenedor=uds;
-  _portData[idx].updated=new Date().toISOString().split('T')[0];
+  // Guardar en portafolio Firebase ANTES del re-render
+  await Promise.all([
+    fb.set('portafolio',{items:_portData}).catch(e=>console.warn('[port] save error',e)),
+    fb.set('portafolio_db',{items:_portData}).catch(()=>{}) // también guardar en portafolio_db por compatibilidad
+  ]);
 
-  // Guardar en portafolio Firebase PRIMERO
-  await fb.set('portafolio',{items:_portData}).catch(e=>console.warn('portafolio save error',e));
-
-  // Si el SKU existe en S.products, actualizar también uds_pedido
-  const prod=S.products.find(p=>p.sku===sku);
-  if(prod&&prod.sku){
+  // Actualizar en S.products si existe
+  const prod=S.products.find(p=>p.sku===sku||skuBase(p.sku)===skuBase(sku));
+  if(prod){
     prod.uds_pedido=uds;
     await guardarRubroEnFirebase([prod.sku]).catch(()=>{});
   }
 
   toast(`✓ ${sku}: ${uds} uds/pedido`,'ok');
+  portConstruirAnalisis();
   portRender();
 };
 
@@ -7054,8 +7116,10 @@ function portRender(){
         </div>
       </td>
       <td>
-        <div class="mono" style="font-size:11px">${d.costoUnitARS>0?fS(Math.round(d.costoUnitARS)):'<span style="color:var(--org)">Sin costo</span>'}</div>
-        ${d.costoUnitUSD>0?`<div style="font-size:9px;color:var(--t3)">USD ${d.costoUnitUSD.toFixed(2)}</div>`:''}
+        ${d.costoUnitARS>0
+          ?`<div class="mono" style="font-size:11px">${fS(Math.round(d.costoUnitARS))}</div>${d.costoUnitUSD>0?`<div style="font-size:9px;color:var(--t3)">USD ${d.costoUnitUSD.toFixed(2)}</div>`:''}`
+          :`<button class="btn-g btn-sm" onclick="editProd('${esc(d.nombre)}')" style="font-size:10px;color:var(--red);border-color:rgba(255,77,77,.3)">⚠ Cargar costo</button>`
+        }
       </td>
       <td style="color:${mgVC};font-weight:700">${c?.rentPct?.toFixed(1)||h?.rentReal?.toFixed(1)||d.rent||'—'}%</td>
       <td style="color:${mgCC};font-weight:600">${c?.mgSCosto?.toFixed(1)||'—'}%</td>
@@ -12248,7 +12312,14 @@ window.renderCanalesIntegrados = async function(){
       const mayData=await fb.get('mayorista').catch(()=>null);
       if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
     }
-    const peds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
+    const allPeds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
+    // Filtrar por período activo
+    const{from:rf,to:rt}=getRange();
+    const fromDate=rf.split('T')[0]; const toDate=rt.split('T')[0];
+    const peds=allPeds.filter(p=>{
+      if(!p.fecha) return true; // si no tiene fecha incluir siempre
+      return p.fecha>=fromDate && p.fecha<=toDate;
+    });
     peds.forEach(p=>{
       may.ventas   +=(p.venta_siva||p.total_siva||0);
       may.ganancia +=(p.ganancia||0);
@@ -12261,7 +12332,12 @@ window.renderCanalesIntegrados = async function(){
   // ── FULLJAUS — leer _fjOrdenes si están disponibles ──
   let fj={nombre:'Fulljaus',color:'#FF8A4D',icono:'🛒',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    const fjOrds=typeof _fjOrdenes!=='undefined'?_fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)):[];
+    const{from:fjf,to:fjt}=getRange();
+    const fjFrom=fjf.split('T')[0]; const fjTo=fjt.split('T')[0];
+    const fjOrds=(typeof _fjOrdenes!=='undefined'?_fjOrdenes:[]).filter(o=>
+      !['DEVTOT','ANUL','NOAPRO'].includes(o.estado) &&
+      (!o.fecha || (o.fecha>=fjFrom && o.fecha<=fjTo))
+    );
     fjOrds.forEach(o=>{
       fj.ventas   +=(o.venta||0);
       fj.ganancia +=(o._ganancia||0);
@@ -12397,4 +12473,273 @@ window.renderCanalesIntegrados = async function(){
   }
 };
 
+</script><script>
+// ══════════════════════════════════════════════════════════════════════════════
+// RESUMEN INTEGRAL — Todos los canales consolidados
+// ══════════════════════════════════════════════════════════════════════════════
+let _resData=null, _resTab='canales';
+
+window.renderResumen=async function(){
+  // Fechas por defecto: último mes
+  const fromEl=document.getElementById('res_date_from');
+  const toEl=document.getElementById('res_date_to');
+  const today=new Date().toISOString().split('T')[0];
+  const d30=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+  if(fromEl&&!fromEl.value) fromEl.value=d30;
+  if(toEl&&!toEl.value) toEl.value=today;
+  const dateFrom=fromEl?.value||d30;
+  const dateTo=toEl?.value||today;
+
+  // Cargar mayorista desde Firebase si no está
+  if(!window._mayPedidosCache?.length&&typeof fb!=='undefined'){
+    const mayData=await fb.get('mayorista').catch(()=>null);
+    if(mayData?.pedidos) window._mayPedidosCache=mayData.pedidos;
+  }
+
+  // ── ML ──
+  const ordsML=(S.orders||[]).filter(o=>
+    o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled'
+  );
+
+  // ── MAYORISTA ──
+  const mayPeds=((typeof _mayPedidos!=='undefined'&&_mayPedidos?.length)?_mayPedidos:(window._mayPedidosCache||[]))
+    .filter(p=>p.fecha&&p.fecha>=dateFrom&&p.fecha<=dateTo);
+
+  // ── FULLJAUS ──
+  const fjOrds=(typeof _fjOrdenes!=='undefined'?_fjOrdenes:[])
+    .filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&(!o.fecha||(o.fecha>=dateFrom&&o.fecha<=dateTo)));
+
+  // ── Construir dataset integrado por SKU ──
+  const skuMap={};
+  const getRub=sku=>{
+    const p=S.products.find(x=>x.sku===sku||x.sku===sku?.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,''));
+    return p?.rubro||p?.rubroAuto||'sin_clasificar';
+  };
+  const addSku=(sku,canal,venta,ganancia,unidades,costo)=>{
+    if(!sku||sku==='—') return;
+    const base=sku.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,'');
+    if(!skuMap[base]) skuMap[base]={sku:base,rubro:getRub(sku),canales:{},venta:0,ganancia:0,unidades:0,costo:0};
+    if(!skuMap[base].canales[canal]) skuMap[base].canales[canal]={venta:0,ganancia:0,unidades:0};
+    skuMap[base].canales[canal].venta+=venta;
+    skuMap[base].canales[canal].ganancia+=ganancia;
+    skuMap[base].canales[canal].unidades+=unidades;
+    skuMap[base].venta+=venta; skuMap[base].ganancia+=ganancia;
+    skuMap[base].unidades+=unidades; skuMap[base].costo+=costo;
+  };
+
+  ordsML.forEach(o=>addSku(o.sku,'ml',o.venta||0,o.ganancia||0,o.unidades||1,o.costo||0));
+  mayPeds.forEach(p=>(p.items||[]).forEach(it=>{
+    const sku=it.codigo||it.sku||it.sku_code; if(!sku) return;
+    const qty=it.cantidad||it.qty||0;
+    const vta=it.precio_total_siva||it.venta_siva||((it.lista||0)*qty*(1-(it.dcom_pct||0)/100));
+    const gan=vta-(it.costo||0)*qty;
+    addSku(sku,'mayorista',vta,gan,qty,(it.costo||0)*qty);
+  }));
+  fjOrds.forEach(o=>addSku(o.sku,'fulljaus',o.venta||0,o._ganancia||0,o.unidades||1,o._costo_prod||0));
+
+  // ── Totales por canal ──
+  const mlTot={venta:ordsML.reduce((s,o)=>s+(o.venta||0),0),ganancia:ordsML.reduce((s,o)=>s+(o.ganancia||0),0),unidades:ordsML.reduce((s,o)=>s+(o.unidades||1),0),ords:ordsML.length};
+  const mayTot={venta:mayPeds.reduce((s,p)=>s+(p.venta_siva||p.total_siva||0),0),ganancia:mayPeds.reduce((s,p)=>s+(p.ganancia||0),0),unidades:mayPeds.reduce((s,p)=>s+(p.items||[]).reduce((ss,i)=>ss+(i.cantidad||i.qty||0),0),0),ords:mayPeds.length};
+  const fjTot={venta:fjOrds.reduce((s,o)=>s+(o.venta||0),0),ganancia:fjOrds.reduce((s,o)=>s+(o._ganancia||0),0),unidades:fjOrds.reduce((s,o)=>s+(o.unidades||1),0),ords:fjOrds.length};
+
+  const totVenta=mlTot.venta+mayTot.venta+fjTot.venta;
+  const totGan=mlTot.ganancia+mayTot.ganancia+fjTot.ganancia;
+  const totUnids=mlTot.unidades+mayTot.unidades+fjTot.unidades;
+  const mg=totVenta>0?(totGan/totVenta*100):0;
+
+  _resData={skuMap,mlTot,mayTot,fjTot,totVenta,totGan,totUnids,mg,dateFrom,dateTo};
+
+  // KPIs
+  const kpiEl=document.getElementById('res_kpis');
+  if(kpiEl) kpiEl.innerHTML=`
+    <div class="kpi acc"><div class="kl">Facturación total</div><div class="kv">${fS(Math.round(totVenta))}</div><div class="ks">${dateFrom} → ${dateTo}</div></div>
+    <div class="kpi grn"><div class="kl">Ganancia total</div><div class="kv" style="color:${totGan>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(totGan))}</div><div class="ks">Todos los canales</div></div>
+    <div class="kpi"><div class="kl">Margen s/venta</div><div class="kv" style="color:${mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)'}">${mg.toFixed(1)}%</div><div class="ks">Margen s/costo: ${(totVenta-totGan)>0?((totGan/(totVenta-totGan))*100).toFixed(1)+'%':'—'}</div></div>
+    <div class="kpi"><div class="kl">Unidades vendidas</div><div class="kv">${totUnids.toLocaleString('es-AR')}</div><div class="ks">Todos los canales</div></div>`;
+
+  // Poblar filtro de rubros
+  const rubroSel=document.getElementById('res_sku_rubro');
+  if(rubroSel){
+    const cur=rubroSel.value;
+    rubroSel.innerHTML='<option value="">Todos los rubros</option>'+
+      (window.RUBROS_NIVIKO||[]).map(r=>`<option value="${r.id}">${esc(r.label)}</option>`).join('');
+    rubroSel.value=cur;
+  }
+
+  resRenderCanales();
+  resRenderRubros();
+  resRenderSkus();
+  resRenderMensual();
+  resTab(_resTab);
+};
+
+window.resTab=function(tab){
+  _resTab=tab;
+  ['canales','rubros','skus','mensual'].forEach(t=>{
+    const p=document.getElementById('res_panel_'+t);
+    const b=document.getElementById('restab_'+t);
+    if(p) p.style.display=t===tab?'':'none';
+    if(b){b.style.background=t===tab?'var(--acc)':'';b.style.color=t===tab?'#000':'';}
+  });
+};
+
+function resRenderCanales(){
+  const el=document.getElementById('res_canales_body'); if(!el||!_resData) return;
+  const{mlTot,mayTot,fjTot,totVenta}=_resData;
+  const canales=[
+    {nombre:'MercadoLibre',icono:'📦',color:'#E8FF47',...mlTot},
+    {nombre:'Mayorista',icono:'🏪',color:'#4DA3FF',...mayTot},
+    {nombre:'Fulljaus',icono:'🛒',color:'#FF8A4D',...fjTot},
+  ].filter(c=>c.venta>0||c.ords>0);
+
+  if(!canales.length){el.innerHTML='<p style="color:var(--t3)">Sin datos en el período</p>';return;}
+
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>Canal</th><th>Ventas</th><th>% mix</th><th>Ganancia</th>
+    <th>Margen s/venta</th><th>Margen s/costo</th><th>Operaciones</th><th>Unidades</th><th>Ticket prom.</th>
+  </tr></thead><tbody>`;
+  canales.forEach(c=>{
+    const mg=c.venta>0?(c.ganancia/c.venta*100):0;
+    const costo=c.venta-c.ganancia;
+    const mgC2=costo>0?(c.ganancia/costo*100):0;
+    const pct=totVenta>0?(c.venta/totVenta*100):0;
+    const ticket=c.ords>0?(c.venta/c.ords):0;
+    const mgCol=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    h+=`<tr>
+      <td><span>${c.icono}</span> <strong>${esc(c.nombre)}</strong>
+        <div style="margin-top:3px;height:3px;border-radius:2px;background:var(--s3);overflow:hidden">
+          <div style="width:${pct.toFixed(0)}%;height:100%;background:${c.color}"></div>
+        </div></td>
+      <td class="mono">${fS(Math.round(c.venta))}</td>
+      <td style="color:${c.color};font-weight:600">${pct.toFixed(1)}%</td>
+      <td class="mono" style="color:${c.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(c.ganancia))}</td>
+      <td style="color:${mgCol};font-weight:700">${mg.toFixed(1)}%</td>
+      <td>${mgC2.toFixed(1)}%</td>
+      <td>${c.ords.toLocaleString()}</td>
+      <td>${c.unidades.toLocaleString()}</td>
+      <td class="mono" style="color:var(--t3)">${fS(Math.round(ticket))}</td>
+    </tr>`;
+  });
+  el.innerHTML=h+'</tbody></table>';
+}
+
+function resRenderRubros(){
+  const el=document.getElementById('res_rubros_body'); if(!el||!_resData) return;
+  const porRubro={};
+  Object.values(_resData.skuMap).forEach(s=>{
+    const r=s.rubro||'sin_clasificar';
+    if(!porRubro[r]) porRubro[r]={rubro:r,venta:0,ganancia:0,unidades:0,skus:new Set(),canales:new Set()};
+    porRubro[r].venta+=s.venta; porRubro[r].ganancia+=s.ganancia;
+    porRubro[r].unidades+=s.unidades; porRubro[r].skus.add(s.sku);
+    Object.keys(s.canales).forEach(c=>porRubro[r].canales.add(c));
+  });
+  const rubros=Object.values(porRubro).sort((a,b)=>b.venta-a.venta);
+  if(!rubros.length){el.innerHTML='<p style="color:var(--t3)">Sin datos</p>';return;}
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>Rubro</th><th>Canales</th><th>SKUs</th><th>Ventas</th><th>Ganancia</th><th>Margen s/venta</th><th>Margen s/costo</th><th>Unidades</th>
+  </tr></thead><tbody>`;
+  rubros.forEach(r=>{
+    const ri=(window.RUBROS_NIVIKO||[]).find(x=>x.id===r.rubro);
+    const col=ri?.color||'var(--t3)';
+    const mg=r.venta>0?(r.ganancia/r.venta*100):0;
+    const costo=r.venta-r.ganancia;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    const mgC2=costo>0?(r.ganancia/costo*100):0;
+    h+=`<tr>
+      <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${col}22;color:${col}">${esc(ri?.label||r.rubro)}</span></td>
+      <td style="font-size:10px;color:var(--t3)">${[...r.canales].join(', ')}</td>
+      <td>${r.skus.size}</td>
+      <td class="mono">${fS(Math.round(r.venta))}</td>
+      <td class="mono" style="color:${r.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(r.ganancia))}</td>
+      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
+      <td>${mgC2.toFixed(1)}%</td>
+      <td>${r.unidades.toLocaleString()}</td>
+    </tr>`;
+  });
+  el.innerHTML=h+'</tbody></table>';
+}
+
+window.resRenderSkus=function(){
+  const el=document.getElementById('res_skus_body'); if(!el||!_resData) return;
+  const q=(document.getElementById('res_sku_search')?.value||'').toLowerCase();
+  const canal=document.getElementById('res_sku_canal')?.value||'';
+  const rubro=document.getElementById('res_sku_rubro')?.value||'';
+  let skus=Object.values(_resData.skuMap);
+  if(q) skus=skus.filter(s=>s.sku.toLowerCase().includes(q));
+  if(canal) skus=skus.filter(s=>s.canales[canal]);
+  if(rubro) skus=skus.filter(s=>s.rubro===rubro);
+  skus.sort((a,b)=>b.venta-a.venta);
+  if(!skus.length){el.innerHTML='<p style="color:var(--t3)">Sin SKUs para los filtros seleccionados</p>';return;}
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>SKU</th><th>Rubro</th><th>Canales</th><th>Venta ML</th><th>Venta May</th><th>Venta FJ</th>
+    <th>Total</th><th>Ganancia</th><th>Mg s/venta</th><th>Mg s/costo</th><th>Uds</th>
+  </tr></thead><tbody>`;
+  skus.slice(0,80).forEach(s=>{
+    const ri=(window.RUBROS_NIVIKO||[]).find(x=>x.id===s.rubro);
+    const col=ri?.color||'var(--t3)';
+    const mg=s.venta>0?(s.ganancia/s.venta*100):0;
+    const costo=s.venta-s.ganancia;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    const mgC2=costo>0?(s.ganancia/costo*100):0;
+    const canalesStr=Object.keys(s.canales).join('+');
+    h+=`<tr>
+      <td><span class="sku">${esc(s.sku)}</span></td>
+      <td><span style="font-size:9px;padding:1px 5px;border-radius:6px;background:${col}22;color:${col}">${esc(ri?.label||s.rubro||'—')}</span></td>
+      <td style="font-size:10px;color:var(--t3)">${canalesStr}</td>
+      <td class="mono" style="color:${s.canales.ml?'var(--t1)':'var(--t3)'}">${s.canales.ml?fS(Math.round(s.canales.ml.venta)):'—'}</td>
+      <td class="mono" style="color:${s.canales.mayorista?'var(--t1)':'var(--t3)'}">${s.canales.mayorista?fS(Math.round(s.canales.mayorista.venta)):'—'}</td>
+      <td class="mono" style="color:${s.canales.fulljaus?'var(--t1)':'var(--t3)'}">${s.canales.fulljaus?fS(Math.round(s.canales.fulljaus.venta)):'—'}</td>
+      <td class="mono" style="font-weight:700">${fS(Math.round(s.venta))}</td>
+      <td class="mono" style="color:${s.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(s.ganancia))}</td>
+      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
+      <td>${mgC2.toFixed(1)}%</td>
+      <td>${s.unidades.toLocaleString()}</td>
+    </tr>`;
+  });
+  if(skus.length>80) h+=`<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:6px">... y ${skus.length-80} más. Usá los filtros.</td></tr>`;
+  el.innerHTML=h+'</tbody></table>';
+};
+
+function resRenderMensual(){
+  const el=document.getElementById('res_mensual_body'); if(!el||!_resData) return;
+  const porMes={};
+  const add=(mes,canal,venta,ganancia,uds)=>{
+    if(!porMes[mes]) porMes[mes]={mes,ml:{v:0,g:0,u:0},may:{v:0,g:0,u:0},fj:{v:0,g:0,u:0}};
+    porMes[mes][canal].v+=venta; porMes[mes][canal].g+=ganancia; porMes[mes][canal].u+=uds;
+  };
+  (S.orders||[]).filter(o=>o.fecha>=_resData.dateFrom&&o.fecha<=_resData.dateTo&&o.estado!=='cancelled')
+    .forEach(o=>add(o.fecha?.substring(0,7)||'?','ml',o.venta||0,o.ganancia||0,o.unidades||1));
+  ((typeof _mayPedidos!=='undefined'&&_mayPedidos?.length)?_mayPedidos:(window._mayPedidosCache||[]))
+    .filter(p=>p.fecha&&p.fecha>=_resData.dateFrom&&p.fecha<=_resData.dateTo)
+    .forEach(p=>add(p.fecha?.substring(0,7)||'?','may',p.venta_siva||p.total_siva||0,p.ganancia||0,
+      (p.items||[]).reduce((s,i)=>s+(i.cantidad||i.qty||0),0)));
+
+  const meses=Object.values(porMes).sort((a,b)=>a.mes.localeCompare(b.mes));
+  if(!meses.length){el.innerHTML='<p style="color:var(--t3)">Sin datos</p>';return;}
+  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
+    <th>Mes</th><th>ML ventas</th><th>ML gan.</th><th>ML mg%</th>
+    <th>May ventas</th><th>May gan.</th><th>May mg%</th>
+    <th>Total ventas</th><th>Total ganancia</th><th>Mg%</th>
+  </tr></thead><tbody>`;
+  [...meses].reverse().forEach(m=>{
+    const totV=m.ml.v+m.may.v+m.fj.v, totG=m.ml.g+m.may.g+m.fj.g;
+    const mg=totV>0?(totG/totV*100):0;
+    const mgML=m.ml.v>0?(m.ml.g/m.ml.v*100):0;
+    const mgMay=m.may.v>0?(m.may.g/m.may.v*100):0;
+    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+    h+=`<tr>
+      <td style="font-weight:600">${m.mes}</td>
+      <td class="mono">${m.ml.v>0?fS(Math.round(m.ml.v)):'—'}</td>
+      <td class="mono" style="color:${m.ml.g>=0?'var(--grn)':'var(--red)'}">${m.ml.v>0?fS(Math.round(m.ml.g)):'—'}</td>
+      <td style="color:${mgML>=15?'var(--grn)':mgML>=8?'var(--org)':'var(--red)'}">${m.ml.v>0?mgML.toFixed(1)+'%':'—'}</td>
+      <td class="mono">${m.may.v>0?fS(Math.round(m.may.v)):'—'}</td>
+      <td class="mono" style="color:${m.may.g>=0?'var(--grn)':'var(--red)'}">${m.may.v>0?fS(Math.round(m.may.g)):'—'}</td>
+      <td style="color:${mgMay>=15?'var(--grn)':mgMay>=8?'var(--org)':'var(--red)'}">${m.may.v>0?mgMay.toFixed(1)+'%':'—'}</td>
+      <td class="mono" style="font-weight:700">${fS(Math.round(totV))}</td>
+      <td class="mono" style="color:${totG>=0?'var(--grn)':'var(--red)'};font-weight:600">${fS(Math.round(totG))}</td>
+      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
+    </tr>`;
+  });
+  el.innerHTML=h+'</tbody></table>';
+}
 </script>
