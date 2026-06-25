@@ -166,7 +166,6 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div class="ni" data-p="calc"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>Calculadora</div>
     <div class="ni" data-p="container"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="14" height="8" rx="1.5"/><path d="M4 5V3a1 1 0 011-1h6a1 1 0 011 1v2M6 9h4"/></svg>Contenedor</div>
     <div class="ni" data-p="importacion"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 7l4 4 4-4"/><path d="M1 13h14"/></svg>Importación</div>
-    <div class="ni" data-p="resumen"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><path d="M4 8h8M4 5h8M4 11h5"/></svg>Resumen</div>
     <div class="ni" data-p="historial"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M5 8h6M5 5h6M5 11h3"/></svg>Historial</div>
     <div class="ni" data-p="inteligencia"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>Inteligencia</div>
     <div class="ni" data-p="rubros"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Por Rubro</div>
@@ -246,6 +245,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         </div>
         <div id="ov_canales_kpis" class="g4" style="margin-bottom:12px"></div>
         <div id="ov_canales_tabla" style="font-size:11px"></div>
+        <div id="ov_canales_rubros"></div>
       </div>
 
       <div class="card"><div class="ch"><span class="ct">Top productos</span></div>
@@ -550,6 +550,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <button id="itab_cont" onclick="impTab('cont')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:var(--acc);color:#000">🚢 Container</button>
           <button id="itab_cour" onclick="impTab('cour')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">✈ Courier</button>
           <button id="itab_multi" onclick="impTab('multi')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">📦 Multi</button>
+          <button id="itab_hist" onclick="impTab('hist')" style="flex:1;padding:7px;border-radius:6px;border:none;font-size:11px;font-weight:600;cursor:pointer;background:transparent;color:var(--t2)">📋 Historial</button>
         </div>
 
         <!-- CONTAINER TAB -->
@@ -789,54 +790,6 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           </div>
         </div>
 
-      </div>
-    </div>
-
-    <!-- RESUMEN INTEGRAL -->
-    <div class="page" id="page-resumen">
-      <div style="max-width:1200px;margin:0 auto">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-          <div>
-            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800">Resumen Integral</div>
-            <div style="font-size:11px;color:var(--t3)">Todos los canales · ML + Mayorista + Fulljaus</div>
-          </div>
-          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="date" id="res_date_from" class="inp" style="font-size:11px;padding:4px 6px" onchange="renderResumen()">
-            <span style="font-size:11px;color:var(--t3)">→</span>
-            <input type="date" id="res_date_to" class="inp" style="font-size:11px;padding:4px 6px" onchange="renderResumen()">
-            <button class="btn-g btn-sm" onclick="renderResumen()" style="font-size:11px">↻ Actualizar</button>
-          </div>
-        </div>
-
-        <!-- KPIs globales -->
-        <div class="g4" id="res_kpis" style="margin-bottom:14px"></div>
-
-        <!-- Tabs -->
-        <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-          <button class="btn-g" id="restab_canales" onclick="resTab('canales')" style="font-size:11px;font-weight:600">📊 Por canal</button>
-          <button class="btn-g" id="restab_rubros" onclick="resTab('rubros')" style="font-size:11px">🏷 Por rubro</button>
-          <button class="btn-g" id="restab_skus" onclick="resTab('skus')" style="font-size:11px">📦 Por SKU</button>
-          <button class="btn-g" id="restab_mensual" onclick="resTab('mensual')" style="font-size:11px">📅 Evolución</button>
-        </div>
-
-        <div id="res_panel_canales"><div class="card" style="padding:12px"><div id="res_canales_body" style="font-size:11px;color:var(--t3)">Cargando...</div></div></div>
-        <div id="res_panel_rubros" style="display:none"><div class="card" style="padding:12px"><div id="res_rubros_body" style="font-size:11px;color:var(--t3)">Cargando...</div></div></div>
-        <div id="res_panel_skus" style="display:none"><div class="card" style="padding:12px">
-          <div style="display:flex;gap:8px;margin-bottom:8px">
-            <input class="inp" id="res_sku_search" placeholder="Buscar SKU..." oninput="resRenderSkus()" style="font-size:11px;padding:4px 8px;width:160px">
-            <select class="inp" id="res_sku_canal" onchange="resRenderSkus()" style="font-size:11px;padding:4px 6px">
-              <option value="">Todos los canales</option>
-              <option value="ml">ML</option>
-              <option value="mayorista">Mayorista</option>
-              <option value="fulljaus">Fulljaus</option>
-            </select>
-            <select class="inp" id="res_sku_rubro" onchange="resRenderSkus()" style="font-size:11px;padding:4px 6px">
-              <option value="">Todos los rubros</option>
-            </select>
-          </div>
-          <div id="res_skus_body" style="font-size:11px;color:var(--t3)">Cargando...</div>
-        </div></div>
-        <div id="res_panel_mensual" style="display:none"><div class="card" style="padding:12px"><div id="res_mensual_body" style="font-size:11px;color:var(--t3)">Cargando...</div></div></div>
       </div>
     </div>
 
@@ -1363,6 +1316,17 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
               </div>
             </div>
             <button class="btn" onclick="fjGuardarConfig()" style="margin-top:12px;font-size:12px">💾 Guardar configuración</button>
+          </div>
+        </div>
+
+        <!-- HISTORIAL DE COMPRAS -->
+        <div id="ipanel_hist" style="display:none">
+          <div class="card" style="padding:12px">
+            <div class="ch" style="margin-bottom:10px">
+              <span class="ct">Historial de compras / contenedores</span>
+              <button class="btn btn-sm" onclick="impHistAgregar()" style="font-size:11px">+ Registrar compra</button>
+            </div>
+            <div id="imp_hist_lista" style="font-size:11px;color:var(--t3)">Cargando...</div>
           </div>
         </div>
 
@@ -2424,7 +2388,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,resumen:renderResumen,historial:renderHistorial,rubros:renderRubros,fulljaus:renderFulljaus};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,fulljaus:renderFulljaus};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -2435,14 +2399,7 @@ window.setPeriod=(p,el)=>{
   S.period=p;S.vPage=0;
   document.querySelectorAll(".pb").forEach(b=>b.classList.remove("on"));el.classList.add("on");
   if(p!=="custom"){S.dateFrom=null;S.dateTo=null;}
-  updateCalLabel();
-  // Renderizar inmediatamente con datos en memoria
-  renderAll();
-  // Si hay cuentas conectadas, hacer refresh silencioso para datos frescos
-  // Solo si el período cambió y hay token
-  if(S.accounts.some(a=>a.token)){
-    setTimeout(()=>{ doRefresh(); }, 100);
-  }
+  updateCalLabel();renderAll();
 };
 function updateCalLabel(){
   const lbl=document.getElementById("calLabel"),btn=document.getElementById("calBtn");
@@ -2456,7 +2413,6 @@ function updateCalLabel(){
   }
 }
 function getOrders(){return S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);}
-// getOrdersFiltered: aplica filtro de cuenta + filtro de fecha activo en la toolbar
 function getOrdersFiltered(){
   const{from,to}=getRange();
   const dateFrom=from.split('T')[0];
@@ -3400,21 +3356,18 @@ function renderAlertasPage(){
 
 // ── OVERVIEW ──────────────────────────────────────────────────
 function renderOverview(){
-  // getOrdersFiltered aplica filtro de cuenta Y de fecha activa en la toolbar
   const o=getOrdersFiltered();
   const v=o.reduce((s,x)=>s+x.venta,0),g=o.reduce((s,x)=>s+x.ganancia,0),u=o.reduce((s,x)=>s+x.unidades,0);
   const costo=o.reduce((s,x)=>s+(x.costo||0),0);
   const pctVenta=v>0?g/v:0;
   const pctCosto=costo>0?g/costo:0;
   const bc=g>=0?'up':'dn';
-  const{from:ovF,to:ovT}=getRange();
-  const periodoLabel=ovF.split('T')[0]+' → '+ovT.split('T')[0];
   document.getElementById('kpis').innerHTML=
-    '<div class="kpi acc"><div class="kl">Ganancia neta <span style="font-size:9px;color:var(--t3)">'+periodoLabel+'</span></div><div class="kv">'+fS(g)+'</div>'+
+    '<div class="kpi acc"><div class="kl">Ganancia neta</div><div class="kv">'+fS(g)+'</div>'+
       '<div class="badge '+(pctVenta>=0?'up':'dn')+'">'+pct(Math.abs(pctVenta))+' s/venta</div>'+
       '<div class="ks" style="margin-top:4px;color:'+(pctCosto>=0?'var(--grn)':'var(--red)')+'">'+pct(Math.abs(pctCosto))+' s/costo</div>'+
     '</div>'+
-    '<div class="kpi grn"><div class="kl">Facturación</div><div class="kv">'+fS(v)+'</div><div class="ks">'+o.length+' órdenes · '+periodoLabel+'</div></div>'+
+    '<div class="kpi grn"><div class="kl">Facturación</div><div class="kv">'+fS(v)+'</div><div class="ks">'+o.length+' órdenes</div></div>'+
     '<div class="kpi red"><div class="kl">Costo mercadería</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+' de la facturación</div></div>'+
     '<div class="kpi org"><div class="kl">Unidades</div><div class="kv">'+u.toLocaleString('es-AR')+'</div><div class="ks">Ticket prom: '+fS(o.length?v/o.length:0)+'</div></div>';
   const accts=["GBA","BHO","IURA","GBS"];
@@ -3449,7 +3402,7 @@ function drawDonut(accts,filteredOrders){
 
 // ── VENTAS ────────────────────────────────────────────────────
 function getFilteredV(){
-  let o=getOrdersFiltered();
+  let o=getOrders();
   if(S.vFilter){const f=S.vFilter.toLowerCase();o=o.filter(x=>(x.sku||"").toLowerCase().includes(f)||(x.desc||"").toLowerCase().includes(f)||(x.ciudad||"").toLowerCase().includes(f));}
   if(S.vModal)o=o.filter(x=>x.modal===S.vModal);
   const{col,dir}=S.vSort;
@@ -3682,7 +3635,7 @@ window.renderProds=function renderProds(){
       "<td style=\"max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)\" title=\""+esc(x.desc)+"\">"+esc(x.desc)+"</td>"+
       "<td>"+(rubroId?"<span style=\"font-size:9px;padding:2px 7px;border-radius:8px;background:"+rubroColor+"22;color:"+rubroColor+"\">"+esc(rubroLabel)+(esAuto?" 🤖":"")+"</span>":"<span style=\"font-size:10px;color:var(--org)\">Sin asignar</span>")+"</td>"+
       "<td class=\"mono\">USD "+x.usd+"</td>"+
-      "<td class=\"mono\">"+(x.ars>0?"$"+Math.round(x.ars).toLocaleString("es-AR"):"<span style=\"color:var(--red);font-weight:600\">Sin costo</span>")+"</td>"+
+      "<td class=\"mono\">$"+Math.round(x.ars).toLocaleString("es-AR")+"</td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.iva==21?"rgba(77,163,255,.1)":"rgba(255,138,77,.1)")+";color:"+(x.iva==21?"var(--blu)":"var(--org)")+"\">"+x.iva+"%</span></td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.pub===false?"rgba(255,77,77,.08)":"rgba(71,232,127,.1)")+";color:"+(x.pub===false?"var(--red)":"var(--grn)")+"\">"+(x.pub===false?"No":"Sí")+"</span></td>"+
       "<td>"+(um[x.sku]||0)+"</td>"+
@@ -3845,13 +3798,41 @@ window.delProd=async sku=>{
   await fb.set("products",{edits:S.prodEdits});
   renderProds();toast("Eliminado ✓");
 };
+
+window.portEditarCosto=function(skuBase){
+  // Buscar el SKU exacto - puede ser skuBase o con variante
+  const prod=S.products.find(p=>p.sku===skuBase)
+    ||S.products.find(p=>p.sku?.startsWith(skuBase+'-'))
+    ||S.products.find(p=>skuBase?.startsWith(p.sku));
+  if(prod){
+    editProd(prod.sku);
+  } else {
+    // No existe en productos, crear uno nuevo con el SKU
+    document.getElementById('mpTitle').textContent='Agregar costo de producto';
+    document.getElementById('mp_sku').value=skuBase;
+    document.getElementById('mp_desc').value='';
+    document.getElementById('mp_usd').value='';
+    document.getElementById('mp_ars').value='';
+    document.getElementById('mp_iva').value='21';
+    document.getElementById('mp_pub').value='si';
+    document.getElementById('mp_pack').value='1';
+    const udsEl=document.getElementById('mp_uds_pedido'); if(udsEl) udsEl.value='';
+    const cbmEl=document.getElementById('mp_cbm'); if(cbmEl) cbmEl.value='';
+    const rubroEl=document.getElementById('mp_rubro'); if(rubroEl) rubroEl.value='';
+    openModal('mProd');
+    toast('Completá el costo para "'+skuBase+'"','ok');
+  }
+};
 window.saveProd=async()=>{
   const sku=document.getElementById("mp_sku").value.trim();
   const desc=document.getElementById("mp_desc").value.trim();
   const ars=Math.round(parseFloat(document.getElementById("mp_ars").value)||0);
   if(!sku){toast("SKU requerido","err");return;}
   if(!desc){toast("Descripción requerida","err");return;}
-  if(ars<=0){toast("Ingresá el costo ARS","err");return;}
+  if(ars<=0){
+    // Pedir confirmación pero no bloquear - puede querer guardar rubro/uds sin costo
+    if(!confirm("El costo ARS es 0. ¿Guardás igual? (Podés completarlo después)")) return;
+  }
   const udsPedido=parseInt(document.getElementById("mp_uds_pedido")?.value)||0;
   const cbm=parseFloat(document.getElementById("mp_cbm")?.value)||0;
   const rubro=document.getElementById("mp_rubro")?.value||'';
@@ -6797,32 +6778,22 @@ function portConstruirAnalisis(){
     if((o.unidades||1)>0 && o.desc) s.desc=o.desc;
   });
 
-  // Mayorista — usar _mayPedidos o cache de Firebase
-  const maySource=(typeof _mayPedidos!=='undefined'&&_mayPedidos?.length)
-    ?_mayPedidos:(window._mayPedidosCache||[]);
-  maySource.filter(ped=>ped.fecha&&ped.fecha>=dateFrom).forEach(ped=>{
-    (ped.items||[]).forEach(it=>{
-      const sku=it.codigo||it.sku||it.sku_code; if(!sku) return;
-      const base=skuBase(sku);
-      if(!skuData[base]) skuData[base]={
-        skuBase:base,variantes:new Set(),desc:it.descripcion||it.desc||base,
-        ml:{u:0,venta:0,gan:0,pub:0,ords:[]},
-        may:{u:0,venta:0,gan:0,ords:0},meses:{}
-      };
-      skuData[base].variantes.add(sku);
-      // Cantidad y venta
-      const qty=it.cantidad||it.qty||0;
-      const vtaSiva=it.precio_total_siva||it.venta_siva||((it.lista||it.precio||0)*qty*(1-(it.dcom_pct||0)/100));
-      const costo=(it.costo||0)*qty;
-      const gan=vtaSiva-costo;
-      skuData[base].may.u+=qty;
-      skuData[base].may.venta+=vtaSiva;
-      skuData[base].may.gan+=gan;
-      skuData[base].may.ords++;
-      const mes=ped.fecha.substring(0,7);
-      skuData[base].meses[mes]=(skuData[base].meses[mes]||0)+qty;
+  // Mayorista
+  if(_mayPedidos?.length){
+    _mayPedidos.forEach(ped=>{
+      if(!ped.fecha||ped.fecha<dateFrom) return;
+      (ped.items||[]).forEach(it=>{
+        const sku=it.codigo||it.sku; if(!sku) return;
+        const base=skuBase(sku);
+        if(!skuData[base]) skuData[base]={skuBase:base,variantes:new Set(),desc:it.descripcion||base,ml:{u:0,venta:0,gan:0,pub:0,ords:[]},may:{u:0,venta:0,gan:0},meses:{}};
+        skuData[base].variantes.add(sku);
+        skuData[base].may.u+=(it.cantidad||0);
+        skuData[base].may.venta+=(it.precio_total_siva||0);
+        const mes=ped.fecha.substring(0,7);
+        skuData[base].meses[mes]=(skuData[base].meses[mes]||0)+(it.cantidad||0);
+      });
     });
-  });
+  }
 
   Object.values(skuData).forEach(s=>{
     // Buscar costo: usar cualquier variante del producto
@@ -6973,28 +6944,25 @@ function portConstruirAnalisis(){
 // ── EDICIÓN INLINE DE U/PEDIDO EN PORTAFOLIO ─────────────────────────────────
 window.portActualizarUds=async function(idx,valor){
   const uds=parseInt(valor)||0;
-  // idx puede ser el índice en _portData o el campo .idx del item
-  const item=_portData.find(d=>d.idx===idx)||_portData[idx];
-  if(!item){ console.warn('[portActualizarUds] item not found for idx',idx); return; }
+  if(!_portData[idx]) return;
 
-  const sku=item.nombre||item.sku||'';
-  item.ucontenedor=uds;
+  const sku=_portData[idx].nombre;
 
-  // Guardar en portafolio Firebase ANTES del re-render
-  await Promise.all([
-    fb.set('portafolio',{items:_portData}).catch(e=>console.warn('[port] save error',e)),
-    fb.set('portafolio_db',{items:_portData}).catch(()=>{}) // también guardar en portafolio_db por compatibilidad
-  ]);
+  // Actualizar en _portData
+  _portData[idx].ucontenedor=uds;
+  _portData[idx].updated=new Date().toISOString().split('T')[0];
 
-  // Actualizar en S.products si existe
-  const prod=S.products.find(p=>p.sku===sku||skuBase(p.sku)===skuBase(sku));
-  if(prod){
+  // Guardar en portafolio Firebase PRIMERO
+  await fb.set('portafolio',{items:_portData}).catch(e=>console.warn('portafolio save error',e));
+
+  // Si el SKU existe en S.products, actualizar también uds_pedido
+  const prod=S.products.find(p=>p.sku===sku);
+  if(prod&&prod.sku){
     prod.uds_pedido=uds;
     await guardarRubroEnFirebase([prod.sku]).catch(()=>{});
   }
 
   toast(`✓ ${sku}: ${uds} uds/pedido`,'ok');
-  portConstruirAnalisis();
   portRender();
 };
 
@@ -7137,7 +7105,7 @@ function portRender(){
       <td>
         ${d.costoUnitARS>0
           ?`<div class="mono" style="font-size:11px">${fS(Math.round(d.costoUnitARS))}</div>${d.costoUnitUSD>0?`<div style="font-size:9px;color:var(--t3)">USD ${d.costoUnitUSD.toFixed(2)}</div>`:''}`
-          :`<button class="btn-g btn-sm" onclick="editProd('${esc(d.nombre)}')" style="font-size:10px;color:var(--red);border-color:rgba(255,77,77,.3)">⚠ Cargar costo</button>`
+          :`<button class="btn-g btn-sm" onclick="portEditarCosto('${esc(d.nombre)}')" style="font-size:10px;color:var(--red);border-color:rgba(255,77,77,.3);white-space:nowrap">⚠ Cargar costo</button>`
         }
       </td>
       <td style="color:${mgVC};font-weight:700">${c?.rentPct?.toFixed(1)||h?.rentReal?.toFixed(1)||d.rent||'—'}%</td>
@@ -9647,13 +9615,14 @@ function renderImportacion(){
 }
 
 window.impTab = function(tab){
-  ['cont','cour','multi'].forEach(t=>{
+  ['cont','cour','multi','hist'].forEach(t=>{
     const p=document.getElementById('ipanel_'+t);
     const b=document.getElementById('itab_'+t);
     if(p) p.style.display=t===tab?'':'none';
     if(b){b.style.background=t===tab?'var(--acc)':'transparent';b.style.color=t===tab?'#000':'var(--t2)';}
   });
   if(tab==='multi') impRecalcMulti();
+  if(tab==='hist') impRenderHistorial();
 };
 
 // ── MULTI CONTAINER ──────────────────────────────────────────────────────────
@@ -12311,19 +12280,7 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  // Capturar fechas ANTES del await
-  const{from:rf,to:rt}=getRange();
-  const dateFrom=rf.split('T')[0];
-  const dateTo=rt.split('T')[0];
-
-  // Mostrar loading + período inmediatamente (antes del await)
-  if(perEl) perEl.textContent=dateFrom+' → '+dateTo;
-  el.innerHTML='<div style="color:var(--t3);font-size:11px;padding:8px">⏳ Calculando...</div>';
-  if(kpiEl) kpiEl.innerHTML='<div class="kpi"><div class="kl">Cargando...</div></div>';
-
-  // Filtrar órdenes ML con el período actual (operación síncrona, rápida)
-  const byAcct=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  const ordsML=byAcct.filter(o=>o.fecha&&o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
+  const ordsML=getOrders(); // órdenes ML filtradas por período activo
 
   // ── ML ──
   const ml={
@@ -12338,17 +12295,12 @@ window.renderCanalesIntegrados = async function(){
   // ── MAYORISTA — leer _mayPedidos si están disponibles ──
   let may={nombre:'Mayorista',color:'#4DA3FF',icono:'🏪',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    // Cargar mayorista desde Firebase solo si no está en cache todavía
-    if(!window._mayPedidosCache?.length&&typeof fb!=='undefined'){
+    // Intentar cargar desde Firebase si no está en memoria
+    if((typeof _mayPedidos==='undefined'||!_mayPedidos?.length)&&typeof fb!=='undefined'){
       const mayData=await fb.get('mayorista').catch(()=>null);
       if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
     }
-    const allPeds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
-    // Usar las mismas fechas que ML (ya definidas arriba)
-    const peds=allPeds.filter(p=>{
-      if(!p.fecha) return false; // excluir si no tiene fecha
-      return p.fecha>=dateFrom && p.fecha<=dateTo;
-    });
+    const peds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
     peds.forEach(p=>{
       may.ventas   +=(p.venta_siva||p.total_siva||0);
       may.ganancia +=(p.ganancia||0);
@@ -12361,10 +12313,7 @@ window.renderCanalesIntegrados = async function(){
   // ── FULLJAUS — leer _fjOrdenes si están disponibles ──
   let fj={nombre:'Fulljaus',color:'#FF8A4D',icono:'🛒',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    const fjOrds=(typeof _fjOrdenes!=='undefined'?_fjOrdenes:[]).filter(o=>
-      !['DEVTOT','ANUL','NOAPRO'].includes(o.estado) &&
-      o.fecha && o.fecha>=dateFrom && o.fecha<=dateTo
-    );
+    const fjOrds=typeof _fjOrdenes!=='undefined'?_fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)):[];
     fjOrds.forEach(o=>{
       fj.ventas   +=(o.venta||0);
       fj.ganancia +=(o._ganancia||0);
@@ -12391,7 +12340,10 @@ window.renderCanalesIntegrados = async function(){
       <div class="kpi"><div class="kl">Canales activos</div><div class="kv">${canales.length}</div><div class="ks">${canales.map(c=>c.icono+' '+c.nombre).join(', ')}</div></div>`;
   }
 
-  // perEl ya fue actualizado al inicio de la función
+  if(perEl){
+    const{from,to}=getRange();
+    perEl.textContent=from.split('T')[0]+' → '+(to.split('T')[0]);
+  }
 
   if(!canales.length){
     el.innerHTML='<p style="color:var(--t3);text-align:center;padding:12px">Sin datos en el período</p>';
@@ -12461,8 +12413,7 @@ window.renderCanalesIntegrados = async function(){
     rubroMap[r].unidades+=o.unidades||1; rubroMap[r].canales.add('ML');
   });
   // Mayorista por rubro
-  ((typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]))
-    .filter(p=>p.fecha&&p.fecha>=dateFrom&&p.fecha<=dateTo)).forEach(p=>{
+  (typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[])).forEach(p=>{
     (p.items||[]).forEach(it=>{
       const prod=S.products.find(x=>x.sku===it.sku);
       const r=prod?.rubro||prod?.rubroAuto||'sin_clasificar';
@@ -12472,299 +12423,204 @@ window.renderCanalesIntegrados = async function(){
     });
   });
 
-  if(Object.keys(rubroMap).length>0){
-    const rubros=Object.values(rubroMap).sort((a,b)=>b.ganancia-a.ganancia);
-    let rh=`<div style="margin-top:14px">
-      <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Por rubro — todos los canales</div>
-      <table class="tbl" style="font-size:11px"><thead><tr>
-        <th>Rubro</th><th>Canales</th><th>Ventas</th><th>Ganancia</th><th>Margen</th><th>Unidades</th>
-      </tr></thead><tbody>`;
-    rubros.forEach(r=>{
-      const rubroInfo=(window.RUBROS_NIVIKO||[]).find(x=>x.id===r.rubro);
-      const label=rubroInfo?.label||r.rubro;
-      const color=rubroInfo?.color||'var(--t3)';
-      const mg=r.ventas>0?(r.ganancia/r.ventas*100):0;
-      const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
-      rh+=`<tr>
-        <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${color}22;color:${color}">${esc(label)}</span></td>
-        <td style="font-size:10px;color:var(--t3)">${[...r.canales].join(', ')}</td>
-        <td class="mono">${fS(Math.round(r.ventas))}</td>
-        <td class="mono" style="color:${r.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(r.ganancia))}</td>
-        <td style="color:${mgC};font-weight:600">${mg.toFixed(1)}%</td>
-        <td>${r.unidades.toLocaleString()}</td>
-      </tr>`;
-    });
-    el.parentElement.insertAdjacentHTML('beforeend',rh+'</tbody></table></div>');
+  // Render en el div fijo (evita triplicar con insertAdjacentHTML)
+  const rubroEl=document.getElementById('ov_canales_rubros');
+  if(rubroEl){
+    if(Object.keys(rubroMap).length>0){
+      const rubros=Object.values(rubroMap).sort((a,b)=>b.ganancia-a.ganancia);
+      let rh=`<div style="margin-top:6px">
+        <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Por rubro — todos los canales</div>
+        <table class="tbl" style="font-size:11px"><thead><tr>
+          <th>Rubro</th><th>Canales</th><th>Ventas</th><th>Ganancia</th><th>Margen</th><th>Unidades</th>
+        </tr></thead><tbody>`;
+      rubros.forEach(r=>{
+        const rubroInfo=(window.RUBROS_NIVIKO||[]).find(x=>x.id===r.rubro);
+        const label=rubroInfo?.label||r.rubro;
+        const color=rubroInfo?.color||'var(--t3)';
+        const mg=r.ventas>0?(r.ganancia/r.ventas*100):0;
+        const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+        rh+=`<tr>
+          <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${color}22;color:${color}">${esc(label)}</span></td>
+          <td style="font-size:10px;color:var(--t3)">${[...r.canales].join(', ')}</td>
+          <td class="mono">${fS(Math.round(r.ventas))}</td>
+          <td class="mono" style="color:${r.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(r.ganancia))}</td>
+          <td style="color:${mgC};font-weight:600">${mg.toFixed(1)}%</td>
+          <td>${r.unidades.toLocaleString()}</td>
+        </tr>`;
+      });
+      rubroEl.innerHTML=rh+'</tbody></table></div>';
+    } else {
+      rubroEl.innerHTML='';
+    }
   }
 };
 
 </script><script>
 // ══════════════════════════════════════════════════════════════════════════════
-// RESUMEN INTEGRAL — Todos los canales consolidados
+// HISTORIAL DE COMPRAS / IMPORTACIONES
 // ══════════════════════════════════════════════════════════════════════════════
-let _resData=null, _resTab='canales';
+window._impHistorial=null;
 
-window.renderResumen=async function(){
-  // Fechas por defecto: último mes
-  const fromEl=document.getElementById('res_date_from');
-  const toEl=document.getElementById('res_date_to');
-  const today=new Date().toISOString().split('T')[0];
-  const d30=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
-  if(fromEl&&!fromEl.value) fromEl.value=d30;
-  if(toEl&&!toEl.value) toEl.value=today;
-  const dateFrom=fromEl?.value||d30;
-  const dateTo=toEl?.value||today;
-
-  // Cargar mayorista desde Firebase si no está
-  if(!window._mayPedidosCache?.length&&typeof fb!=='undefined'){
-    const mayData=await fb.get('mayorista').catch(()=>null);
-    if(mayData?.pedidos) window._mayPedidosCache=mayData.pedidos;
+window.impRenderHistorial=async function(){
+  const el=document.getElementById('imp_hist_lista'); if(!el) return;
+  el.innerHTML='<div style="color:var(--t3)">⏳ Cargando...</div>';
+  if(!window._impHistorial){
+    const d=await fb.get('imp_historial').catch(()=>null);
+    window._impHistorial=d?.list||[];
   }
-
-  // ── ML ──
-  const ordsML=(S.orders||[]).filter(o=>
-    o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled'
-  );
-
-  // ── MAYORISTA ──
-  const mayPeds=((typeof _mayPedidos!=='undefined'&&_mayPedidos?.length)?_mayPedidos:(window._mayPedidosCache||[]))
-    .filter(p=>p.fecha&&p.fecha>=dateFrom&&p.fecha<=dateTo);
-
-  // ── FULLJAUS ──
-  const fjOrds=(typeof _fjOrdenes!=='undefined'?_fjOrdenes:[])
-    .filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&(!o.fecha||(o.fecha>=dateFrom&&o.fecha<=dateTo)));
-
-  // ── Construir dataset integrado por SKU ──
-  const skuMap={};
-  const getRub=sku=>{
-    const p=S.products.find(x=>x.sku===sku||x.sku===sku?.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,''));
-    return p?.rubro||p?.rubroAuto||'sin_clasificar';
-  };
-  const addSku=(sku,canal,venta,ganancia,unidades,costo)=>{
-    if(!sku||sku==='—') return;
-    const base=sku.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,'');
-    if(!skuMap[base]) skuMap[base]={sku:base,rubro:getRub(sku),canales:{},venta:0,ganancia:0,unidades:0,costo:0};
-    if(!skuMap[base].canales[canal]) skuMap[base].canales[canal]={venta:0,ganancia:0,unidades:0};
-    skuMap[base].canales[canal].venta+=venta;
-    skuMap[base].canales[canal].ganancia+=ganancia;
-    skuMap[base].canales[canal].unidades+=unidades;
-    skuMap[base].venta+=venta; skuMap[base].ganancia+=ganancia;
-    skuMap[base].unidades+=unidades; skuMap[base].costo+=costo;
-  };
-
-  ordsML.forEach(o=>addSku(o.sku,'ml',o.venta||0,o.ganancia||0,o.unidades||1,o.costo||0));
-  mayPeds.forEach(p=>(p.items||[]).forEach(it=>{
-    const sku=it.codigo||it.sku||it.sku_code; if(!sku) return;
-    const qty=it.cantidad||it.qty||0;
-    const vta=it.precio_total_siva||it.venta_siva||((it.lista||0)*qty*(1-(it.dcom_pct||0)/100));
-    const gan=vta-(it.costo||0)*qty;
-    addSku(sku,'mayorista',vta,gan,qty,(it.costo||0)*qty);
-  }));
-  fjOrds.forEach(o=>addSku(o.sku,'fulljaus',o.venta||0,o._ganancia||0,o.unidades||1,o._costo_prod||0));
-
-  // ── Totales por canal ──
-  const mlTot={venta:ordsML.reduce((s,o)=>s+(o.venta||0),0),ganancia:ordsML.reduce((s,o)=>s+(o.ganancia||0),0),unidades:ordsML.reduce((s,o)=>s+(o.unidades||1),0),ords:ordsML.length};
-  const mayTot={venta:mayPeds.reduce((s,p)=>s+(p.venta_siva||p.total_siva||0),0),ganancia:mayPeds.reduce((s,p)=>s+(p.ganancia||0),0),unidades:mayPeds.reduce((s,p)=>s+(p.items||[]).reduce((ss,i)=>ss+(i.cantidad||i.qty||0),0),0),ords:mayPeds.length};
-  const fjTot={venta:fjOrds.reduce((s,o)=>s+(o.venta||0),0),ganancia:fjOrds.reduce((s,o)=>s+(o._ganancia||0),0),unidades:fjOrds.reduce((s,o)=>s+(o.unidades||1),0),ords:fjOrds.length};
-
-  const totVenta=mlTot.venta+mayTot.venta+fjTot.venta;
-  const totGan=mlTot.ganancia+mayTot.ganancia+fjTot.ganancia;
-  const totUnids=mlTot.unidades+mayTot.unidades+fjTot.unidades;
-  const mg=totVenta>0?(totGan/totVenta*100):0;
-
-  _resData={skuMap,mlTot,mayTot,fjTot,totVenta,totGan,totUnids,mg,dateFrom,dateTo};
-
+  const list=window._impHistorial;
+  if(!list.length){
+    el.innerHTML=`<div style="text-align:center;padding:24px;color:var(--t3)">
+      <div style="font-size:24px;margin-bottom:8px">📦</div>
+      <div style="font-size:12px">Sin compras registradas todavía</div>
+      <button class="btn-g" onclick="impHistAgregar()" style="margin-top:12px;font-size:11px">+ Registrar primera compra</button>
+    </div>`;
+    return;
+  }
   // KPIs
-  const kpiEl=document.getElementById('res_kpis');
-  if(kpiEl) kpiEl.innerHTML=`
-    <div class="kpi acc"><div class="kl">Facturación total</div><div class="kv">${fS(Math.round(totVenta))}</div><div class="ks">${dateFrom} → ${dateTo}</div></div>
-    <div class="kpi grn"><div class="kl">Ganancia total</div><div class="kv" style="color:${totGan>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(totGan))}</div><div class="ks">Todos los canales</div></div>
-    <div class="kpi"><div class="kl">Margen s/venta</div><div class="kv" style="color:${mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)'}">${mg.toFixed(1)}%</div><div class="ks">Margen s/costo: ${(totVenta-totGan)>0?((totGan/(totVenta-totGan))*100).toFixed(1)+'%':'—'}</div></div>
-    <div class="kpi"><div class="kl">Unidades vendidas</div><div class="kv">${totUnids.toLocaleString('es-AR')}</div><div class="ks">Todos los canales</div></div>`;
-
-  // Poblar filtro de rubros
-  const rubroSel=document.getElementById('res_sku_rubro');
-  if(rubroSel){
-    const cur=rubroSel.value;
-    rubroSel.innerHTML='<option value="">Todos los rubros</option>'+
-      (window.RUBROS_NIVIKO||[]).map(r=>`<option value="${r.id}">${esc(r.label)}</option>`).join('');
-    rubroSel.value=cur;
-  }
-
-  resRenderCanales();
-  resRenderRubros();
-  resRenderSkus();
-  resRenderMensual();
-  resTab(_resTab);
-};
-
-window.resTab=function(tab){
-  _resTab=tab;
-  ['canales','rubros','skus','mensual'].forEach(t=>{
-    const p=document.getElementById('res_panel_'+t);
-    const b=document.getElementById('restab_'+t);
-    if(p) p.style.display=t===tab?'':'none';
-    if(b){b.style.background=t===tab?'var(--acc)':'';b.style.color=t===tab?'#000':'';}
-  });
-};
-
-function resRenderCanales(){
-  const el=document.getElementById('res_canales_body'); if(!el||!_resData) return;
-  const{mlTot,mayTot,fjTot,totVenta}=_resData;
-  const canales=[
-    {nombre:'MercadoLibre',icono:'📦',color:'#E8FF47',...mlTot},
-    {nombre:'Mayorista',icono:'🏪',color:'#4DA3FF',...mayTot},
-    {nombre:'Fulljaus',icono:'🛒',color:'#FF8A4D',...fjTot},
-  ].filter(c=>c.venta>0||c.ords>0);
-
-  if(!canales.length){el.innerHTML='<p style="color:var(--t3)">Sin datos en el período</p>';return;}
-
+  const totInvert=list.reduce((s,c)=>s+(c.inversion_total||0),0);
+  const totUds=list.reduce((s,c)=>s+(c.unidades_total||0),0);
+  let kh=`<div class="g4" style="margin-bottom:12px">
+    <div class="kpi"><div class="kl">Compras registradas</div><div class="kv">${list.length}</div></div>
+    <div class="kpi"><div class="kl">Inversión total</div><div class="kv">${fS(Math.round(totInvert))}</div></div>
+    <div class="kpi"><div class="kl">Unidades totales</div><div class="kv">${totUds.toLocaleString()}</div></div>
+    <div class="kpi"><div class="kl">Costo prom. u.</div><div class="kv">${totUds>0?fS(Math.round(totInvert/totUds)):'—'}</div></div>
+  </div>`;
+  // Tabla
   let h=`<table class="tbl" style="font-size:11px"><thead><tr>
-    <th>Canal</th><th>Ventas</th><th>% mix</th><th>Ganancia</th>
-    <th>Margen s/venta</th><th>Margen s/costo</th><th>Operaciones</th><th>Unidades</th><th>Ticket prom.</th>
+    <th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Proveedor</th>
+    <th>SKUs</th><th>Uds totales</th><th>FOB USD</th><th>Inversión ARS</th><th>Costo u. ARS</th><th></th>
   </tr></thead><tbody>`;
-  canales.forEach(c=>{
-    const mg=c.venta>0?(c.ganancia/c.venta*100):0;
-    const costo=c.venta-c.ganancia;
-    const mgC2=costo>0?(c.ganancia/costo*100):0;
-    const pct=totVenta>0?(c.venta/totVenta*100):0;
-    const ticket=c.ords>0?(c.venta/c.ords):0;
-    const mgCol=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+  [...list].sort((a,b)=>b.fecha?.localeCompare(a.fecha||'')).forEach((c,i)=>{
+    const costoU=c.unidades_total>0?(c.inversion_total/c.unidades_total):0;
     h+=`<tr>
-      <td><span>${c.icono}</span> <strong>${esc(c.nombre)}</strong>
-        <div style="margin-top:3px;height:3px;border-radius:2px;background:var(--s3);overflow:hidden">
-          <div style="width:${pct.toFixed(0)}%;height:100%;background:${c.color}"></div>
-        </div></td>
-      <td class="mono">${fS(Math.round(c.venta))}</td>
-      <td style="color:${c.color};font-weight:600">${pct.toFixed(1)}%</td>
-      <td class="mono" style="color:${c.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(c.ganancia))}</td>
-      <td style="color:${mgCol};font-weight:700">${mg.toFixed(1)}%</td>
-      <td>${mgC2.toFixed(1)}%</td>
-      <td>${c.ords.toLocaleString()}</td>
-      <td>${c.unidades.toLocaleString()}</td>
-      <td class="mono" style="color:var(--t3)">${fS(Math.round(ticket))}</td>
+      <td>${c.fecha||'—'}</td>
+      <td><span style="font-size:10px;padding:2px 6px;border-radius:6px;background:${c.tipo==='contenedor'?'rgba(77,163,255,.1)':'rgba(255,138,77,.1)'};color:${c.tipo==='contenedor'?'var(--blu)':'var(--org)'}">${c.tipo||'compra'}</span></td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(c.descripcion||'—')}</td>
+      <td style="color:var(--t3)">${esc(c.proveedor||'—')}</td>
+      <td style="font-size:10px">${(c.skus||[]).slice(0,3).join(', ')}${(c.skus||[]).length>3?' +'+((c.skus||[]).length-3):''}</td>
+      <td class="mono">${(c.unidades_total||0).toLocaleString()}</td>
+      <td class="mono" style="color:var(--t3)">${c.fob_usd>0?'USD '+c.fob_usd.toLocaleString():'—'}</td>
+      <td class="mono">${fS(Math.round(c.inversion_total||0))}</td>
+      <td class="mono" style="color:var(--acc)">${costoU>0?fS(Math.round(costoU)):'—'}</td>
+      <td>
+        <button class="btn-icon" onclick="impHistEditar(${i})" title="Editar">✎</button>
+        <button class="btn-icon" onclick="impHistEliminar(${i})" style="color:var(--red)" title="Eliminar">✕</button>
+      </td>
     </tr>`;
   });
-  el.innerHTML=h+'</tbody></table>';
-}
-
-function resRenderRubros(){
-  const el=document.getElementById('res_rubros_body'); if(!el||!_resData) return;
-  const porRubro={};
-  Object.values(_resData.skuMap).forEach(s=>{
-    const r=s.rubro||'sin_clasificar';
-    if(!porRubro[r]) porRubro[r]={rubro:r,venta:0,ganancia:0,unidades:0,skus:new Set(),canales:new Set()};
-    porRubro[r].venta+=s.venta; porRubro[r].ganancia+=s.ganancia;
-    porRubro[r].unidades+=s.unidades; porRubro[r].skus.add(s.sku);
-    Object.keys(s.canales).forEach(c=>porRubro[r].canales.add(c));
-  });
-  const rubros=Object.values(porRubro).sort((a,b)=>b.venta-a.venta);
-  if(!rubros.length){el.innerHTML='<p style="color:var(--t3)">Sin datos</p>';return;}
-  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
-    <th>Rubro</th><th>Canales</th><th>SKUs</th><th>Ventas</th><th>Ganancia</th><th>Margen s/venta</th><th>Margen s/costo</th><th>Unidades</th>
-  </tr></thead><tbody>`;
-  rubros.forEach(r=>{
-    const ri=(window.RUBROS_NIVIKO||[]).find(x=>x.id===r.rubro);
-    const col=ri?.color||'var(--t3)';
-    const mg=r.venta>0?(r.ganancia/r.venta*100):0;
-    const costo=r.venta-r.ganancia;
-    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
-    const mgC2=costo>0?(r.ganancia/costo*100):0;
-    h+=`<tr>
-      <td><span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${col}22;color:${col}">${esc(ri?.label||r.rubro)}</span></td>
-      <td style="font-size:10px;color:var(--t3)">${[...r.canales].join(', ')}</td>
-      <td>${r.skus.size}</td>
-      <td class="mono">${fS(Math.round(r.venta))}</td>
-      <td class="mono" style="color:${r.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(r.ganancia))}</td>
-      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
-      <td>${mgC2.toFixed(1)}%</td>
-      <td>${r.unidades.toLocaleString()}</td>
-    </tr>`;
-  });
-  el.innerHTML=h+'</tbody></table>';
-}
-
-window.resRenderSkus=function(){
-  const el=document.getElementById('res_skus_body'); if(!el||!_resData) return;
-  const q=(document.getElementById('res_sku_search')?.value||'').toLowerCase();
-  const canal=document.getElementById('res_sku_canal')?.value||'';
-  const rubro=document.getElementById('res_sku_rubro')?.value||'';
-  let skus=Object.values(_resData.skuMap);
-  if(q) skus=skus.filter(s=>s.sku.toLowerCase().includes(q));
-  if(canal) skus=skus.filter(s=>s.canales[canal]);
-  if(rubro) skus=skus.filter(s=>s.rubro===rubro);
-  skus.sort((a,b)=>b.venta-a.venta);
-  if(!skus.length){el.innerHTML='<p style="color:var(--t3)">Sin SKUs para los filtros seleccionados</p>';return;}
-  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
-    <th>SKU</th><th>Rubro</th><th>Canales</th><th>Venta ML</th><th>Venta May</th><th>Venta FJ</th>
-    <th>Total</th><th>Ganancia</th><th>Mg s/venta</th><th>Mg s/costo</th><th>Uds</th>
-  </tr></thead><tbody>`;
-  skus.slice(0,80).forEach(s=>{
-    const ri=(window.RUBROS_NIVIKO||[]).find(x=>x.id===s.rubro);
-    const col=ri?.color||'var(--t3)';
-    const mg=s.venta>0?(s.ganancia/s.venta*100):0;
-    const costo=s.venta-s.ganancia;
-    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
-    const mgC2=costo>0?(s.ganancia/costo*100):0;
-    const canalesStr=Object.keys(s.canales).join('+');
-    h+=`<tr>
-      <td><span class="sku">${esc(s.sku)}</span></td>
-      <td><span style="font-size:9px;padding:1px 5px;border-radius:6px;background:${col}22;color:${col}">${esc(ri?.label||s.rubro||'—')}</span></td>
-      <td style="font-size:10px;color:var(--t3)">${canalesStr}</td>
-      <td class="mono" style="color:${s.canales.ml?'var(--t1)':'var(--t3)'}">${s.canales.ml?fS(Math.round(s.canales.ml.venta)):'—'}</td>
-      <td class="mono" style="color:${s.canales.mayorista?'var(--t1)':'var(--t3)'}">${s.canales.mayorista?fS(Math.round(s.canales.mayorista.venta)):'—'}</td>
-      <td class="mono" style="color:${s.canales.fulljaus?'var(--t1)':'var(--t3)'}">${s.canales.fulljaus?fS(Math.round(s.canales.fulljaus.venta)):'—'}</td>
-      <td class="mono" style="font-weight:700">${fS(Math.round(s.venta))}</td>
-      <td class="mono" style="color:${s.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(s.ganancia))}</td>
-      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
-      <td>${mgC2.toFixed(1)}%</td>
-      <td>${s.unidades.toLocaleString()}</td>
-    </tr>`;
-  });
-  if(skus.length>80) h+=`<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:6px">... y ${skus.length-80} más. Usá los filtros.</td></tr>`;
-  el.innerHTML=h+'</tbody></table>';
+  el.innerHTML=kh+h+'</tbody></table>';
 };
 
-function resRenderMensual(){
-  const el=document.getElementById('res_mensual_body'); if(!el||!_resData) return;
-  const porMes={};
-  const add=(mes,canal,venta,ganancia,uds)=>{
-    if(!porMes[mes]) porMes[mes]={mes,ml:{v:0,g:0,u:0},may:{v:0,g:0,u:0},fj:{v:0,g:0,u:0}};
-    porMes[mes][canal].v+=venta; porMes[mes][canal].g+=ganancia; porMes[mes][canal].u+=uds;
+window.impHistAgregar=function(){
+  const modal=`<div id="imp_hist_modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center">
+    <div style="background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:24px;width:520px;max-width:94vw;max-height:90vh;overflow-y:auto">
+      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;margin-bottom:16px">📦 Registrar compra / importación</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div><label class="lbl">Fecha</label><input class="inp" id="ihf_fecha" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+        <div><label class="lbl">Tipo</label>
+          <select class="inp" id="ihf_tipo">
+            <option value="contenedor">🚢 Contenedor</option>
+            <option value="courier">✈ Courier</option>
+            <option value="compra_local">🏪 Compra local</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1"><label class="lbl">Descripción</label><input class="inp" id="ihf_desc" placeholder="ej: 40HC Sillas + Soportes TV - Junio 2026"></div>
+        <div><label class="lbl">Proveedor</label><input class="inp" id="ihf_prov" placeholder="Nombre del proveedor"></div>
+        <div><label class="lbl">FOB total USD</label><input class="inp" id="ihf_fob" type="number" placeholder="0"></div>
+        <div><label class="lbl">Inversión total ARS</label><input class="inp" id="ihf_inv" type="number" placeholder="0"><div style="font-size:9px;color:var(--t3);margin-top:2px">Todo incluido: flete, arancel, IVA, etc.</div></div>
+        <div><label class="lbl">Unidades totales</label><input class="inp" id="ihf_uds" type="number" placeholder="0"></div>
+        <div><label class="lbl">CBM total (m³)</label><input class="inp" id="ihf_cbm" type="number" placeholder="0" step="0.01"></div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label class="lbl">SKUs incluidos (separados por coma)</label>
+        <textarea class="inp" id="ihf_skus" rows="2" placeholder="NVK-3000, NVK-22-64F, NVK-68-223" style="resize:vertical"></textarea>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label class="lbl">Notas</label>
+        <textarea class="inp" id="ihf_notas" rows="2" placeholder="Observaciones, número de BL, fecha de arribo, etc." style="resize:vertical"></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-g" onclick="document.getElementById('imp_hist_modal').remove()">Cancelar</button>
+        <button class="btn" onclick="impHistGuardar()">💾 Guardar</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',modal);
+};
+
+window.impHistGuardar=async function(){
+  const item={
+    fecha:     document.getElementById('ihf_fecha')?.value||'',
+    tipo:      document.getElementById('ihf_tipo')?.value||'contenedor',
+    descripcion:document.getElementById('ihf_desc')?.value||'',
+    proveedor: document.getElementById('ihf_prov')?.value||'',
+    fob_usd:   parseFloat(document.getElementById('ihf_fob')?.value)||0,
+    inversion_total:parseFloat(document.getElementById('ihf_inv')?.value)||0,
+    unidades_total:parseInt(document.getElementById('ihf_uds')?.value)||0,
+    cbm_total: parseFloat(document.getElementById('ihf_cbm')?.value)||0,
+    skus:      (document.getElementById('ihf_skus')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
+    notas:     document.getElementById('ihf_notas')?.value||'',
+    ts:        new Date().toISOString()
   };
-  (S.orders||[]).filter(o=>o.fecha>=_resData.dateFrom&&o.fecha<=_resData.dateTo&&o.estado!=='cancelled')
-    .forEach(o=>add(o.fecha?.substring(0,7)||'?','ml',o.venta||0,o.ganancia||0,o.unidades||1));
-  ((typeof _mayPedidos!=='undefined'&&_mayPedidos?.length)?_mayPedidos:(window._mayPedidosCache||[]))
-    .filter(p=>p.fecha&&p.fecha>=_resData.dateFrom&&p.fecha<=_resData.dateTo)
-    .forEach(p=>add(p.fecha?.substring(0,7)||'?','may',p.venta_siva||p.total_siva||0,p.ganancia||0,
-      (p.items||[]).reduce((s,i)=>s+(i.cantidad||i.qty||0),0)));
+  if(!window._impHistorial) window._impHistorial=[];
+  window._impHistorial.push(item);
+  await fb.set('imp_historial',{list:window._impHistorial}).catch(()=>{});
+  document.getElementById('imp_hist_modal')?.remove();
+  toast('✓ Compra registrada','ok');
+  impRenderHistorial();
+};
 
-  const meses=Object.values(porMes).sort((a,b)=>a.mes.localeCompare(b.mes));
-  if(!meses.length){el.innerHTML='<p style="color:var(--t3)">Sin datos</p>';return;}
-  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
-    <th>Mes</th><th>ML ventas</th><th>ML gan.</th><th>ML mg%</th>
-    <th>May ventas</th><th>May gan.</th><th>May mg%</th>
-    <th>Total ventas</th><th>Total ganancia</th><th>Mg%</th>
-  </tr></thead><tbody>`;
-  [...meses].reverse().forEach(m=>{
-    const totV=m.ml.v+m.may.v+m.fj.v, totG=m.ml.g+m.may.g+m.fj.g;
-    const mg=totV>0?(totG/totV*100):0;
-    const mgML=m.ml.v>0?(m.ml.g/m.ml.v*100):0;
-    const mgMay=m.may.v>0?(m.may.g/m.may.v*100):0;
-    const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
-    h+=`<tr>
-      <td style="font-weight:600">${m.mes}</td>
-      <td class="mono">${m.ml.v>0?fS(Math.round(m.ml.v)):'—'}</td>
-      <td class="mono" style="color:${m.ml.g>=0?'var(--grn)':'var(--red)'}">${m.ml.v>0?fS(Math.round(m.ml.g)):'—'}</td>
-      <td style="color:${mgML>=15?'var(--grn)':mgML>=8?'var(--org)':'var(--red)'}">${m.ml.v>0?mgML.toFixed(1)+'%':'—'}</td>
-      <td class="mono">${m.may.v>0?fS(Math.round(m.may.v)):'—'}</td>
-      <td class="mono" style="color:${m.may.g>=0?'var(--grn)':'var(--red)'}">${m.may.v>0?fS(Math.round(m.may.g)):'—'}</td>
-      <td style="color:${mgMay>=15?'var(--grn)':mgMay>=8?'var(--org)':'var(--red)'}">${m.may.v>0?mgMay.toFixed(1)+'%':'—'}</td>
-      <td class="mono" style="font-weight:700">${fS(Math.round(totV))}</td>
-      <td class="mono" style="color:${totG>=0?'var(--grn)':'var(--red)'};font-weight:600">${fS(Math.round(totG))}</td>
-      <td style="color:${mgC};font-weight:700">${mg.toFixed(1)}%</td>
-    </tr>`;
-  });
-  el.innerHTML=h+'</tbody></table>';
-}
+window.impHistEditar=async function(idx){
+  const item=window._impHistorial?.[idx]; if(!item) return;
+  impHistAgregar(); // abrir modal vacío
+  // Esperar que el DOM renderice
+  setTimeout(()=>{
+    document.getElementById('ihf_fecha').value=item.fecha||'';
+    document.getElementById('ihf_tipo').value=item.tipo||'contenedor';
+    document.getElementById('ihf_desc').value=item.descripcion||'';
+    document.getElementById('ihf_prov').value=item.proveedor||'';
+    document.getElementById('ihf_fob').value=item.fob_usd||'';
+    document.getElementById('ihf_inv').value=item.inversion_total||'';
+    document.getElementById('ihf_uds').value=item.unidades_total||'';
+    document.getElementById('ihf_cbm').value=item.cbm_total||'';
+    document.getElementById('ihf_skus').value=(item.skus||[]).join(', ');
+    document.getElementById('ihf_notas').value=item.notas||'';
+    // Override guardar para editar en vez de agregar
+    window.impHistGuardar=async function(){
+      const updated={...item,
+        fecha:document.getElementById('ihf_fecha')?.value,
+        tipo:document.getElementById('ihf_tipo')?.value,
+        descripcion:document.getElementById('ihf_desc')?.value,
+        proveedor:document.getElementById('ihf_prov')?.value,
+        fob_usd:parseFloat(document.getElementById('ihf_fob')?.value)||0,
+        inversion_total:parseFloat(document.getElementById('ihf_inv')?.value)||0,
+        unidades_total:parseInt(document.getElementById('ihf_uds')?.value)||0,
+        cbm_total:parseFloat(document.getElementById('ihf_cbm')?.value)||0,
+        skus:(document.getElementById('ihf_skus')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
+        notas:document.getElementById('ihf_notas')?.value||'',
+      };
+      window._impHistorial[idx]=updated;
+      await fb.set('imp_historial',{list:window._impHistorial}).catch(()=>{});
+      document.getElementById('imp_hist_modal')?.remove();
+      // Restore original guardar
+      window.impHistGuardar=null;
+      toast('✓ Compra actualizada','ok');
+      impRenderHistorial();
+    };
+  },50);
+};
+
+window.impHistEliminar=async function(idx){
+  if(!confirm('¿Eliminar esta compra?')) return;
+  window._impHistorial.splice(idx,1);
+  await fb.set('imp_historial',{list:window._impHistorial}).catch(()=>{});
+  toast('Compra eliminada','ok');
+  impRenderHistorial();
+};
 </script>
