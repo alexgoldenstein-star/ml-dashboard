@@ -12280,9 +12280,18 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  const ordsML=getOrders(); // órdenes ML filtradas por período activo
+  // ── Capturar período activo ANTES de cualquier await ──
+  const{from:rf,to:rt}=getRange();
+  const dateFrom=rf.split('T')[0];
+  const dateTo=rt.split('T')[0];
+  if(perEl) perEl.textContent=dateFrom+' → '+dateTo;
+  el.innerHTML='<div style="color:var(--t3);font-size:11px;padding:8px">⏳ Calculando...</div>';
 
-  // ── ML ──
+  // ── ML — filtrado por período Y cuenta ──
+  const byAcct=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
+  const ordsML=byAcct.filter(o=>
+    o.fecha && o.fecha>=dateFrom && o.fecha<=dateTo && o.estado!=='cancelled'
+  );
   const ml={
     nombre:'MercadoLibre', color:'#E8FF47', icono:'📦',
     ventas:  ordsML.reduce((s,o)=>s+(o.venta||0),0),
@@ -12292,15 +12301,17 @@ window.renderCanalesIntegrados = async function(){
     costo:   ordsML.reduce((s,o)=>s+(o.costo||0),0),
   };
 
-  // ── MAYORISTA — leer _mayPedidos si están disponibles ──
+  // ── MAYORISTA — filtrado por el mismo período ──
   let may={nombre:'Mayorista',color:'#4DA3FF',icono:'🏪',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    // Intentar cargar desde Firebase si no está en memoria
-    if((typeof _mayPedidos==='undefined'||!_mayPedidos?.length)&&typeof fb!=='undefined'){
+    if(!window._mayPedidosCache?.length&&typeof fb!=='undefined'){
       const mayData=await fb.get('mayorista').catch(()=>null);
       if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
     }
-    const peds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
+    const allPeds=(typeof _mayPedidos!=='undefined'&&_mayPedidos?.length)
+      ?_mayPedidos:(window._mayPedidosCache||[]);
+    // FILTRAR por período
+    const peds=allPeds.filter(p=>p.fecha&&p.fecha>=dateFrom&&p.fecha<=dateTo);
     peds.forEach(p=>{
       may.ventas   +=(p.venta_siva||p.total_siva||0);
       may.ganancia +=(p.ganancia||0);
@@ -12310,10 +12321,14 @@ window.renderCanalesIntegrados = async function(){
     });
   }catch(e){}
 
-  // ── FULLJAUS — leer _fjOrdenes si están disponibles ──
+  // ── FULLJAUS — filtrado por el mismo período ──
   let fj={nombre:'Fulljaus',color:'#FF8A4D',icono:'🛒',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    const fjOrds=typeof _fjOrdenes!=='undefined'?_fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)):[];
+    const allFJ=(typeof _fjOrdenes!=='undefined'?_fjOrdenes:[]);
+    const fjOrds=allFJ.filter(o=>
+      !['DEVTOT','ANUL','NOAPRO'].includes(o.estado) &&
+      o.fecha && o.fecha>=dateFrom && o.fecha<=dateTo
+    );
     fjOrds.forEach(o=>{
       fj.ventas   +=(o.venta||0);
       fj.ganancia +=(o._ganancia||0);
@@ -12413,7 +12428,8 @@ window.renderCanalesIntegrados = async function(){
     rubroMap[r].unidades+=o.unidades||1; rubroMap[r].canales.add('ML');
   });
   // Mayorista por rubro
-  (typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[])).forEach(p=>{
+  ((typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]))
+    .filter(p=>p.fecha&&p.fecha>=dateFrom&&p.fecha<=dateTo)).forEach(p=>{
     (p.items||[]).forEach(it=>{
       const prod=S.products.find(x=>x.sku===it.sku);
       const r=prod?.rubro||prod?.rubroAuto||'sin_clasificar';
