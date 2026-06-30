@@ -12563,7 +12563,7 @@ window.renderCanalesIntegrados = async function(){
   });
 
   // Fila TOTAL
-  const totCostoReal=mlTot.costo+mayTot.costo+fjTot.costo; // costo real de mercadería, no venta-ganancia
+  const totCostoReal=ml.costo+may.costo+fj.costo; // costo real de mercadería, no venta-ganancia
   const mgTotCosto=totCostoReal>0?(totGanancia/totCostoReal*100):0;
   h+=`<tr style="font-weight:700;border-top:2px solid var(--b1)">
     <td>TOTAL</td>
@@ -12648,7 +12648,8 @@ window.renderCanalesIntegrados = async function(){
   }
 };
 
-</script><script>
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 // HISTORIAL DE COMPRAS / IMPORTACIONES
 // ══════════════════════════════════════════════════════════════════════════════
@@ -12822,8 +12823,8 @@ window.impHistEliminar=async function(idx){
   toast('Compra eliminada','ok');
   impRenderHistorial();
 };
-</script>
-<script>
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 // RESUMEN EJECUTIVO — texto narrativo del período en Overview
 // ══════════════════════════════════════════════════════════════════════════════
@@ -12895,8 +12896,8 @@ function ovRenderResumenEjecutivo(d){
 
   el.innerHTML=partes.join(' ');
 }
-</script>
-<script>
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 // HISTORIAL DE COMPRAS — Tabs de Rentabilidad Real y Estimador
 // ══════════════════════════════════════════════════════════════════════════════
