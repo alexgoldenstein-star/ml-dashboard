@@ -784,6 +784,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
               <button class="btn-g btn-sm" onclick="impMultiAddProd()">+ Agregar producto</button>
             </div>
             <div id="m_prod_list"></div>
+            <datalist id="mp_sku_dl"></datalist>
           </div>
 
           <div class="card" style="margin-bottom:10px" id="m_summary" style="display:none">
@@ -9673,7 +9674,12 @@ window.impTab = function(tab){
     if(p) p.style.display=t===tab?'':'none';
     if(b){b.style.background=t===tab?'var(--acc)':'transparent';b.style.color=t===tab?'#000':'var(--t2)';}
   });
-  if(tab==='multi') impRecalcMulti();
+  if(tab==='multi'){
+    // Poblar datalist de SKUs siempre al entrar, independiente de si hay productos cargados
+    const dlEl=document.getElementById('mp_sku_dl');
+    if(dlEl) dlEl.innerHTML=S.products.map(p=>`<option value="${esc(p.sku)}">${esc(p.sku)} — ${esc(p.desc||'')}</option>`).join('');
+    impRecalcMulti();
+  }
   if(tab==='hist') impRenderHistorial();
 };
 
@@ -9699,6 +9705,33 @@ window.impMultiSetProd = function(idx, field, val){
   impRecalcMulti();
 };
 
+// Al elegir un SKU existente del datalist, autocompletar nombre y costo de referencia
+window.impMultiAutocompleteSku = function(idx, skuVal){
+  const sku=(skuVal||'').trim();
+  if(!sku) return;
+  const prod=S.products.find(p=>p.sku===sku);
+  if(!prod) return; // SKU nuevo, no hay nada que autocompletar
+
+  const p=_multiProds.find(x=>x.idx===idx);
+  if(!p) return;
+
+  // Autocompletar descripción si está vacía
+  if(!p.nombre&&prod.desc){
+    p.nombre=prod.desc;
+    const nEl=document.getElementById(`mp_nombre_${idx}`); if(nEl) nEl.value=prod.desc;
+  }
+  // Autocompletar IVA del producto existente
+  if(prod.iva){
+    p.iva=prod.iva;
+    const ivEl=document.getElementById(`mp_iva_${idx}`); if(ivEl) ivEl.value=prod.iva;
+  }
+  // Mostrar el costo actual como referencia (no lo pisa, solo informa)
+  if(prod.ars>0){
+    toast(`${sku}: costo actual $${Math.round(prod.ars).toLocaleString('es-AR')} — se actualizará al guardar`,'ok');
+  }
+  impRecalcMulti();
+};
+
 window.impMultiSelNCM = function(idx, ncmIdx){
   if(ncmIdx==='') return;
   const p = _multiProds.find(x=>x.idx===idx);
@@ -9716,6 +9749,9 @@ window.impMultiSelNCM = function(idx, ncmIdx){
 function renderMultiProds(){
   const el = document.getElementById('m_prod_list');
   if(!el) return;
+  // Poblar datalist de SKUs existentes (una sola vez, se reusa en todas las filas)
+  const dlEl=document.getElementById('mp_sku_dl');
+  if(dlEl) dlEl.innerHTML=S.products.map(p=>`<option value="${esc(p.sku)}">${esc(p.sku)} — ${esc(p.desc||'')}</option>`).join('');
   if(!_multiProds.length){
     el.innerHTML='<p style="color:var(--t3);font-size:12px;padding:8px">Sin productos. Agregá uno.</p>';
     return;
@@ -9729,7 +9765,7 @@ function renderMultiProds(){
       </div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:6px;margin-bottom:6px">
         <div><label class="lbl">Nombre</label><input class="inp" id="mp_nombre_${p.idx}" value="${p.nombre}" placeholder="Descripción" oninput="impMultiSetProd(${p.idx},'nombre',this.value)"></div>
-        <div><label class="lbl">SKU</label><input class="inp" id="mp_sku_${p.idx}" value="${p.sku}" placeholder="SKU" oninput="impMultiSetProd(${p.idx},'sku',this.value)"></div>
+        <div><label class="lbl">SKU</label><input class="inp" id="mp_sku_${p.idx}" list="mp_sku_dl" value="${p.sku}" placeholder="SKU existente o nuevo" oninput="impMultiSetProd(${p.idx},'sku',this.value)" onchange="impMultiAutocompleteSku(${p.idx},this.value)"></div>
       </div>
       <div style="margin-bottom:6px">
         <label class="lbl">Categoría NCM</label>
@@ -12727,13 +12763,18 @@ window.impRenderHistorial=async function(){
     <div class="kpi"><div class="kl">Unidades totales</div><div class="kv">${totUds.toLocaleString()}</div></div>
     <div class="kpi"><div class="kl">Costo prom. u.</div><div class="kv">${totUds>0?fS(Math.round(totInvert/totUds)):'—'}</div></div>
   </div>`;
-  // Tabla
+  // Tabla — usar el índice REAL en window._impHistorial (no el de la lista ordenada)
   let h=`<table class="tbl" style="font-size:11px"><thead><tr>
     <th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Proveedor</th>
     <th>SKUs</th><th>Uds totales</th><th>FOB USD</th><th>Inversión ARS</th><th>Costo u. ARS</th><th></th>
   </tr></thead><tbody>`;
-  [...list].sort((a,b)=>b.fecha?.localeCompare(a.fecha||'')).forEach((c,i)=>{
+  // Crear pares [indiceReal, compra] antes de ordenar, para no perder la referencia
+  const listConIndice=list.map((c,idxReal)=>({c,idxReal}));
+  listConIndice.sort((a,b)=>b.c.fecha?.localeCompare(a.c.fecha||''));
+  listConIndice.forEach(({c,idxReal})=>{
     const costoU=c.unidades_total>0?(c.inversion_total/c.unidades_total):0;
+    const tieneHistorialPrecio=c.historial_precio?.length>0;
+    const ultimoCambio=tieneHistorialPrecio?c.historial_precio[c.historial_precio.length-1]:null;
     h+=`<tr>
       <td>${c.fecha||'—'}</td>
       <td><span style="font-size:10px;padding:2px 6px;border-radius:6px;background:${c.tipo==='contenedor'?'rgba(77,163,255,.1)':'rgba(255,138,77,.1)'};color:${c.tipo==='contenedor'?'var(--blu)':'var(--org)'}">${c.tipo||'compra'}</span></td>
@@ -12742,11 +12783,14 @@ window.impRenderHistorial=async function(){
       <td style="font-size:10px">${(c.skus||[]).slice(0,3).join(', ')}${(c.skus||[]).length>3?' +'+((c.skus||[]).length-3):''}</td>
       <td class="mono">${(c.unidades_total||0).toLocaleString()}</td>
       <td class="mono" style="color:var(--t3)">${c.fob_usd>0?'USD '+c.fob_usd.toLocaleString():'—'}</td>
-      <td class="mono">${fS(Math.round(c.inversion_total||0))}</td>
+      <td class="mono">
+        ${fS(Math.round(c.inversion_total||0))}
+        ${ultimoCambio?`<div title="Cambió ${ultimoCambio.variacion_pct>=0?'+':''}${ultimoCambio.variacion_pct.toFixed(1)}% el ${ultimoCambio.fecha}" style="font-size:9px;color:${ultimoCambio.variacion_pct>=0?'var(--red)':'var(--grn)'};cursor:help">${ultimoCambio.variacion_pct>=0?'▲':'▼'} ${Math.abs(ultimoCambio.variacion_pct).toFixed(1)}%</div>`:''}
+      </td>
       <td class="mono" style="color:var(--acc)">${costoU>0?fS(Math.round(costoU)):'—'}</td>
       <td>
-        <button class="btn-icon" onclick="impHistEditar(${i})" title="Editar">✎</button>
-        <button class="btn-icon" onclick="impHistEliminar(${i})" style="color:var(--red)" title="Eliminar">✕</button>
+        <button class="btn-icon" onclick="impHistEditar(${idxReal})" title="Editar">✎</button>
+        <button class="btn-icon" onclick="impHistEliminar(${idxReal})" style="color:var(--red)" title="Eliminar">✕</button>
       </td>
     </tr>`;
   });
@@ -12850,6 +12894,9 @@ window.impHistGuardar=async function(){
   impRenderHistorial();
 };
 
+// Guardar referencia a la función original de "agregar" para poder restaurarla después de editar
+window._impHistGuardarOriginal = window._impHistGuardarOriginal || window.impHistGuardar;
+
 window.impHistEditar=async function(idx){
   const item=window._impHistorial?.[idx]; if(!item) return;
   impHistAgregar(); // abrir modal vacío
@@ -12858,6 +12905,7 @@ window.impHistEditar=async function(idx){
     document.getElementById('ihf_fecha').value=item.fecha||'';
     document.getElementById('ihf_tipo').value=item.tipo||'contenedor';
     document.getElementById('ihf_desc').value=item.descripcion||'';
+    const rubroEl=document.getElementById('ihf_rubro'); if(rubroEl) rubroEl.value=item.rubro||'';
     document.getElementById('ihf_prov').value=item.proveedor||'';
     document.getElementById('ihf_fob').value=item.fob_usd||'';
     document.getElementById('ihf_inv').value=item.inversion_total||'';
@@ -12865,26 +12913,65 @@ window.impHistEditar=async function(idx){
     document.getElementById('ihf_cbm').value=item.cbm_total||'';
     document.getElementById('ihf_skus').value=(item.skus||[]).join(', ');
     document.getElementById('ihf_notas').value=item.notas||'';
+
+    // Mostrar historial de cambios de precio si existe
+    if(item.historial_precio?.length){
+      const histHtml=item.historial_precio.map(h=>
+        `<div style="font-size:10px;color:var(--t3);padding:2px 0">${h.fecha}: ${fS(Math.round(h.inversion_anterior))} → ${fS(Math.round(h.inversion_nueva))} (${h.variacion_pct>=0?'+':''}${h.variacion_pct.toFixed(1)}%)</div>`
+      ).join('');
+      const notasEl=document.getElementById('ihf_notas');
+      if(notasEl) notasEl.insertAdjacentHTML('afterend',
+        `<div id="ihf_historial_precio" style="margin-top:8px;padding:8px;background:var(--s2);border-radius:var(--r)">
+          <div style="font-size:10px;color:var(--acc);font-weight:600;margin-bottom:4px">📈 Historial de cambios de inversión</div>
+          ${histHtml}
+        </div>`);
+    }
+
     // Override guardar para editar en vez de agregar
     window.impHistGuardar=async function(){
+      const nuevaInversion=parseFloat(document.getElementById('ihf_inv')?.value)||0;
+      const inversionAnterior=item.inversion_total||0;
+
+      // Si cambió la inversión, registrar el cambio en el historial de precios
+      const historialPrecio=item.historial_precio||[];
+      if(nuevaInversion>0 && inversionAnterior>0 && Math.abs(nuevaInversion-inversionAnterior)>0.01){
+        const variacionPct=((nuevaInversion-inversionAnterior)/inversionAnterior)*100;
+        historialPrecio.push({
+          fecha: new Date().toISOString().split('T')[0],
+          inversion_anterior: inversionAnterior,
+          inversion_nueva: nuevaInversion,
+          variacion_pct: variacionPct,
+        });
+      }
+
       const updated={...item,
         fecha:document.getElementById('ihf_fecha')?.value,
         tipo:document.getElementById('ihf_tipo')?.value,
         descripcion:document.getElementById('ihf_desc')?.value,
+        rubro:document.getElementById('ihf_rubro')?.value||'',
         proveedor:document.getElementById('ihf_prov')?.value,
         fob_usd:parseFloat(document.getElementById('ihf_fob')?.value)||0,
-        inversion_total:parseFloat(document.getElementById('ihf_inv')?.value)||0,
+        inversion_total:nuevaInversion,
         unidades_total:parseInt(document.getElementById('ihf_uds')?.value)||0,
         cbm_total:parseFloat(document.getElementById('ihf_cbm')?.value)||0,
         skus:(document.getElementById('ihf_skus')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
         notas:document.getElementById('ihf_notas')?.value||'',
+        historial_precio: historialPrecio,
       };
       window._impHistorial[idx]=updated;
       await fb.set('imp_historial',{list:window._impHistorial}).catch(()=>{});
       document.getElementById('imp_hist_modal')?.remove();
-      // Restore original guardar
-      window.impHistGuardar=null;
-      toast('✓ Compra actualizada','ok');
+      // Restaurar la función original de guardar (no dejarla en null)
+      window.impHistGuardar=window._impHistGuardarOriginal;
+
+      if(historialPrecio.length>0 && historialPrecio[historialPrecio.length-1].fecha===new Date().toISOString().split('T')[0]){
+        const ultimo=historialPrecio[historialPrecio.length-1];
+        const signo=ultimo.variacion_pct>=0?'subió':'bajó';
+        const color=ultimo.variacion_pct>=0?'⚠':'✓';
+        toast(`${color} Compra actualizada — la inversión ${signo} ${Math.abs(ultimo.variacion_pct).toFixed(1)}%`,'ok');
+      } else {
+        toast('✓ Compra actualizada','ok');
+      }
       impRenderHistorial();
     };
   },50);
