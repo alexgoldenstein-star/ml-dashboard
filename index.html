@@ -9835,6 +9835,8 @@ window.impGuardarMulti = async function(){
   if(!bna){toast('Falta el Dólar BNA','err');return;}
   const edits=S.products.reduce((o,p)=>({...o,[p.sku]:p}),{});
   let guardados=0;
+  const skusGuardados=[];
+  let inversionTotal=0, unidadesTotal=0, cbmTotal=impG('m_cbm')||0;
   prods.forEach(p=>{
     const sku=p.sku||(p.nombre||'PROD').toUpperCase().replace(/\s+/g,'-');
     const existing=S.products.find(x=>x.sku===sku);
@@ -9843,10 +9845,27 @@ window.impGuardarMulti = async function(){
     const idx=S.products.findIndex(x=>x.sku===sku);
     if(idx>=0) S.products[idx]=updated; else S.products.push(updated);
     guardados++;
+    skusGuardados.push(sku);
+    inversionTotal += Math.round(p._siva_ars*p.cant);
+    unidadesTotal += p.cant;
   });
   await fb.set('products',{edits});
   S.orders=applyProductCosts(S.orders);
-  toast(`✓ ${guardados} productos guardados en Productos ML`,'ok');
+
+  // ── Guardar automáticamente en el historial de compras unificado ──
+  // Un Multi suele ser un contenedor con varios productos distintos: un único registro con todos los SKUs
+  await impGuardarCompraAuto({
+    tipo:'contenedor',
+    descripcion: skusGuardados.length>1?`Multi-producto: ${skusGuardados.slice(0,3).join(', ')}${skusGuardados.length>3?' +'+(skusGuardados.length-3):''}`:(prods[0]?.nombre||skusGuardados[0]),
+    rubro: '', // multi-producto puede tener varios rubros, queda sin clasificar a nivel compra
+    skus: skusGuardados,
+    unidades_total: Math.round(unidadesTotal),
+    inversion_total: inversionTotal,
+    fob_usd: 0,
+    cbm_total: cbmTotal,
+  });
+
+  toast(`✓ ${guardados} productos guardados en Productos ML · historial actualizado`,'ok');
 };
 
 window.impResetMulti = function(){
@@ -10008,7 +10027,22 @@ window.impGuardarCosto = async function(){
   const idx=S.products.findIndex(p=>p.sku===sku);
   if(idx>=0) S.products[idx]=updated; else S.products.push(updated);
   S.orders=applyProductCosts(S.orders);
-  toast(`✓ ${skuNew?'Nuevo SKU creado':'Costo actualizado'}: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')}`,'ok');
+
+  // ── Guardar automáticamente en el historial de compras unificado ──
+  const cant=impG('i_cantidad')||1;
+  const r=window._impLastResult;
+  await impGuardarCompraAuto({
+    tipo:'contenedor',
+    descripcion: impGS('i_producto')||sku,
+    rubro: existing?.rubro||existing?.rubroAuto||'',
+    skus: [sku],
+    unidades_total: Math.round(cant),
+    inversion_total: r?Math.round(r.ab_civa_ars*cant):Math.round(costoARS*cant),
+    fob_usd: impG('i_fob_prod')||0,
+    cbm_total: impG('i_cbm')||0,
+  });
+
+  toast(`✓ ${skuNew?'Nuevo SKU creado':'Costo actualizado'}: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')} · guardado en historial`,'ok');
 };
 
 window.impGuardarCostoCourier = async function(){
@@ -10028,25 +10062,38 @@ window.impGuardarCostoCourier = async function(){
   const idx=S.products.findIndex(p=>p.sku===sku);
   if(idx>=0) S.products[idx]=updated; else S.products.push(updated);
   S.orders=applyProductCosts(S.orders);
-  toast(`✓ ${skuNew?'Nuevo SKU creado':'Costo actualizado'}: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')}`,'ok');
+
+  // ── Guardar automáticamente en el historial de compras unificado ──
+  const cant=impG('c_cantidad')||1;
+  await impGuardarCompraAuto({
+    tipo:'courier',
+    descripcion: impGS('c_producto')||sku,
+    rubro: existing?.rubro||existing?.rubroAuto||'',
+    skus: [sku],
+    unidades_total: Math.round(cant),
+    inversion_total: Math.round(costoARS*cant),
+    fob_usd: 0,
+    cbm_total: 0,
+  });
+
+  toast(`✓ ${skuNew?'Nuevo SKU creado':'Costo actualizado'}: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')} · guardado en historial`,'ok');
 };
 
 window.impGuardarHistorial = async function(){
   const r=window._impLastResult;
   if(!r){toast('Calculá primero','err');return;}
-  const entry={
-    tipo:'container',fecha:new Date().toISOString().split('T')[0],
-    producto:impGS('i_producto'),cantidad:impG('i_cantidad'),
-    fob_prod:impG('i_fob_prod'),fob_inv:impG('i_fob_inv'),
-    ab_siva_usd:r.ab_siva_usd,ab_civa_usd:r.ab_civa_usd,
-    ab_siva_ars:r.ab_siva_ars,dolar:impG('i_dolar_bna'),ts:Date.now()
-  };
-  const hist=await fb.get('imp_historial')||{list:[]};
-  hist.list=hist.list||[];
-  hist.list.unshift(entry);
-  if(hist.list.length>100) hist.list=hist.list.slice(0,100);
-  await fb.set('imp_historial',hist);
-  toast('Guardado en historial ✓','ok');
+  const cant=impG('i_cantidad')||1;
+  // Usa el mismo formato unificado que impGuardarCompraAuto, sin necesidad de asignar SKU
+  await impGuardarCompraAuto({
+    tipo:'contenedor',
+    descripcion: impGS('i_producto')||'Compra sin SKU asignado',
+    skus: [], // sin SKU: no se podrá cruzar con ventas hasta que se le asigne uno
+    unidades_total: Math.round(cant),
+    inversion_total: Math.round(r.ab_civa_ars*cant),
+    fob_usd: impG('i_fob_prod')||0,
+    cbm_total: impG('i_cbm')||0,
+  });
+  toast('✓ Guardado en historial (sin SKU — usá "Guardar →" para asignar costo y cruzar ventas)','ok');
 };
 
 window.impReset = function(){
@@ -12751,6 +12798,33 @@ window.impHistAgregar=function(){
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',modal);
+};
+
+// ── GUARDADO AUTOMÁTICO UNIFICADO ─────────────────────────────────────────────
+// Se llama desde Container, Courier y Multi al apretar "Guardar →"
+// No pide nada al usuario — usa los datos que ya calculó en la calculadora
+window.impGuardarCompraAuto=async function(datos){
+  if(!window._impHistorial){
+    const d=await fb.get('imp_historial').catch(()=>null);
+    window._impHistorial=d?.list||[];
+  }
+  const entry={
+    fecha: new Date().toISOString().split('T')[0],
+    tipo: datos.tipo||'contenedor',
+    descripcion: datos.descripcion||'',
+    rubro: datos.rubro||'',
+    proveedor: datos.proveedor||'',
+    fob_usd: datos.fob_usd||0,
+    inversion_total: datos.inversion_total||0,
+    unidades_total: datos.unidades_total||0,
+    cbm_total: datos.cbm_total||0,
+    skus: datos.skus||[],
+    notas: 'Generado automáticamente desde '+(datos.tipo==='courier'?'Courier':datos.tipo==='contenedor'&&datos.skus?.length>1?'Multi':'Container'),
+    ts: new Date().toISOString(),
+    auto: true
+  };
+  window._impHistorial.push(entry);
+  await fb.set('imp_historial',{list:window._impHistorial}).catch(e=>console.warn('[imp_historial]',e));
 };
 
 window.impHistGuardar=async function(){
