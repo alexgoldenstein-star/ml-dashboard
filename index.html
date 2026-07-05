@@ -793,7 +793,8 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           </div>
 
           <div style="display:flex;gap:8px">
-            <button class="btn btn-sm" onclick="impGuardarMulti()" style="flex:1">💾 Guardar todos en Productos</button>
+            <button class="btn btn-sm" onclick="impGuardarMulti()" style="flex:1">💾 Guardar todos en Productos + Historial</button>
+            <button class="btn-g btn-sm" onclick="impGuardarMultiCotizacion()" style="flex:1" title="Guarda en el historial sin tocar el costo de los productos — para cotizaciones que todavía no son definitivas">📋 Guardar cotización</button>
             <button class="btn-g btn-sm" onclick="impResetMulti()" style="color:var(--red)">✕ Limpiar</button>
           </div>
         </div>
@@ -9864,11 +9865,45 @@ window.impRecalcMulti = function(){
   window._multiLastResult = {totalSivaUSD, totalCivaUSD, totalSivaARS, prods:_multiProds};
 };
 
+// Construye el array de detalle por producto (desglose completo de gastos) — se usa en
+// Guardar y en Guardar cotización por igual, así el historial siempre tiene el detalle.
+function impMultiArmarDetalle(){
+  const prods=(_multiProds||[]).filter(p=>p.cant&&p._siva_ars&&(p.sku||p.nombre));
+  return prods.map(p=>({
+    sku: p.sku||(p.nombre||'PROD').toUpperCase().replace(/\s+/g,'-'),
+    nombre: p.nombre||p.sku,
+    cantidad: p.cant,
+    cbm: p.cbm||0,
+    fob_prod_usd: p.fprod||0,
+    fob_inv_usd: p.finv||0,
+    derecho_pct: p.der||0,
+    iva_pct: p.iva||21,
+    iva_adic_pct: p.ivaad||10,
+    costo_unit_siva_usd: p._siva_u||0,
+    costo_unit_civa_usd: p._civa_u||0,
+    costo_unit_ars: p._siva_ars||0,
+    costo_total_ars: Math.round((p._siva_ars||0)*p.cant),
+  }));
+}
+
 window.impGuardarMulti = async function(){
   const prods = (_multiProds||[]).filter(p=>p.cant&&p._siva_ars&&(p.sku||p.nombre));
-  if(!prods.length){toast('Sin productos calculados','err');return;}
+
+  // Mensajes de error específicos en vez de uno genérico
+  if(!_multiProds.length){
+    toast('Agregá al menos un producto antes de guardar','err');return;
+  }
+  if(!prods.length){
+    const faltantes=_multiProds.filter(p=>!p.cant||!p._siva_ars);
+    const motivos=[];
+    if(_multiProds.some(p=>!p.cant)) motivos.push('falta cantidad');
+    if(_multiProds.some(p=>!p._siva_ars)) motivos.push('falta calcular el costo (revisá FOB, derecho, dólar BNA)');
+    toast(`No se pudo calcular ningún producto: ${motivos.join(' · ')}`,'err');
+    return;
+  }
   const bna=impG('m_bna');
-  if(!bna){toast('Falta el Dólar BNA','err');return;}
+  if(!bna){toast('Falta cargar el Dólar BNA arriba para calcular el costo en ARS','err');return;}
+
   const edits=S.products.reduce((o,p)=>({...o,[p.sku]:p}),{});
   let guardados=0;
   const skusGuardados=[];
@@ -9888,20 +9923,56 @@ window.impGuardarMulti = async function(){
   await fb.set('products',{edits});
   S.orders=applyProductCosts(S.orders);
 
-  // ── Guardar automáticamente en el historial de compras unificado ──
-  // Un Multi suele ser un contenedor con varios productos distintos: un único registro con todos los SKUs
+  // ── Guardar automáticamente en el historial de compras unificado, con desglose completo ──
   await impGuardarCompraAuto({
     tipo:'contenedor',
     descripcion: skusGuardados.length>1?`Multi-producto: ${skusGuardados.slice(0,3).join(', ')}${skusGuardados.length>3?' +'+(skusGuardados.length-3):''}`:(prods[0]?.nombre||skusGuardados[0]),
-    rubro: '', // multi-producto puede tener varios rubros, queda sin clasificar a nivel compra
+    rubro: '',
     skus: skusGuardados,
     unidades_total: Math.round(unidadesTotal),
     inversion_total: inversionTotal,
     fob_usd: 0,
     cbm_total: cbmTotal,
+    detalle_productos: impMultiArmarDetalle(),
+    aplicado_a_productos: true,
   });
 
   toast(`✓ ${guardados} productos guardados en Productos ML · historial actualizado`,'ok');
+};
+
+// ── Guardar cotización: queda en el historial con TODO el desglose, pero NO toca S.products ──
+// Útil cuando es una cotización preliminar, todavía no es la compra definitiva
+window.impGuardarMultiCotizacion = async function(){
+  const prods = (_multiProds||[]).filter(p=>p.cant&&p._siva_ars&&(p.sku||p.nombre));
+  if(!_multiProds.length){
+    toast('Agregá al menos un producto antes de guardar la cotización','err');return;
+  }
+  if(!prods.length){
+    toast('No se pudo calcular ningún producto — revisá cantidad, FOB y dólar BNA','err');return;
+  }
+  const bna=impG('m_bna');
+  if(!bna){toast('Falta cargar el Dólar BNA arriba para calcular el costo en ARS','err');return;}
+
+  const skusGuardados=prods.map(p=>p.sku||(p.nombre||'PROD').toUpperCase().replace(/\s+/g,'-'));
+  const inversionTotal=prods.reduce((s,p)=>s+Math.round(p._siva_ars*p.cant),0);
+  const unidadesTotal=prods.reduce((s,p)=>s+p.cant,0);
+  const cbmTotal=impG('m_cbm')||0;
+
+  await impGuardarCompraAuto({
+    tipo:'contenedor',
+    descripcion: '🔖 COTIZACIÓN — '+(skusGuardados.length>1?`Multi-producto: ${skusGuardados.slice(0,3).join(', ')}${skusGuardados.length>3?' +'+(skusGuardados.length-3):''}`:(prods[0]?.nombre||skusGuardados[0])),
+    rubro: '',
+    skus: skusGuardados,
+    unidades_total: Math.round(unidadesTotal),
+    inversion_total: inversionTotal,
+    fob_usd: 0,
+    cbm_total: cbmTotal,
+    detalle_productos: impMultiArmarDetalle(),
+    aplicado_a_productos: false, // NO se aplicó a la base de costos
+    es_cotizacion: true,
+  });
+
+  toast(`📋 Cotización guardada en historial (no se modificó el costo de productos)`,'ok');
 };
 
 window.impResetMulti = function(){
@@ -12765,7 +12836,7 @@ window.impRenderHistorial=async function(){
   </div>`;
   // Tabla — usar el índice REAL en window._impHistorial (no el de la lista ordenada)
   let h=`<table class="tbl" style="font-size:11px"><thead><tr>
-    <th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Proveedor</th>
+    <th></th><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Proveedor</th>
     <th>SKUs</th><th>Uds totales</th><th>FOB USD</th><th>Inversión ARS</th><th>Costo u. ARS</th><th></th>
   </tr></thead><tbody>`;
   // Crear pares [indiceReal, compra] antes de ordenar, para no perder la referencia
@@ -12775,10 +12846,16 @@ window.impRenderHistorial=async function(){
     const costoU=c.unidades_total>0?(c.inversion_total/c.unidades_total):0;
     const tieneHistorialPrecio=c.historial_precio?.length>0;
     const ultimoCambio=tieneHistorialPrecio?c.historial_precio[c.historial_precio.length-1]:null;
-    h+=`<tr>
+    const tieneDetalle=c.detalle_productos?.length>0;
+    const esCotizacion=c.es_cotizacion===true;
+    h+=`<tr style="${esCotizacion?'opacity:.75':''}">
+      <td>${tieneDetalle?`<button class="btn-icon" onclick="impToggleDetalle(${idxReal})" id="imp_det_btn_${idxReal}" title="Ver desglose por producto">▶</button>`:''}</td>
       <td>${c.fecha||'—'}</td>
-      <td><span style="font-size:10px;padding:2px 6px;border-radius:6px;background:${c.tipo==='contenedor'?'rgba(77,163,255,.1)':'rgba(255,138,77,.1)'};color:${c.tipo==='contenedor'?'var(--blu)':'var(--org)'}">${c.tipo||'compra'}</span></td>
-      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(c.descripcion||'—')}</td>
+      <td>
+        <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:${c.tipo==='contenedor'?'rgba(77,163,255,.1)':'rgba(255,138,77,.1)'};color:${c.tipo==='contenedor'?'var(--blu)':'var(--org)'}">${c.tipo||'compra'}</span>
+        ${esCotizacion?`<span style="font-size:9px;padding:2px 5px;border-radius:6px;background:rgba(232,255,71,.1);color:var(--acc);margin-left:3px" title="No se aplicó a la base de costos de productos">🔖 cotización</span>`:''}
+      </td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${esc(c.descripcion||'—')}</td>
       <td style="color:var(--t3)">${esc(c.proveedor||'—')}</td>
       <td style="font-size:10px">${(c.skus||[]).slice(0,3).join(', ')}${(c.skus||[]).length>3?' +'+((c.skus||[]).length-3):''}</td>
       <td class="mono">${(c.unidades_total||0).toLocaleString()}</td>
@@ -12792,9 +12869,41 @@ window.impRenderHistorial=async function(){
         <button class="btn-icon" onclick="impHistEditar(${idxReal})" title="Editar">✎</button>
         <button class="btn-icon" onclick="impHistEliminar(${idxReal})" style="color:var(--red)" title="Eliminar">✕</button>
       </td>
-    </tr>`;
+    </tr>
+    ${tieneDetalle?`<tr id="imp_det_row_${idxReal}" style="display:none"><td colspan="11" style="padding:0">
+      <div style="background:var(--s2);padding:10px 14px;border-left:3px solid var(--acc)">
+        <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Desglose por producto</div>
+        <table class="tbl" style="font-size:10px;background:transparent"><thead><tr>
+          <th>SKU</th><th>Producto</th><th>Cant.</th><th>CBM</th><th>FOB prod USD</th><th>FOB inv USD</th>
+          <th>Derecho%</th><th>IVA%</th><th>IVA adic%</th><th>Costo u. ARS</th><th>Costo total ARS</th>
+        </tr></thead><tbody>
+          ${c.detalle_productos.map(d=>`<tr>
+            <td><span class="sku">${esc(d.sku)}</span></td>
+            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${esc(d.nombre)}</td>
+            <td>${d.cantidad}</td>
+            <td>${d.cbm||'—'}</td>
+            <td class="mono">${d.fob_prod_usd?'USD '+d.fob_prod_usd.toFixed(2):'—'}</td>
+            <td class="mono">${d.fob_inv_usd?'USD '+d.fob_inv_usd.toFixed(2):'—'}</td>
+            <td>${d.derecho_pct}%</td>
+            <td>${d.iva_pct}%</td>
+            <td>${d.iva_adic_pct}%</td>
+            <td class="mono" style="color:var(--acc)">${fS(Math.round(d.costo_unit_ars))}</td>
+            <td class="mono" style="font-weight:600">${fS(Math.round(d.costo_total_ars))}</td>
+          </tr>`).join('')}
+        </tbody></table>
+      </div>
+    </td></tr>`:''}`;
   });
   el.innerHTML=kh+h+'</tbody></table>';
+};
+
+window.impToggleDetalle=function(idx){
+  const row=document.getElementById('imp_det_row_'+idx);
+  const btn=document.getElementById('imp_det_btn_'+idx);
+  if(!row) return;
+  const visible=row.style.display!=='none';
+  row.style.display=visible?'none':'';
+  if(btn) btn.textContent=visible?'▶':'▼';
 };
 
 window.impHistAgregar=function(){
@@ -12863,12 +12972,19 @@ window.impGuardarCompraAuto=async function(datos){
     unidades_total: datos.unidades_total||0,
     cbm_total: datos.cbm_total||0,
     skus: datos.skus||[],
-    notas: 'Generado automáticamente desde '+(datos.tipo==='courier'?'Courier':datos.tipo==='contenedor'&&datos.skus?.length>1?'Multi':'Container'),
+    detalle_productos: datos.detalle_productos||[], // desglose completo por producto (Multi)
+    aplicado_a_productos: datos.aplicado_a_productos!==false, // false solo si es cotización
+    es_cotizacion: datos.es_cotizacion||false,
+    notas: datos.es_cotizacion
+      ? 'Cotización — no aplicada a la base de costos de productos'
+      : 'Generado automáticamente desde '+(datos.tipo==='courier'?'Courier':datos.tipo==='contenedor'&&datos.skus?.length>1?'Multi':'Container'),
     ts: new Date().toISOString(),
     auto: true
   };
   window._impHistorial.push(entry);
-  await fb.set('imp_historial',{list:window._impHistorial}).catch(e=>console.warn('[imp_historial]',e));
+  const saved=await fb.set('imp_historial',{list:window._impHistorial}).catch(e=>{console.warn('[imp_historial]',e);return false;});
+  if(saved===false) toast('⚠ Error al guardar en el historial — revisá la conexión','err');
+  return entry;
 };
 
 window.impHistGuardar=async function(){
