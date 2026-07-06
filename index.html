@@ -230,13 +230,6 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
       <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
         <button class="btn btn-sm" onclick="exportarPDF()" style="font-size:11px">📄 Exportar informe PDF</button>
       </div>
-
-      <!-- RESUMEN EJECUTIVO -->
-      <div class="card" id="ov_resumen_ejecutivo" style="margin-bottom:14px;padding:16px;background:linear-gradient(135deg,rgba(232,255,71,.04),rgba(232,255,71,.01));border:1px solid rgba(232,255,71,.15)">
-        <div style="font-size:10px;color:var(--acc);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Resumen del período</div>
-        <div id="ov_resumen_texto" style="font-size:13px;line-height:1.7;color:var(--t1)">Cargando...</div>
-      </div>
-
       <div class="g4" id="kpis"></div>
       <div class="g2">
         <div class="card"><div class="ch"><span class="ct">Ganancia por cuenta</span></div><div id="acctBars"></div></div>
@@ -252,7 +245,6 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
         </div>
         <div id="ov_canales_kpis" class="g4" style="margin-bottom:12px"></div>
         <div id="ov_canales_tabla" style="font-size:11px"></div>
-        <div id="ov_canales_rubros"></div>
       </div>
 
       <div class="card"><div class="ch"><span class="ct">Top productos</span></div>
@@ -793,8 +785,8 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           </div>
 
           <div style="display:flex;gap:8px">
-            <button class="btn btn-sm" onclick="impGuardarMulti()" style="flex:1">💾 Guardar todos en Productos + Historial</button>
-            <button class="btn-g btn-sm" onclick="impGuardarMultiCotizacion()" style="flex:1" title="Guarda en el historial sin tocar el costo de los productos — para cotizaciones que todavía no son definitivas">📋 Guardar cotización</button>
+            <button class="btn btn-sm" onclick="impGuardarMulti()" style="flex:1">💾 Guardar en Productos + Historial</button>
+            <button class="btn-g btn-sm" onclick="impGuardarMultiCotizacion()" style="flex:1" title="Guarda desglose en historial sin tocar costos">📋 Cotización</button>
             <button class="btn-g btn-sm" onclick="impResetMulti()" style="color:var(--red)">✕ Limpiar</button>
           </div>
         </div>
@@ -1333,44 +1325,23 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <div class="card" style="padding:12px">
             <div class="ch" style="margin-bottom:10px">
               <span class="ct">Historial de compras / contenedores</span>
-              <div style="display:flex;gap:6px">
+              <div style="display:flex;gap:6px;align-items:center">
                 <button class="btn-g btn-sm" onclick="impTabHist('lista')" id="ihtab_lista" style="font-size:11px">📋 Lista</button>
-                <button class="btn-g btn-sm" onclick="impTabHist('rentab')" id="ihtab_rentab" style="font-size:11px">📊 Rentabilidad real</button>
-                <button class="btn-g btn-sm" onclick="impTabHist('estimar')" id="ihtab_estimar" style="font-size:11px">🔮 Estimar nuevo</button>
-                <button class="btn btn-sm" onclick="impHistAgregar()" style="font-size:11px">+ Registrar compra</button>
+                <button class="btn-g btn-sm" onclick="impTabHist('rentab')" id="ihtab_rentab" style="font-size:11px">📊 Rentabilidad</button>
+                <button class="btn-g btn-sm" onclick="impTabHist('estimar')" id="ihtab_estimar" style="font-size:11px">🔮 Estimador</button>
+                <button class="btn btn-sm" onclick="impHistAgregar()" style="font-size:11px;margin-left:auto">+ Registrar manual</button>
               </div>
             </div>
-
-            <div id="ih_panel_lista">
-              <div id="imp_hist_lista" style="font-size:11px;color:var(--t3)">Cargando...</div>
-            </div>
-
-            <div id="ih_panel_rentab" style="display:none">
-              <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Cruza cada compra registrada con las ventas reales de sus SKUs para calcular rentabilidad y tiempo de venta efectivo.</p>
-              <div id="ih_rentab_body" style="font-size:11px;color:var(--t3)">Cargando...</div>
-            </div>
-
+            <div id="ih_panel_lista"><div id="imp_hist_lista" style="font-size:11px;color:var(--t3)">Cargando...</div></div>
+            <div id="ih_panel_rentab" style="display:none"><div id="ih_rentab_body" style="font-size:11px"></div></div>
             <div id="ih_panel_estimar" style="display:none">
-              <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Estimá la rentabilidad y velocidad de venta de un contenedor nuevo en base al historial de contenedores similares.</p>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-                <div>
-                  <label class="lbl">Rubro del contenedor</label>
-                  <select class="inp" id="ihe_rubro" onchange="impEstimarRecalcular()">
-                    <option value="">Seleccionar rubro...</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="lbl">Inversión total ARS</label>
-                  <input class="inp" id="ihe_inversion" type="number" placeholder="0" oninput="impEstimarRecalcular()">
-                </div>
-                <div>
-                  <label class="lbl">Unidades totales</label>
-                  <input class="inp" id="ihe_unidades" type="number" placeholder="0" oninput="impEstimarRecalcular()">
-                </div>
+                <div><label class="lbl">Rubro</label><select class="inp" id="ihe_rubro" onchange="impEstimarRecalcular()"><option value="">Seleccionar...</option></select></div>
+                <div><label class="lbl">Inversión ARS</label><input class="inp" id="ihe_inversion" type="number" oninput="impEstimarRecalcular()"></div>
+                <div><label class="lbl">Unidades</label><input class="inp" id="ihe_unidades" type="number" oninput="impEstimarRecalcular()"></div>
               </div>
               <div id="ih_estimar_resultado"></div>
             </div>
-
           </div>
         </div>
 
@@ -2401,18 +2372,10 @@ async function init(){
 
   // Cargar rubros personalizados desde Firebase (si existen)
   try{
-    const [rubrosCfg, catMap, mayData] = await Promise.all([
-      fb.get('rubros_config').catch(()=>null),
-      fb.get('ml_category_map').catch(()=>null),
-      fb.get('mayorista').catch(()=>null),
-    ]);
+    const rubrosCfg=await fb.get('rubros_config').catch(()=>null);
     if(rubrosCfg?.rubros?.length) window.RUBROS_NIVIKO=rubrosCfg.rubros;
+    const catMap=await fb.get('ml_category_map').catch(()=>null);
     if(catMap) window._mlCategoryMapCache=catMap;
-    // Pre-cargar mayorista para que Overview lo tenga disponible sin await
-    if(mayData?.pedidos?.length){
-      window._mayPedidosCache=mayData.pedidos;
-      window._mayPedidos=mayData.pedidos; // también la variable global del módulo
-    }
   }catch(e){}
   setupNav();renderAll();
   populateRubroSelects();
@@ -2465,13 +2428,6 @@ function updateCalLabel(){
   }
 }
 function getOrders(){return S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);}
-function getOrdersFiltered(){
-  const{from,to}=getRange();
-  const dateFrom=from.split('T')[0];
-  const dateTo=to.split('T')[0];
-  const byAcct=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  return byAcct.filter(o=>o.fecha&&o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
-}
 function getRange(){
   const argNow=new Date(new Date().getTime()-3*60*60*1000);
   const fmt=d=>d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
@@ -3408,7 +3364,7 @@ function renderAlertasPage(){
 
 // ── OVERVIEW ──────────────────────────────────────────────────
 function renderOverview(){
-  const o=getOrdersFiltered();
+  const o=getOrders();
   const v=o.reduce((s,x)=>s+x.venta,0),g=o.reduce((s,x)=>s+x.ganancia,0),u=o.reduce((s,x)=>s+x.unidades,0);
   const costo=o.reduce((s,x)=>s+(x.costo||0),0);
   const pctVenta=v>0?g/v:0;
@@ -3423,10 +3379,10 @@ function renderOverview(){
     '<div class="kpi red"><div class="kl">Costo mercadería</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+' de la facturación</div></div>'+
     '<div class="kpi org"><div class="kl">Unidades</div><div class="kv">'+u.toLocaleString('es-AR')+'</div><div class="ks">Ticket prom: '+fS(o.length?v/o.length:0)+'</div></div>';
   const accts=["GBA","BHO","IURA","GBS"];
-  const gA={};accts.forEach(a=>{gA[a]=o.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
+  const gA={};accts.forEach(a=>{gA[a]=S.orders.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
   const maxG=Math.max(...Object.values(gA).map(Math.abs),1);
   document.getElementById("acctBars").innerHTML=accts.map(a=>'<div class="br"><div class="bl">'+a+'</div><div class="bt"><div class="bf" style="width:'+Math.abs(gA[a])/maxG*100+'%;background:'+ac(a)+'"></div></div><div class="bv" style="color:'+(gA[a]>=0?"var(--grn)":"var(--red)")+'">'+fS(gA[a])+"</div></div>").join("");
-  drawDonut(accts,o);
+  drawDonut(accts);
   const sm={};o.forEach(x=>{if(!sm[x.sku])sm[x.sku]={desc:x.desc,u:0,v:0,g:0};sm[x.sku].u+=x.unidades;sm[x.sku].v+=x.venta;sm[x.sku].g+=x.ganancia;});
   const top=Object.entries(sm).sort((a,b)=>b[1].g-a[1].g).slice(0,10);
   let tH="";
@@ -3437,11 +3393,10 @@ function renderOverview(){
   renderAlertPanel();
   renderCanalesIntegrados();
 }
-function drawDonut(accts,filteredOrders){
-  const ords=filteredOrders||S.orders;
+function drawDonut(accts){
   const c=document.getElementById("donut");if(!c)return;
   const ctx=c.getContext("2d");
-  const vals=accts.map(a=>ords.filter(x=>x.acct===a).reduce((s,x)=>s+x.venta,0));
+  const vals=accts.map(a=>S.orders.filter(x=>x.acct===a).reduce((s,x)=>s+x.venta,0));
   const total=vals.reduce((a,b)=>a+b,0);
   ctx.clearRect(0,0,100,100);
   if(!total){ctx.beginPath();ctx.arc(50,50,40,0,2*Math.PI);ctx.fillStyle="#1E1E24";ctx.fill();}
@@ -3850,41 +3805,13 @@ window.delProd=async sku=>{
   await fb.set("products",{edits:S.prodEdits});
   renderProds();toast("Eliminado ✓");
 };
-
-window.portEditarCosto=function(skuBase){
-  // Buscar el SKU exacto - puede ser skuBase o con variante
-  const prod=S.products.find(p=>p.sku===skuBase)
-    ||S.products.find(p=>p.sku?.startsWith(skuBase+'-'))
-    ||S.products.find(p=>skuBase?.startsWith(p.sku));
-  if(prod){
-    editProd(prod.sku);
-  } else {
-    // No existe en productos, crear uno nuevo con el SKU
-    document.getElementById('mpTitle').textContent='Agregar costo de producto';
-    document.getElementById('mp_sku').value=skuBase;
-    document.getElementById('mp_desc').value='';
-    document.getElementById('mp_usd').value='';
-    document.getElementById('mp_ars').value='';
-    document.getElementById('mp_iva').value='21';
-    document.getElementById('mp_pub').value='si';
-    document.getElementById('mp_pack').value='1';
-    const udsEl=document.getElementById('mp_uds_pedido'); if(udsEl) udsEl.value='';
-    const cbmEl=document.getElementById('mp_cbm'); if(cbmEl) cbmEl.value='';
-    const rubroEl=document.getElementById('mp_rubro'); if(rubroEl) rubroEl.value='';
-    openModal('mProd');
-    toast('Completá el costo para "'+skuBase+'"','ok');
-  }
-};
 window.saveProd=async()=>{
   const sku=document.getElementById("mp_sku").value.trim();
   const desc=document.getElementById("mp_desc").value.trim();
   const ars=Math.round(parseFloat(document.getElementById("mp_ars").value)||0);
   if(!sku){toast("SKU requerido","err");return;}
   if(!desc){toast("Descripción requerida","err");return;}
-  if(ars<=0){
-    // Pedir confirmación pero no bloquear - puede querer guardar rubro/uds sin costo
-    if(!confirm("El costo ARS es 0. ¿Guardás igual? (Podés completarlo después)")) return;
-  }
+  if(ars<=0){toast("Ingresá el costo ARS","err");return;}
   const udsPedido=parseInt(document.getElementById("mp_uds_pedido")?.value)||0;
   const cbm=parseFloat(document.getElementById("mp_cbm")?.value)||0;
   const rubro=document.getElementById("mp_rubro")?.value||'';
@@ -7155,10 +7082,8 @@ function portRender(){
         </div>
       </td>
       <td>
-        ${d.costoUnitARS>0
-          ?`<div class="mono" style="font-size:11px">${fS(Math.round(d.costoUnitARS))}</div>${d.costoUnitUSD>0?`<div style="font-size:9px;color:var(--t3)">USD ${d.costoUnitUSD.toFixed(2)}</div>`:''}`
-          :`<button class="btn-g btn-sm" onclick="portEditarCosto('${esc(d.nombre)}')" style="font-size:10px;color:var(--red);border-color:rgba(255,77,77,.3);white-space:nowrap">⚠ Cargar costo</button>`
-        }
+        <div class="mono" style="font-size:11px">${d.costoUnitARS>0?fS(Math.round(d.costoUnitARS)):'<span style="color:var(--org)">Sin costo</span>'}</div>
+        ${d.costoUnitUSD>0?`<div style="font-size:9px;color:var(--t3)">USD ${d.costoUnitUSD.toFixed(2)}</div>`:''}
       </td>
       <td style="color:${mgVC};font-weight:700">${c?.rentPct?.toFixed(1)||h?.rentReal?.toFixed(1)||d.rent||'—'}%</td>
       <td style="color:${mgCC};font-weight:600">${c?.mgSCosto?.toFixed(1)||'—'}%</td>
@@ -7586,7 +7511,6 @@ async function renderMayorista(){
   // Cargar datos de Firebase
   const data = await fb.get('mayorista');
   _mayPedidos = data?.pedidos || [];
-  window._mayPedidosCache = [..._mayPedidos]; // sincronizar cache global para Overview
   _mayCfg = {...{iva:21,iibb:5,com:5,vendedores:[]}, ...(data?.cfg||{})};
   // Poblar vendedores en selects
   mayPopularVendedores();
@@ -7989,11 +7913,18 @@ window.mayGuardarPedido = async function(){
     periodo: document.getElementById('may_periodo')?.value||'',
     periodo_fiscal: document.getElementById('may_periodo_fiscal')?.value||'',
     items: _mayItems,
-    venta_siva: res.total_siva,
+    dto_pct: window._mayDtoGlobal?.pct||0,
+    dto_monto: window._mayDtoGlobal?.monto||0,
+    dto_motivo: window._mayDtoGlobal?.motivo||'',
+    // El descuento reduce el precio de venta → reduce la ganancia en el mismo monto
+    // venta_siva = precio real que paga el cliente
+    venta_siva: res.total_siva - (window._mayDtoGlobal?.monto||0),
     venta_civa: res.total_civa,
     costo_total: res.total_costo,
-    ganancia: res.ganancia,
-    margen: res.margen,
+    ganancia: res.ganancia - (window._mayDtoGlobal?.monto||0),
+    margen: (res.total_siva-(window._mayDtoGlobal?.monto||0))>0
+      ? (res.ganancia-(window._mayDtoGlobal?.monto||0))/(res.total_siva-(window._mayDtoGlobal?.monto||0))
+      : 0,
     ts: Date.now(),
   };
   if(_mayEditId){
@@ -8002,7 +7933,6 @@ window.mayGuardarPedido = async function(){
   } else {
     _mayPedidos.unshift(pedido);
   }
-  window._mayPedidosCache = [..._mayPedidos]; // actualizar cache global
   await fb.set('mayorista',{pedidos:_mayPedidos,cfg:_mayCfg});
   mayPopularClientes();
   toast(`✓ Pedido ${_mayEditId?'actualizado':'guardado'}: ${cliente}`,'ok');
@@ -9676,9 +9606,8 @@ window.impTab = function(tab){
     if(b){b.style.background=t===tab?'var(--acc)':'transparent';b.style.color=t===tab?'#000':'var(--t2)';}
   });
   if(tab==='multi'){
-    // Poblar datalist de SKUs siempre al entrar, independiente de si hay productos cargados
-    const dlEl=document.getElementById('mp_sku_dl');
-    if(dlEl) dlEl.innerHTML=S.products.map(p=>`<option value="${esc(p.sku)}">${esc(p.sku)} — ${esc(p.desc||'')}</option>`).join('');
+    const dl=document.getElementById('mp_sku_dl');
+    if(dl) dl.innerHTML=(S.products||[]).map(p=>`<option value="${esc(p.sku)}">${esc(p.sku)} — ${esc(p.desc||'')}</option>`).join('');
     impRecalcMulti();
   }
   if(tab==='hist') impRenderHistorial();
@@ -9706,33 +9635,6 @@ window.impMultiSetProd = function(idx, field, val){
   impRecalcMulti();
 };
 
-// Al elegir un SKU existente del datalist, autocompletar nombre y costo de referencia
-window.impMultiAutocompleteSku = function(idx, skuVal){
-  const sku=(skuVal||'').trim();
-  if(!sku) return;
-  const prod=S.products.find(p=>p.sku===sku);
-  if(!prod) return; // SKU nuevo, no hay nada que autocompletar
-
-  const p=_multiProds.find(x=>x.idx===idx);
-  if(!p) return;
-
-  // Autocompletar descripción si está vacía
-  if(!p.nombre&&prod.desc){
-    p.nombre=prod.desc;
-    const nEl=document.getElementById(`mp_nombre_${idx}`); if(nEl) nEl.value=prod.desc;
-  }
-  // Autocompletar IVA del producto existente
-  if(prod.iva){
-    p.iva=prod.iva;
-    const ivEl=document.getElementById(`mp_iva_${idx}`); if(ivEl) ivEl.value=prod.iva;
-  }
-  // Mostrar el costo actual como referencia (no lo pisa, solo informa)
-  if(prod.ars>0){
-    toast(`${sku}: costo actual $${Math.round(prod.ars).toLocaleString('es-AR')} — se actualizará al guardar`,'ok');
-  }
-  impRecalcMulti();
-};
-
 window.impMultiSelNCM = function(idx, ncmIdx){
   if(ncmIdx==='') return;
   const p = _multiProds.find(x=>x.idx===idx);
@@ -9750,9 +9652,8 @@ window.impMultiSelNCM = function(idx, ncmIdx){
 function renderMultiProds(){
   const el = document.getElementById('m_prod_list');
   if(!el) return;
-  // Poblar datalist de SKUs existentes (una sola vez, se reusa en todas las filas)
   const dlEl=document.getElementById('mp_sku_dl');
-  if(dlEl) dlEl.innerHTML=S.products.map(p=>`<option value="${esc(p.sku)}">${esc(p.sku)} — ${esc(p.desc||'')}</option>`).join('');
+  if(dlEl) dlEl.innerHTML=(S.products||[]).map(p=>`<option value="${esc(p.sku)}">${esc(p.sku)} — ${esc(p.desc||'')||''}</option>`).join('');
   if(!_multiProds.length){
     el.innerHTML='<p style="color:var(--t3);font-size:12px;padding:8px">Sin productos. Agregá uno.</p>';
     return;
@@ -9865,49 +9766,54 @@ window.impRecalcMulti = function(){
   window._multiLastResult = {totalSivaUSD, totalCivaUSD, totalSivaARS, prods:_multiProds};
 };
 
-// Construye el array de detalle por producto (desglose completo de gastos) — se usa en
-// Guardar y en Guardar cotización por igual, así el historial siempre tiene el detalle.
+// ── Detalle por producto para el historial ──
 function impMultiArmarDetalle(){
-  const prods=(_multiProds||[]).filter(p=>p.cant&&p._siva_ars&&(p.sku||p.nombre));
-  return prods.map(p=>({
-    sku: p.sku||(p.nombre||'PROD').toUpperCase().replace(/\s+/g,'-'),
-    nombre: p.nombre||p.sku,
-    cantidad: p.cant,
-    cbm: p.cbm||0,
-    fob_prod_usd: p.fprod||0,
-    fob_inv_usd: p.finv||0,
-    derecho_pct: p.der||0,
-    iva_pct: p.iva||21,
-    iva_adic_pct: p.ivaad||10,
-    costo_unit_siva_usd: p._siva_u||0,
-    costo_unit_civa_usd: p._civa_u||0,
-    costo_unit_ars: p._siva_ars||0,
-    costo_total_ars: Math.round((p._siva_ars||0)*p.cant),
+  return (_multiProds||[]).filter(p=>p.cant&&p._siva_ars).map(p=>({
+    sku:p.sku||'PROD',nombre:p.nombre||p.sku||'',cantidad:p.cant,cbm:p.cbm||0,
+    fob_prod_usd:p.fprod||0,fob_inv_usd:p.finv||0,derecho_pct:p.der||0,
+    iva_pct:p.iva||21,iva_adic_pct:p.ivaad||10,
+    costo_unit_siva_usd:p._siva_u||0,costo_unit_civa_usd:p._civa_u||0,
+    costo_unit_ars:p._siva_ars||0,costo_total_ars:Math.round((p._siva_ars||0)*p.cant),
   }));
 }
 
+// ── Guardado centralizado en historial ──
+window.impGuardarCompraAuto=async function(datos){
+  if(!window._impHistorial){
+    const d=await fb.get('imp_historial').catch(()=>null);
+    window._impHistorial=d?.list||[];
+  }
+  const entry={
+    fecha:new Date().toISOString().split('T')[0],
+    tipo:datos.tipo||'contenedor',descripcion:datos.descripcion||'',
+    rubro:datos.rubro||'',proveedor:datos.proveedor||'',
+    fob_usd:datos.fob_usd||0,inversion_total:datos.inversion_total||0,
+    unidades_total:datos.unidades_total||0,cbm_total:datos.cbm_total||0,
+    skus:datos.skus||[],detalle_productos:datos.detalle_productos||[],
+    aplicado_a_productos:datos.aplicado_a_productos!==false,
+    es_cotizacion:datos.es_cotizacion||false,
+    notas:datos.es_cotizacion?'Cotizacion sin aplicar a productos':'Auto desde importacion',
+    ts:new Date().toISOString(),
+  };
+  window._impHistorial.push(entry);
+  const ok=await fb.set('imp_historial',{list:window._impHistorial}).catch(e=>{console.error('[hist]',e);return false;});
+  if(ok===false) toast('Error guardando historial','err');
+  return entry;
+};
+
 window.impGuardarMulti = async function(){
   const prods = (_multiProds||[]).filter(p=>p.cant&&p._siva_ars&&(p.sku||p.nombre));
-
-  // Mensajes de error específicos en vez de uno genérico
-  if(!_multiProds.length){
-    toast('Agregá al menos un producto antes de guardar','err');return;
-  }
+  if(!_multiProds.length){toast('Agregá al menos un producto primero','err');return;}
   if(!prods.length){
-    const faltantes=_multiProds.filter(p=>!p.cant||!p._siva_ars);
     const motivos=[];
     if(_multiProds.some(p=>!p.cant)) motivos.push('falta cantidad');
-    if(_multiProds.some(p=>!p._siva_ars)) motivos.push('falta calcular el costo (revisá FOB, derecho, dólar BNA)');
-    toast(`No se pudo calcular ningún producto: ${motivos.join(' · ')}`,'err');
-    return;
+    if(_multiProds.some(p=>!p._siva_ars)) motivos.push('cargá el Dólar BNA y revisá el FOB');
+    toast('No se pudo calcular: '+(motivos.join(' · ')),'err');return;
   }
   const bna=impG('m_bna');
-  if(!bna){toast('Falta cargar el Dólar BNA arriba para calcular el costo en ARS','err');return;}
-
+  if(!bna){toast('Cargá el Dólar BNA para calcular el costo en ARS','err');return;}
   const edits=S.products.reduce((o,p)=>({...o,[p.sku]:p}),{});
-  let guardados=0;
-  const skusGuardados=[];
-  let inversionTotal=0, unidadesTotal=0, cbmTotal=impG('m_cbm')||0;
+  let guardados=0;const skusG=[];let invTotal=0,udsTotal=0;
   prods.forEach(p=>{
     const sku=p.sku||(p.nombre||'PROD').toUpperCase().replace(/\s+/g,'-');
     const existing=S.products.find(x=>x.sku===sku);
@@ -9915,64 +9821,45 @@ window.impGuardarMulti = async function(){
     edits[sku]=updated;
     const idx=S.products.findIndex(x=>x.sku===sku);
     if(idx>=0) S.products[idx]=updated; else S.products.push(updated);
-    guardados++;
-    skusGuardados.push(sku);
-    inversionTotal += Math.round(p._siva_ars*p.cant);
-    unidadesTotal += p.cant;
+    guardados++;skusG.push(sku);
+    invTotal+=Math.round((p._siva_ars||0)*p.cant);udsTotal+=p.cant;
   });
   await fb.set('products',{edits});
   S.orders=applyProductCosts(S.orders);
-
-  // ── Guardar automáticamente en el historial de compras unificado, con desglose completo ──
   await impGuardarCompraAuto({
     tipo:'contenedor',
-    descripcion: skusGuardados.length>1?`Multi-producto: ${skusGuardados.slice(0,3).join(', ')}${skusGuardados.length>3?' +'+(skusGuardados.length-3):''}`:(prods[0]?.nombre||skusGuardados[0]),
-    rubro: '',
-    skus: skusGuardados,
-    unidades_total: Math.round(unidadesTotal),
-    inversion_total: inversionTotal,
-    fob_usd: 0,
-    cbm_total: cbmTotal,
-    detalle_productos: impMultiArmarDetalle(),
-    aplicado_a_productos: true,
+    descripcion:skusG.length>1?'Multi: '+skusG.slice(0,3).join(', ')+(skusG.length>3?' +'+(skusG.length-3):''):(prods[0]?.nombre||skusG[0]||'Multi'),
+    skus:skusG,unidades_total:Math.round(udsTotal),inversion_total:invTotal,
+    cbm_total:impG('m_cbm')||0,detalle_productos:impMultiArmarDetalle(),
+    aplicado_a_productos:true,es_cotizacion:false,
   });
-
-  toast(`✓ ${guardados} productos guardados en Productos ML · historial actualizado`,'ok');
+  toast('✓ '+guardados+' productos guardados en Productos ML · registrado en Historial','ok');
 };
 
-// ── Guardar cotización: queda en el historial con TODO el desglose, pero NO toca S.products ──
-// Útil cuando es una cotización preliminar, todavía no es la compra definitiva
-window.impGuardarMultiCotizacion = async function(){
-  const prods = (_multiProds||[]).filter(p=>p.cant&&p._siva_ars&&(p.sku||p.nombre));
-  if(!_multiProds.length){
-    toast('Agregá al menos un producto antes de guardar la cotización','err');return;
-  }
-  if(!prods.length){
-    toast('No se pudo calcular ningún producto — revisá cantidad, FOB y dólar BNA','err');return;
-  }
-  const bna=impG('m_bna');
-  if(!bna){toast('Falta cargar el Dólar BNA arriba para calcular el costo en ARS','err');return;}
-
-  const skusGuardados=prods.map(p=>p.sku||(p.nombre||'PROD').toUpperCase().replace(/\s+/g,'-'));
-  const inversionTotal=prods.reduce((s,p)=>s+Math.round(p._siva_ars*p.cant),0);
-  const unidadesTotal=prods.reduce((s,p)=>s+p.cant,0);
-  const cbmTotal=impG('m_cbm')||0;
-
+window.impGuardarMultiCotizacion=async function(){
+  const prods=(_multiProds||[]).filter(p=>p.cant&&p._siva_ars&&(p.sku||p.nombre));
+  if(!prods.length){toast('Sin productos calculados — revisá datos y Dólar BNA','err');return;}
+  const skus=prods.map(p=>p.sku||(p.nombre||'PROD').toUpperCase().replace(/\s+/g,'-'));
+  const inv=prods.reduce((s,p)=>s+Math.round((p._siva_ars||0)*p.cant),0);
+  const uds=prods.reduce((s,p)=>s+p.cant,0);
   await impGuardarCompraAuto({
     tipo:'contenedor',
-    descripcion: '🔖 COTIZACIÓN — '+(skusGuardados.length>1?`Multi-producto: ${skusGuardados.slice(0,3).join(', ')}${skusGuardados.length>3?' +'+(skusGuardados.length-3):''}`:(prods[0]?.nombre||skusGuardados[0])),
-    rubro: '',
-    skus: skusGuardados,
-    unidades_total: Math.round(unidadesTotal),
-    inversion_total: inversionTotal,
-    fob_usd: 0,
-    cbm_total: cbmTotal,
-    detalle_productos: impMultiArmarDetalle(),
-    aplicado_a_productos: false, // NO se aplicó a la base de costos
-    es_cotizacion: true,
+    descripcion:'COTIZACION — '+(skus.length>1?'Multi: '+skus.slice(0,3).join(', '):(prods[0]?.nombre||skus[0])),
+    skus,unidades_total:Math.round(uds),inversion_total:inv,
+    cbm_total:impG('m_cbm')||0,detalle_productos:impMultiArmarDetalle(),
+    aplicado_a_productos:false,es_cotizacion:true,
   });
+  toast('Cotizacion guardada en Historial (no se modificaron costos)','ok');
+};
 
-  toast(`📋 Cotización guardada en historial (no se modificó el costo de productos)`,'ok');
+window.impMultiAutocompleteSku=function(idx,skuVal){
+  const sku=(skuVal||'').trim(); if(!sku) return;
+  const prod=S.products.find(p=>p.sku===sku); if(!prod) return;
+  const p=_multiProds.find(x=>x.idx===idx); if(!p) return;
+  if(!p.nombre&&prod.desc){p.nombre=prod.desc;const el=document.getElementById('mp_nombre_'+idx);if(el)el.value=prod.desc;}
+  if(prod.iva){p.iva=prod.iva;const el=document.getElementById('mp_iva_'+idx);if(el)el.value=prod.iva;}
+  if(prod.ars>0) toast(sku+': costo actual '+fS(Math.round(prod.ars)),'ok');
+  impRecalcMulti();
 };
 
 window.impResetMulti = function(){
@@ -10134,22 +10021,7 @@ window.impGuardarCosto = async function(){
   const idx=S.products.findIndex(p=>p.sku===sku);
   if(idx>=0) S.products[idx]=updated; else S.products.push(updated);
   S.orders=applyProductCosts(S.orders);
-
-  // ── Guardar automáticamente en el historial de compras unificado ──
-  const cant=impG('i_cantidad')||1;
-  const r=window._impLastResult;
-  await impGuardarCompraAuto({
-    tipo:'contenedor',
-    descripcion: impGS('i_producto')||sku,
-    rubro: existing?.rubro||existing?.rubroAuto||'',
-    skus: [sku],
-    unidades_total: Math.round(cant),
-    inversion_total: r?Math.round(r.ab_civa_ars*cant):Math.round(costoARS*cant),
-    fob_usd: impG('i_fob_prod')||0,
-    cbm_total: impG('i_cbm')||0,
-  });
-
-  toast(`✓ ${skuNew?'Nuevo SKU creado':'Costo actualizado'}: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')} · guardado en historial`,'ok');
+  toast(`✓ ${skuNew?'Nuevo SKU creado':'Costo actualizado'}: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')}`,'ok');
 };
 
 window.impGuardarCostoCourier = async function(){
@@ -10169,38 +10041,25 @@ window.impGuardarCostoCourier = async function(){
   const idx=S.products.findIndex(p=>p.sku===sku);
   if(idx>=0) S.products[idx]=updated; else S.products.push(updated);
   S.orders=applyProductCosts(S.orders);
-
-  // ── Guardar automáticamente en el historial de compras unificado ──
-  const cant=impG('c_cantidad')||1;
-  await impGuardarCompraAuto({
-    tipo:'courier',
-    descripcion: impGS('c_producto')||sku,
-    rubro: existing?.rubro||existing?.rubroAuto||'',
-    skus: [sku],
-    unidades_total: Math.round(cant),
-    inversion_total: Math.round(costoARS*cant),
-    fob_usd: 0,
-    cbm_total: 0,
-  });
-
-  toast(`✓ ${skuNew?'Nuevo SKU creado':'Costo actualizado'}: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')} · guardado en historial`,'ok');
+  toast(`✓ ${skuNew?'Nuevo SKU creado':'Costo actualizado'}: ${sku} = $${Math.round(costoARS).toLocaleString('es-AR')}`,'ok');
 };
 
 window.impGuardarHistorial = async function(){
   const r=window._impLastResult;
   if(!r){toast('Calculá primero','err');return;}
-  const cant=impG('i_cantidad')||1;
-  // Usa el mismo formato unificado que impGuardarCompraAuto, sin necesidad de asignar SKU
-  await impGuardarCompraAuto({
-    tipo:'contenedor',
-    descripcion: impGS('i_producto')||'Compra sin SKU asignado',
-    skus: [], // sin SKU: no se podrá cruzar con ventas hasta que se le asigne uno
-    unidades_total: Math.round(cant),
-    inversion_total: Math.round(r.ab_civa_ars*cant),
-    fob_usd: impG('i_fob_prod')||0,
-    cbm_total: impG('i_cbm')||0,
-  });
-  toast('✓ Guardado en historial (sin SKU — usá "Guardar →" para asignar costo y cruzar ventas)','ok');
+  const entry={
+    tipo:'container',fecha:new Date().toISOString().split('T')[0],
+    producto:impGS('i_producto'),cantidad:impG('i_cantidad'),
+    fob_prod:impG('i_fob_prod'),fob_inv:impG('i_fob_inv'),
+    ab_siva_usd:r.ab_siva_usd,ab_civa_usd:r.ab_civa_usd,
+    ab_siva_ars:r.ab_siva_ars,dolar:impG('i_dolar_bna'),ts:Date.now()
+  };
+  const hist=await fb.get('imp_historial')||{list:[]};
+  hist.list=hist.list||[];
+  hist.list.unshift(entry);
+  if(hist.list.length>100) hist.list=hist.list.slice(0,100);
+  await fb.set('imp_historial',hist);
+  toast('Guardado en historial ✓','ok');
 };
 
 window.impReset = function(){
@@ -10232,22 +10091,9 @@ window.exportarPDF=async()=>{
   toast('Generando PDF...','ok');
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-
-  // ── ML: usar getOrdersFiltered() para respetar el período activo de la toolbar ──
-  const o=getOrdersFiltered();
-  if(!o.length){toast('Sin datos para exportar en el período seleccionado','err');return;}
-  const{from:pdfFrom,to:pdfTo}=getRange();
-  const dateFrom=pdfFrom.split('T')[0], dateTo=pdfTo.split('T')[0];
-
-  // ── MAYORISTA: mismo período ──
-  const mayAll=(typeof _mayPedidos!=='undefined'&&_mayPedidos?.length)?_mayPedidos:(window._mayPedidosCache||[]);
-  const mayPed=mayAll.filter(p=>p.fecha&&p.fecha>=dateFrom&&p.fecha<=dateTo);
-  const mayVenta=mayPed.reduce((s,p)=>s+(p.venta_siva||p.total_siva||0),0);
-  const mayGan=mayPed.reduce((s,p)=>s+(p.ganancia||0),0);
-  const mayCosto=mayPed.reduce((s,p)=>s+(p.items||[]).reduce((ss,it)=>ss+(it.costo||0)*(it.qty||1),0),0);
-  const mayUds=mayPed.reduce((s,p)=>s+(p.items||[]).reduce((ss,it)=>ss+(it.qty||1),0),0);
-
-  // ── Datos ML ──
+  const o=getOrders();
+  if(!o.length){toast('Sin datos para exportar','err');return;}
+  // Datos generales
   const v=o.reduce((s,x)=>s+x.venta,0);
   const g=o.reduce((s,x)=>s+x.ganancia,0);
   const costo=o.reduce((s,x)=>s+(x.costo||0),0);
@@ -10258,37 +10104,33 @@ window.exportarPDF=async()=>{
   const env=o.reduce((s,x)=>s+(x.costoEnvio||0),0);
   const ret=o.reduce((s,x)=>s+(x.retencionesML||0),0);
   const u=o.reduce((s,x)=>s+x.unidades,0);
-
-  // ── Totales consolidados ML + Mayorista ──
-  const vTot=v+mayVenta;
-  const gTot=g+mayGan;
-  const costoTot=costo+mayCosto;
-  const uTot=u+mayUds;
-  const pctG=vTot>0?gTot/vTot:0;
-  const pctC=costoTot>0?gTot/costoTot:0; // margen s/costo REAL (ganancia/costo mercadería)
+  const pctG=v>0?g/v:0;
+  const pctC=costo>0?g/costo:0;
   // Colores NIVIKO
   const NEGRO=[26,26,26];const ROJO=[204,0,0];const GRIS=[245,245,245];const BLANCO=[255,255,255];
   const fs=n=>('$'+Math.round(n).toLocaleString('es-AR'));
   const pp=n=>(Math.round(n*1000)/10).toFixed(1)+'%';
-  const desde=dateFrom, hasta=dateTo;
+  // Fechas del período
+  const fechas=o.map(x=>x.fecha).filter(Boolean).sort();
+  const desde=fechas[0]||'—';const hasta=fechas[fechas.length-1]||'—';
   let y=15;
   // ── HEADER ──────────────────────────────────────────────────────────────
   doc.setFillColor(...NEGRO);doc.rect(0,0,210,28,'F');
   doc.setTextColor(...BLANCO);doc.setFontSize(18);doc.setFont('helvetica','bold');
   doc.text('NIVIKO',14,13);
   doc.setFontSize(9);doc.setFont('helvetica','normal');
-  doc.text('Informe de Rentabilidad — Todos los Canales',14,20);
+  doc.text('ML Analytics Dashboard — Informe de Rentabilidad',14,20);
   doc.setFontSize(8);doc.text('Período: '+desde+' al '+hasta,14,26);
   doc.setFontSize(8);doc.text('Generado: '+new Date().toLocaleDateString('es-AR'),140,26);
   y=35;
-  // ── KPIs PRINCIPALES (consolidado ML + Mayorista) ────────────────────────
+  // ── KPIs PRINCIPALES ────────────────────────────────────────────────────
   doc.setTextColor(...NEGRO);doc.setFontSize(11);doc.setFont('helvetica','bold');
-  doc.text('Resumen del Período — Todos los canales',14,y);y+=6;
+  doc.text('Resumen del Período',14,y);y+=6;
   const kpis=[
-    ['Facturación total',fs(vTot)],['Ganancia neta',fs(gTot)],
+    ['Facturación total',fs(v)],['Ganancia neta',fs(g)],
     ['Margen s/venta',pp(pctG)],['Margen s/costo',pp(pctC)],
-    ['Órdenes ML',o.length.toLocaleString('es-AR')],['Pedidos Mayorista',mayPed.length.toLocaleString('es-AR')],
-    ['Unidades totales',uTot.toLocaleString('es-AR')],['Costo mercadería',fs(costoTot)],
+    ['Órdenes',o.length.toLocaleString('es-AR')],['Unidades',u.toLocaleString('es-AR')],
+    ['Ticket promedio',fs(o.length?v/o.length:0)],['Costo mercadería',fs(costo)],
   ];
   doc.autoTable({startY:y,head:[['Métrica','Valor']],body:kpis,
     styles:{fontSize:9,cellPadding:3},
@@ -10296,80 +10138,23 @@ window.exportarPDF=async()=>{
     alternateRowStyles:{fillColor:GRIS},
     columnStyles:{0:{fontStyle:'bold'},1:{halign:'right'}},
     margin:{left:14,right:14},tableWidth:85});
-  // KPIs de costos al lado (solo ML, que es donde aplican estos conceptos)
+  // KPIs de costos al lado
   const costos=[
     ['Comisiones ML',fs(com),pp(v?com/v:0)],
-    ['Costo productos ML',fs(costo),pp(v?costo/v:0)],
+    ['Costo productos',fs(costo),pp(v?costo/v:0)],
     ['IVA',fs(iva),pp(v?iva/v:0)],
     ['Publicidad',fs(pub),pp(v?pub/v:0)],
     ['IIBB',fs(iibb),pp(v?iibb/v:0)],
     ['Envíos',fs(env),pp(v?env/v:0)],
     ['Retenciones ML',fs(ret),pp(v?ret/v:0)],
-    ['Ganancia neta ML',fs(g),pp(v?g/v:0)],
+    ['Ganancia neta',fs(g),pp(v?g/v:0)],
   ];
-  doc.autoTable({startY:y,head:[['Desglose costos ML','Monto','% ventas']],body:costos,
+  doc.autoTable({startY:y,head:[['Desglose de costos','Monto','% ventas']],body:costos,
     styles:{fontSize:9,cellPadding:3},
     headStyles:{fillColor:ROJO,textColor:BLANCO,fontStyle:'bold'},
     alternateRowStyles:{fillColor:GRIS},
     columnStyles:{1:{halign:'right'},2:{halign:'right'}},
     margin:{left:111,right:14},tableWidth:85});
-  y=doc.lastAutoTable.finalY+8;
-
-  // ── RESULTADO POR CANAL ────────────────────────────────────────────────
-  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(...NEGRO);
-  doc.text('Resultado por Canal',14,y);y+=4;
-  const mlMg=v>0?g/v:0; const mlMgC=costo>0?g/costo:0;
-  const mayMg=mayVenta>0?mayGan/mayVenta:0; const mayMgC=mayCosto>0?mayGan/mayCosto:0;
-  const porCanal=[
-    ['MercadoLibre',o.length.toString(),fs(v),fs(g),pp(mlMg),pp(mlMgC)],
-    ['Mayorista',mayPed.length.toString(),fs(mayVenta),fs(mayGan),pp(mayMg),pp(mayMgC)],
-  ];
-  doc.autoTable({startY:y,head:[['Canal','Operaciones','Ventas','Ganancia','Mg s/venta','Mg s/costo']],body:porCanal,
-    styles:{fontSize:9,cellPadding:3},
-    headStyles:{fillColor:NEGRO,textColor:BLANCO,fontStyle:'bold'},
-    alternateRowStyles:{fillColor:GRIS},
-    columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}},
-    margin:{left:14,right:14}});
-  y=doc.lastAutoTable.finalY+8;
-
-  // ── RESULTADO POR RUBRO (todos los canales) ────────────────────────────
-  const rubMap={};
-  o.forEach(ord=>{
-    const p=S.products.find(x=>x.sku===ord.sku||x.sku===ord.sku?.replace(/-[NBRGPSMA](-X\d+)?$/i,''));
-    const r=p?.rubro||p?.rubroAuto||'sin_clasificar';
-    if(!rubMap[r]) rubMap[r]={ventas:0,ganancia:0,costo:0,unidades:0};
-    rubMap[r].ventas+=ord.venta||0; rubMap[r].ganancia+=ord.ganancia||0;
-    rubMap[r].costo+=ord.costo||0; rubMap[r].unidades+=ord.unidades||1;
-  });
-  mayPed.forEach(p=>(p.items||[]).forEach(it=>{
-    const prod=S.products.find(x=>x.sku===it.sku);
-    const r=prod?.rubro||prod?.rubroAuto||'sin_clasificar';
-    if(!rubMap[r]) rubMap[r]={ventas:0,ganancia:0,costo:0,unidades:0};
-    const vSiva=(it.lista||0)*(it.qty||1)*(1-(it.dcom_pct||0)/100)*(1-(it.dfin_pct||0)/100);
-    const costoIt=(it.costo||0)*(it.qty||1);
-    rubMap[r].ventas+=vSiva; rubMap[r].ganancia+=(vSiva-costoIt); rubMap[r].costo+=costoIt;
-    rubMap[r].unidades+=it.qty||1;
-  }));
-  if(y>240){doc.addPage();y=15;}
-  doc.setFontSize(11);doc.setFont('helvetica','bold');
-  doc.text('Resultado por Rubro — Todos los Canales',14,y);y+=4;
-  const rubroLabels={
-    sillas_hogar:'Sillas de Hogar',tender:'Tender',parrilla:'Parrilla',inflables:'Inflables',
-    soportes_tv:'Soportes de TV',notebooks:'Notebooks',tablets:'Tablets',electronica:'Electrónica',
-    electrodomesticos:'Electrodomésticos',mesas_plegables:'Mesas Plegables',sillas_oficina:'Sillas de Oficina',
-    pendrive_memorias:'Pendrive y Memorias',otro:'Otro',sin_clasificar:'Sin clasificar'
-  };
-  const porRubro=Object.entries(rubMap).sort((a,b)=>b[1].ganancia-a[1].ganancia).map(([r,d])=>{
-    const mg=d.ventas>0?d.ganancia/d.ventas:0;
-    const mgC=d.costo>0?d.ganancia/d.costo:0;
-    return [rubroLabels[r]||r,d.unidades.toLocaleString('es-AR'),fs(d.ventas),fs(d.ganancia),pp(mg),pp(mgC)];
-  });
-  doc.autoTable({startY:y,head:[['Rubro','Unid.','Ventas','Ganancia','Mg s/venta','Mg s/costo']],body:porRubro,
-    styles:{fontSize:8,cellPadding:2.5},
-    headStyles:{fillColor:ROJO,textColor:BLANCO,fontStyle:'bold'},
-    alternateRowStyles:{fillColor:GRIS},
-    columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}},
-    margin:{left:14,right:14}});
   y=doc.lastAutoTable.finalY+8;
   // ── POR CUENTA ──────────────────────────────────────────────────────────
   doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(...NEGRO);
@@ -10406,48 +10191,25 @@ window.exportarPDF=async()=>{
     columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}},
     margin:{left:14,right:14}});
   y=doc.lastAutoTable.finalY+8;
-  // ── TOP PRODUCTOS (ML + Mayorista combinados) ──────────────────────────
-  if(y>220){doc.addPage();y=15;}
+  // ── TOP PRODUCTOS ────────────────────────────────────────────────────────
+  if(y>230){doc.addPage();y=15;}
   doc.setFontSize(11);doc.setFont('helvetica','bold');
-  doc.text('Rentabilidad por Producto — Todos los canales (Top 30 por ganancia)',14,y);y+=4;
+  doc.text('Rentabilidad por Producto (Top 30 por ganancia)',14,y);y+=4;
   const sm={};
   o.forEach(x=>{
     if(!sm[x.sku])sm[x.sku]={desc:x.desc,u:0,v:0,g:0,c:0};
     sm[x.sku].u+=x.unidades;sm[x.sku].v+=x.venta;sm[x.sku].g+=x.ganancia;sm[x.sku].c+=(x.costo||0);
   });
-  mayPed.forEach(p=>(p.items||[]).forEach(it=>{
-    const sku=it.codigo||it.sku||'—'; if(sku==='—') return;
-    if(!sm[sku])sm[sku]={desc:it.descripcion||sku,u:0,v:0,g:0,c:0};
-    const vSiva=(it.lista||0)*(it.qty||1)*(1-(it.dcom_pct||0)/100)*(1-(it.dfin_pct||0)/100);
-    const costoIt=(it.costo||0)*(it.qty||1);
-    sm[sku].u+=it.qty||1; sm[sku].v+=vSiva; sm[sku].g+=(vSiva-costoIt); sm[sku].c+=costoIt;
-  }));
   const topProds=Object.entries(sm)
     .sort((a,b)=>b[1].g-a[1].g).slice(0,30)
-    .map(([sku,d])=>[sku,(d.desc||'').substring(0,30)+((d.desc||'').length>30?'…':''),
-      d.u.toString(),fs(d.v),fs(d.g),pp(d.v?d.g/d.v:0),pp(d.c?d.g/d.c:0)]);
-  doc.autoTable({startY:y,head:[['SKU','Descripción','Unid.','Facturación','Ganancia','Mg s/venta','Mg s/costo']],body:topProds,
-    styles:{fontSize:7,cellPadding:2.2},
+    .map(([sku,d])=>[sku,d.desc.substring(0,35)+(d.desc.length>35?'…':''),
+      d.u.toString(),fs(d.v),fs(d.g),pp(d.v?d.g/d.v:0)]);
+  doc.autoTable({startY:y,head:[['SKU','Descripción','Unid.','Facturación','Ganancia','Margen']],body:topProds,
+    styles:{fontSize:7.5,cellPadding:2.5},
     headStyles:{fillColor:ROJO,textColor:BLANCO,fontStyle:'bold'},
     alternateRowStyles:{fillColor:GRIS},
-    columnStyles:{0:{fontStyle:'bold'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right'}},
+    columnStyles:{0:{fontStyle:'bold'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}},
     margin:{left:14,right:14}});
-  y=doc.lastAutoTable.finalY+8;
-
-  // ── ALERTAS Y OBSERVACIONES ─────────────────────────────────────────────
-  if(y>250){doc.addPage();y=15;}
-  doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(...NEGRO);
-  doc.text('Observaciones del Período',14,y);y+=6;
-  doc.setFontSize(8.5);doc.setFont('helvetica','normal');
-  const obs=[];
-  if(mlMg<pctG-0.02) obs.push('• El margen de ML ('+pp(mlMg)+') está por debajo del margen consolidado ('+pp(pctG)+') — el Mayorista está compensando.');
-  if(mayMgC>0&&mayMgC>mlMgC*1.5) obs.push('• Mayorista tiene margen s/costo significativamente mayor que ML ('+pp(mayMgC)+' vs '+pp(mlMgC)+') por no pagar comisión ni publicidad.');
-  const rubrosNeg=Object.entries(rubMap).filter(([,d])=>d.ganancia<0);
-  if(rubrosNeg.length) obs.push('• '+rubrosNeg.length+' rubro(s) con ganancia negativa en el período: '+rubrosNeg.map(([r])=>rubroLabels[r]||r).join(', ')+'.');
-  if(pub>0) obs.push('• Publicidad representó '+pp(v?pub/v:0)+' de las ventas ML ('+fs(pub)+').');
-  if(!obs.length) obs.push('• Sin observaciones automáticas para este período.');
-  obs.forEach(line=>{ doc.text(line,14,y,{maxWidth:182}); y+=6; });
-
   // ── FOOTER ──────────────────────────────────────────────────────────────
   const pageCount=doc.internal.getNumberOfPages();
   for(let i=1;i<=pageCount;i++){
@@ -12314,40 +12076,69 @@ function fjRenderConfig(){
   el.innerHTML=mercados.map(([cod,info])=>{
     const cfg=window.FJ_CONFIG.markets?.[cod]||{};
     const color=info.color||'var(--acc)';
+    // Fee logístico por tramos de peso
+    const feePeso=cfg.fee_logistico_peso||[
+      {hasta_kg:1, monto:0},
+      {hasta_kg:5, monto:0},
+      {hasta_kg:10, monto:0},
+      {hasta_kg:20, monto:0},
+      {hasta_kg:999, monto:0},
+    ];
+    const feePesoHtml=feePeso.map((t,ti)=>`
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="font-size:10px;color:var(--t3);white-space:nowrap">${ti===0?'hasta':'hasta'} ${t.hasta_kg<999?t.hasta_kg+'kg':'sin lím.'}</span>
+        <input class="inp" type="number" id="fjm_${cod}_feekg_${ti}" value="${t.monto||0}" step="10"
+          style="width:80px;padding:3px 6px" onchange="fjGuardarConfigMkt('${cod}')">
+        <span style="font-size:10px;color:var(--t3)">ARS</span>
+      </div>`).join('');
     return `<div style="border:1px solid var(--b1);border-left:3px solid ${color};border-radius:var(--r);padding:12px">
+      <!-- Header -->
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <span style="width:10px;height:10px;border-radius:50%;background:${color}"></span>
         <span style="font-weight:700;font-size:13px">${esc(info.nombre)}</span>
         <span style="font-size:9px;color:var(--t3);margin-left:auto">${cod}</span>
+        <button class="btn-g btn-sm" onclick="fjToggleDetalle('${cod}')" style="font-size:10px" id="fjbtn_${cod}">▶ Financiación</button>
       </div>
+      <!-- Config básica -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px">
         <div>
           <label class="lbl">Comisión %</label>
           <input class="inp" id="fjm_${cod}_comision" type="number" value="${cfg.comision||0}" step="0.5" min="0" max="100" onchange="fjGuardarConfigMkt('${cod}')">
         </div>
         <div>
-          <label class="lbl">Fee logístico $ (fijo)</label>
+          <label class="lbl">Fee logístico fijo ARS</label>
           <input class="inp" id="fjm_${cod}_fee_logistico_fijo" type="number" value="${cfg.fee_logistico_fijo||0}" step="10" onchange="fjGuardarConfigMkt('${cod}')">
-          <div style="font-size:9px;color:var(--t3);margin-top:2px">ARS por orden</div>
+          <div style="font-size:9px;color:var(--t3);margin-top:2px">por orden (base)</div>
         </div>
         <div>
           <label class="lbl">Publicidad %</label>
           <input class="inp" id="fjm_${cod}_publicidad" type="number" value="${cfg.publicidad||0}" step="0.5" min="0" onchange="fjGuardarConfigMkt('${cod}')">
         </div>
         <div>
-          <label class="lbl">Gastos extra $ (fijo)</label>
+          <label class="lbl">Gastos extra ARS</label>
           <input class="inp" id="fjm_${cod}_gastos_extra" type="number" value="${cfg.gastos_extra||0}" step="10" onchange="fjGuardarConfigMkt('${cod}')">
         </div>
       </div>
-      <div style="margin-top:8px">
-        <label class="lbl">Gastos por cuotas (% por cantidad)</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px">
-          ${[1,3,6,12,18].map(q=>{
-            const val=(cfg.cuotas_tabla||{})[q]||(q===1?0:q===3?3:q===6?6:q===12?12:18);
-            return `<div style="display:flex;align-items:center;gap:4px">
-              <span style="color:var(--t3)">${q}c:</span>
-              <input class="inp" id="fjm_${cod}_cuotas_${q}" type="number" value="${val}" step="0.5" min="0" max="50" style="width:60px;padding:3px 6px" onchange="fjGuardarConfigMkt('${cod}')">
-              <span style="color:var(--t3)">%</span>
+      <!-- Fee logístico por peso (tramos) -->
+      <div style="margin-top:10px;padding:8px;background:var(--s2);border-radius:var(--r)">
+        <div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:6px">📦 Fee logístico por peso (ARS por tramo)</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          ${feePesoHtml}
+        </div>
+      </div>
+      <!-- Tabla de financiación desplegable -->
+      <div id="fjdetalle_${cod}" style="display:none;margin-top:10px;padding:8px;background:var(--s2);border-radius:var(--r)">
+        <div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:6px">💳 Costo de financiación por cuotas (%)</div>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;font-size:11px">
+          ${[1,2,3,6,9,12,18,24].map(q=>{
+            const val=(cfg.cuotas_tabla||{})[q]||(q===1?0:q<=3?3:q<=6?6:q<=12?12:18);
+            return `<div style="text-align:center">
+              <div style="font-size:10px;color:var(--t3);margin-bottom:2px">${q} cuota${q>1?'s':''}</div>
+              <div style="display:flex;align-items:center;gap:2px">
+                <input class="inp" id="fjm_${cod}_cuotas_${q}" type="number" value="${val}" step="0.5" min="0" max="50"
+                  style="padding:3px 4px;text-align:center" onchange="fjGuardarConfigMkt('${cod}')">
+                <span style="font-size:10px;color:var(--t3)">%</span>
+              </div>
             </div>`;
           }).join('')}
         </div>
@@ -12366,17 +12157,34 @@ function fjRenderConfig(){
 window.fjGuardarConfigMkt = function(cod){
   if(!window.FJ_CONFIG.markets) window.FJ_CONFIG.markets={};
   const cuotasTabla={};
-  [1,3,6,12,18].forEach(q=>{
+  [1,2,3,6,9,12,18,24].forEach(q=>{
     const el=document.getElementById(`fjm_${cod}_cuotas_${q}`);
-    cuotasTabla[q]=parseFloat(el?.value||0);
+    if(el) cuotasTabla[q]=parseFloat(el.value||0);
+  });
+  // Fee por tramos de peso
+  const tramosDefault=[{hasta_kg:1},{hasta_kg:5},{hasta_kg:10},{hasta_kg:20},{hasta_kg:999}];
+  const fee_logistico_peso=tramosDefault.map((t,ti)=>{
+    const el=document.getElementById(`fjm_${cod}_feekg_${ti}`);
+    return {hasta_kg:t.hasta_kg, monto:parseFloat(el?.value||0)};
   });
   window.FJ_CONFIG.markets[cod]={
-    comision:          parseFloat(document.getElementById(`fjm_${cod}_comision`)?.value||0),
-    fee_logistico_fijo:parseFloat(document.getElementById(`fjm_${cod}_fee_logistico_fijo`)?.value||0),
-    publicidad:        parseFloat(document.getElementById(`fjm_${cod}_publicidad`)?.value||0),
-    gastos_extra:      parseFloat(document.getElementById(`fjm_${cod}_gastos_extra`)?.value||0),
-    cuotas_tabla:      cuotasTabla
+    comision:           parseFloat(document.getElementById(`fjm_${cod}_comision`)?.value||0),
+    fee_logistico_fijo: parseFloat(document.getElementById(`fjm_${cod}_fee_logistico_fijo`)?.value||0),
+    fee_logistico_peso,
+    publicidad:         parseFloat(document.getElementById(`fjm_${cod}_publicidad`)?.value||0),
+    gastos_extra:       parseFloat(document.getElementById(`fjm_${cod}_gastos_extra`)?.value||0),
+    cuotas_tabla:       cuotasTabla,
   };
+};
+
+// Toggle desplegable de financiación por marketplace
+window.fjToggleDetalle=function(cod){
+  const panel=document.getElementById('fjdetalle_'+cod);
+  const btn=document.getElementById('fjbtn_'+cod);
+  if(!panel) return;
+  const vis=panel.style.display!=='none';
+  panel.style.display=vis?'none':'';
+  if(btn) btn.textContent=vis?'▶ Financiación':'▼ Financiación';
 };
 
 window.fjGuardarConfig = async function(){
@@ -12583,19 +12391,9 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  // ── Capturar período activo ANTES de cualquier await ──
-  const{from:rf,to:rt}=getRange();
-  const dateFrom=rf.split('T')[0];
-  const dateTo=rt.split('T')[0];
-  if(perEl) perEl.innerHTML=`<strong style="color:var(--acc)">${dateFrom} → ${dateTo}</strong>`;
-  el.innerHTML='<div style="color:var(--t3);font-size:11px;padding:8px">⏳ Calculando para el período ${dateFrom} → ${dateTo}...</div>';
-  if(kpiEl) kpiEl.innerHTML='';
+  const ordsML=getOrders(); // órdenes ML filtradas por período activo
 
-  // ── ML — filtrado por período Y cuenta ──
-  const byAcct=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  const ordsML=byAcct.filter(o=>
-    o.fecha && o.fecha>=dateFrom && o.fecha<=dateTo && o.estado!=='cancelled'
-  );
+  // ── ML ──
   const ml={
     nombre:'MercadoLibre', color:'#E8FF47', icono:'📦',
     ventas:  ordsML.reduce((s,o)=>s+(o.venta||0),0),
@@ -12605,27 +12403,15 @@ window.renderCanalesIntegrados = async function(){
     costo:   ordsML.reduce((s,o)=>s+(o.costo||0),0),
   };
 
-  // ── MAYORISTA — filtrado por el mismo período ──
+  // ── MAYORISTA — leer _mayPedidos si están disponibles ──
   let may={nombre:'Mayorista',color:'#4DA3FF',icono:'🏪',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    // Obtener pedidos: el módulo de mayorista usa la variable local _mayPedidos
-    // El cache global usa window._mayPedidosCache
-    // Preferir el más completo disponible
-    let allPeds=[];
-    if(typeof _mayPedidos!=='undefined'&&Array.isArray(_mayPedidos)&&_mayPedidos.length>0){
-      allPeds=_mayPedidos; // módulo mayorista ya cargado
-    } else if(window._mayPedidosCache?.length){
-      allPeds=window._mayPedidosCache; // cache del init
-    } else if(typeof fb!=='undefined'){
-      // Último recurso: cargar desde Firebase
+    // Intentar cargar desde Firebase si no está en memoria
+    if((typeof _mayPedidos==='undefined'||!_mayPedidos?.length)&&typeof fb!=='undefined'){
       const mayData=await fb.get('mayorista').catch(()=>null);
-      if(mayData?.pedidos?.length){
-        allPeds=mayData.pedidos;
-        window._mayPedidosCache=allPeds;
-      }
+      if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
     }
-    // FILTRAR por período activo
-    const peds=allPeds.filter(p=>p.fecha&&p.fecha>=dateFrom&&p.fecha<=dateTo);
+    const peds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
     peds.forEach(p=>{
       may.ventas   +=(p.venta_siva||p.total_siva||0);
       may.ganancia +=(p.ganancia||0);
@@ -12635,14 +12421,10 @@ window.renderCanalesIntegrados = async function(){
     });
   }catch(e){}
 
-  // ── FULLJAUS — filtrado por el mismo período ──
+  // ── FULLJAUS — leer _fjOrdenes si están disponibles ──
   let fj={nombre:'Fulljaus',color:'#FF8A4D',icono:'🛒',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    const allFJ=(typeof _fjOrdenes!=='undefined'?_fjOrdenes:[]);
-    const fjOrds=allFJ.filter(o=>
-      !['DEVTOT','ANUL','NOAPRO'].includes(o.estado) &&
-      o.fecha && o.fecha>=dateFrom && o.fecha<=dateTo
-    );
+    const fjOrds=typeof _fjOrdenes!=='undefined'?_fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)):[];
     fjOrds.forEach(o=>{
       fj.ventas   +=(o.venta||0);
       fj.ganancia +=(o._ganancia||0);
@@ -12689,8 +12471,8 @@ window.renderCanalesIntegrados = async function(){
   canales.forEach(c=>{
     const pctTotal=totVentas>0?(c.ventas/totVentas*100):0;
     const mg=c.ventas>0?(c.ganancia/c.ventas*100):0;
-    // Margen sobre costo REAL de mercadería (c.costo, no ventas-ganancia)
-    const mgCosto=c.costo>0?(c.ganancia/c.costo*100):0;
+    const costoTotal=c.ventas-c.ganancia;
+    const mgCosto=costoTotal>0?(c.ganancia/costoTotal*100):0;
     const ticket=c.ordenes>0?(c.ventas/c.ordenes):0;
     const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
     const barW=totVentas>0?(c.ventas/totVentas*100).toFixed(0):0;
@@ -12717,8 +12499,7 @@ window.renderCanalesIntegrados = async function(){
   });
 
   // Fila TOTAL
-  const totCostoReal=ml.costo+may.costo+fj.costo; // costo real de mercadería, no venta-ganancia
-  const mgTotCosto=totCostoReal>0?(totGanancia/totCostoReal*100):0;
+  const mgTotCosto=totVentas-totGanancia>0?(totGanancia/(totVentas-totGanancia)*100):0;
   h+=`<tr style="font-weight:700;border-top:2px solid var(--b1)">
     <td>TOTAL</td>
     <td class="mono">${fS(Math.round(totVentas))}</td>
@@ -12732,667 +12513,324 @@ window.renderCanalesIntegrados = async function(){
   </tr>`;
   el.innerHTML=h+'</tbody></table>';
 
-  // ── Generar resumen ejecutivo en texto ──
-  ovRenderResumenEjecutivo({
-    dateFrom,dateTo,canales,totVentas,totGanancia,totUnidades,totOrdenes,mgGlobal,mgTotCosto,
-    ml,may,fj
-  });
-
-  // ── Por rubro integrado (ML + Mayorista) — con costo real para margen s/costo ──
+  // ── Por rubro integrado (ML + Mayorista) ──
   const rubroMap={};
   // ML por rubro
   ordsML.forEach(o=>{
     const p=S.products.find(x=>x.sku===o.sku||x.sku===o.sku?.replace(/-[NBRGPSMA](-X\d+)?$/i,''));
     const r=p?.rubro||p?.rubroAuto||'sin_clasificar';
-    if(!rubroMap[r]) rubroMap[r]={rubro:r,ventas:0,ganancia:0,costo:0,unidades:0,canales:new Set()};
+    if(!rubroMap[r]) rubroMap[r]={rubro:r,ventas:0,ganancia:0,unidades:0,canales:new Set()};
     rubroMap[r].ventas+=o.venta||0; rubroMap[r].ganancia+=o.ganancia||0;
-    rubroMap[r].costo+=o.costo||0;
     rubroMap[r].unidades+=o.unidades||1; rubroMap[r].canales.add('ML');
   });
-  // Mayorista por rubro — incluir ganancia y costo real (antes faltaban)
-  ((typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]))
-    .filter(p=>p.fecha&&p.fecha>=dateFrom&&p.fecha<=dateTo)).forEach(p=>{
+  // Mayorista por rubro
+  (typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[])).forEach(p=>{
     (p.items||[]).forEach(it=>{
       const prod=S.products.find(x=>x.sku===it.sku);
       const r=prod?.rubro||prod?.rubroAuto||'sin_clasificar';
-      if(!rubroMap[r]) rubroMap[r]={rubro:r,ventas:0,ganancia:0,costo:0,unidades:0,canales:new Set()};
+      if(!rubroMap[r]) rubroMap[r]={rubro:r,ventas:0,ganancia:0,unidades:0,canales:new Set()};
       const vSiva=(it.lista||0)*(it.qty||1)*(1-(it.dcom_pct||0)/100)*(1-(it.dfin_pct||0)/100);
-      const costoIt=(it.costo||0)*(it.qty||1);
-      const ganIt=vSiva-costoIt;
-      rubroMap[r].ventas+=vSiva;
-      rubroMap[r].ganancia+=ganIt;
-      rubroMap[r].costo+=costoIt;
-      rubroMap[r].unidades+=it.qty||1; rubroMap[r].canales.add('May');
+      rubroMap[r].ventas+=vSiva; rubroMap[r].unidades+=it.qty||1; rubroMap[r].canales.add('May');
     });
   });
 
-  // Render en el div fijo (evita triplicar con insertAdjacentHTML)
-  const rubroEl=document.getElementById('ov_canales_rubros');
-  if(rubroEl){
-    if(Object.keys(rubroMap).length>0){
-      const rubros=Object.values(rubroMap).sort((a,b)=>b.ganancia-a.ganancia);
-      let rh=`<div style="margin-top:6px">
-        <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Por rubro — todos los canales</div>
-        <table class="tbl" style="font-size:11px"><thead><tr>
-          <th>Rubro</th><th>Canales</th><th>Ventas</th><th>Costo merc.</th><th>Ganancia</th><th>Mg s/venta</th><th>Mg s/costo</th><th>Unidades</th>
-        </tr></thead><tbody>`;
-      rubros.forEach(r=>{
-        const rubroInfo=(window.RUBROS_NIVIKO||[]).find(x=>x.id===r.rubro);
-        const label=rubroInfo?.label||r.rubro;
-        const color=rubroInfo?.color||'var(--t3)';
-        const mg=r.ventas>0?(r.ganancia/r.ventas*100):0;
-        const mgCosto=r.costo>0?(r.ganancia/r.costo*100):0;
-        const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
-        const mgCC=mgCosto>=20?'var(--grn)':mgCosto>=10?'var(--org)':'var(--red)';
-        rh+=`<tr>
-          <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${color}22;color:${color}">${esc(label)}</span></td>
-          <td style="font-size:10px;color:var(--t3)">${[...r.canales].join(', ')}</td>
-          <td class="mono">${fS(Math.round(r.ventas))}</td>
-          <td class="mono" style="color:var(--t3)">${r.costo>0?fS(Math.round(r.costo)):'—'}</td>
-          <td class="mono" style="color:${r.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(r.ganancia))}</td>
-          <td style="color:${mgC};font-weight:600">${mg.toFixed(1)}%</td>
-          <td style="color:${mgCC};font-weight:600">${r.costo>0?mgCosto.toFixed(1)+'%':'—'}</td>
-          <td>${r.unidades.toLocaleString()}</td>
-        </tr>`;
-      });
-      rubroEl.innerHTML=rh+'</tbody></table></div>';
-    } else {
-      rubroEl.innerHTML='';
-    }
+  if(Object.keys(rubroMap).length>0){
+    const rubros=Object.values(rubroMap).sort((a,b)=>b.ganancia-a.ganancia);
+    let rh=`<div style="margin-top:14px">
+      <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Por rubro — todos los canales</div>
+      <table class="tbl" style="font-size:11px"><thead><tr>
+        <th>Rubro</th><th>Canales</th><th>Ventas</th><th>Ganancia</th><th>Margen</th><th>Unidades</th>
+      </tr></thead><tbody>`;
+    rubros.forEach(r=>{
+      const rubroInfo=(window.RUBROS_NIVIKO||[]).find(x=>x.id===r.rubro);
+      const label=rubroInfo?.label||r.rubro;
+      const color=rubroInfo?.color||'var(--t3)';
+      const mg=r.ventas>0?(r.ganancia/r.ventas*100):0;
+      const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
+      rh+=`<tr>
+        <td><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${color}22;color:${color}">${esc(label)}</span></td>
+        <td style="font-size:10px;color:var(--t3)">${[...r.canales].join(', ')}</td>
+        <td class="mono">${fS(Math.round(r.ventas))}</td>
+        <td class="mono" style="color:${r.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(r.ganancia))}</td>
+        <td style="color:${mgC};font-weight:600">${mg.toFixed(1)}%</td>
+        <td>${r.unidades.toLocaleString()}</td>
+      </tr>`;
+    });
+    el.parentElement.insertAdjacentHTML('beforeend',rh+'</tbody></table></div>');
   }
 };
 
 
-
-// ══════════════════════════════════════════════════════════════════════════════
-// HISTORIAL DE COMPRAS / IMPORTACIONES
-// ══════════════════════════════════════════════════════════════════════════════
 window._impHistorial=null;
+window._impHistGuardarOverride=null;
+
+window.impTabHist=function(tab){
+  ['lista','rentab','estimar'].forEach(function(t){
+    var p=document.getElementById('ih_panel_'+t);
+    var b=document.getElementById('ihtab_'+t);
+    if(p)p.style.display=t===tab?'':'none';
+    if(b){b.style.background=t===tab?'var(--acc)':'';b.style.color=t===tab?'#000':'';}
+  });
+  if(tab==='rentab')impRenderRentabilidadReal();
+  if(tab==='estimar')impPopularEstimador();
+};
 
 window.impRenderHistorial=async function(){
-  const el=document.getElementById('imp_hist_lista'); if(!el) return;
-  el.innerHTML='<div style="color:var(--t3)">⏳ Cargando...</div>';
+  var el=document.getElementById('imp_hist_lista');if(!el)return;
+  el.innerHTML='<div style="color:var(--t3)">Cargando...</div>';
   if(!window._impHistorial){
-    const d=await fb.get('imp_historial').catch(()=>null);
-    window._impHistorial=d?.list||[];
+    var d=await fb.get('imp_historial').catch(function(){return null;});
+    window._impHistorial=d&&d.list?d.list:[];
   }
-  const list=window._impHistorial;
+  var list=window._impHistorial;
   if(!list.length){
-    el.innerHTML=`<div style="text-align:center;padding:24px;color:var(--t3)">
-      <div style="font-size:24px;margin-bottom:8px">📦</div>
-      <div style="font-size:12px">Sin compras registradas todavía</div>
-      <button class="btn-g" onclick="impHistAgregar()" style="margin-top:12px;font-size:11px">+ Registrar primera compra</button>
-    </div>`;
+    el.innerHTML='<div style="text-align:center;padding:24px;color:var(--t3)"><div style="font-size:24px">📦</div><div style="margin-top:8px">Sin compras todavia.<br>Calculá un Multi y apretá "Guardar en Productos + Historial".</div></div>';
     return;
   }
-  // KPIs
-  const totInvert=list.reduce((s,c)=>s+(c.inversion_total||0),0);
-  const totUds=list.reduce((s,c)=>s+(c.unidades_total||0),0);
-  let kh=`<div class="g4" style="margin-bottom:12px">
-    <div class="kpi"><div class="kl">Compras registradas</div><div class="kv">${list.length}</div></div>
-    <div class="kpi"><div class="kl">Inversión total</div><div class="kv">${fS(Math.round(totInvert))}</div></div>
-    <div class="kpi"><div class="kl">Unidades totales</div><div class="kv">${totUds.toLocaleString()}</div></div>
-    <div class="kpi"><div class="kl">Costo prom. u.</div><div class="kv">${totUds>0?fS(Math.round(totInvert/totUds)):'—'}</div></div>
-  </div>`;
-  // Tabla — usar el índice REAL en window._impHistorial (no el de la lista ordenada)
-  let h=`<table class="tbl" style="font-size:11px"><thead><tr>
-    <th></th><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Proveedor</th>
-    <th>SKUs</th><th>Uds totales</th><th>FOB USD</th><th>Inversión ARS</th><th>Costo u. ARS</th><th></th>
-  </tr></thead><tbody>`;
-  // Crear pares [indiceReal, compra] antes de ordenar, para no perder la referencia
-  const listConIndice=list.map((c,idxReal)=>({c,idxReal}));
-  listConIndice.sort((a,b)=>b.c.fecha?.localeCompare(a.c.fecha||''));
-  listConIndice.forEach(({c,idxReal})=>{
-    const costoU=c.unidades_total>0?(c.inversion_total/c.unidades_total):0;
-    const tieneHistorialPrecio=c.historial_precio?.length>0;
-    const ultimoCambio=tieneHistorialPrecio?c.historial_precio[c.historial_precio.length-1]:null;
-    const tieneDetalle=c.detalle_productos?.length>0;
-    const esCotizacion=c.es_cotizacion===true;
-    h+=`<tr style="${esCotizacion?'opacity:.75':''}">
-      <td>${tieneDetalle?`<button class="btn-icon" onclick="impToggleDetalle(${idxReal})" id="imp_det_btn_${idxReal}" title="Ver desglose por producto">▶</button>`:''}</td>
-      <td>${c.fecha||'—'}</td>
-      <td>
-        <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:${c.tipo==='contenedor'?'rgba(77,163,255,.1)':'rgba(255,138,77,.1)'};color:${c.tipo==='contenedor'?'var(--blu)':'var(--org)'}">${c.tipo||'compra'}</span>
-        ${esCotizacion?`<span style="font-size:9px;padding:2px 5px;border-radius:6px;background:rgba(232,255,71,.1);color:var(--acc);margin-left:3px" title="No se aplicó a la base de costos de productos">🔖 cotización</span>`:''}
-      </td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${esc(c.descripcion||'—')}</td>
-      <td style="color:var(--t3)">${esc(c.proveedor||'—')}</td>
-      <td style="font-size:10px">${(c.skus||[]).slice(0,3).join(', ')}${(c.skus||[]).length>3?' +'+((c.skus||[]).length-3):''}</td>
-      <td class="mono">${(c.unidades_total||0).toLocaleString()}</td>
-      <td class="mono" style="color:var(--t3)">${c.fob_usd>0?'USD '+c.fob_usd.toLocaleString():'—'}</td>
-      <td class="mono">
-        ${fS(Math.round(c.inversion_total||0))}
-        ${ultimoCambio?`<div title="Cambió ${ultimoCambio.variacion_pct>=0?'+':''}${ultimoCambio.variacion_pct.toFixed(1)}% el ${ultimoCambio.fecha}" style="font-size:9px;color:${ultimoCambio.variacion_pct>=0?'var(--red)':'var(--grn)'};cursor:help">${ultimoCambio.variacion_pct>=0?'▲':'▼'} ${Math.abs(ultimoCambio.variacion_pct).toFixed(1)}%</div>`:''}
-      </td>
-      <td class="mono" style="color:var(--acc)">${costoU>0?fS(Math.round(costoU)):'—'}</td>
-      <td>
-        <button class="btn-icon" onclick="impHistEditar(${idxReal})" title="Editar">✎</button>
-        <button class="btn-icon" onclick="impHistEliminar(${idxReal})" style="color:var(--red)" title="Eliminar">✕</button>
-      </td>
-    </tr>
-    ${tieneDetalle?`<tr id="imp_det_row_${idxReal}" style="display:none"><td colspan="11" style="padding:0">
-      <div style="background:var(--s2);padding:10px 14px;border-left:3px solid var(--acc)">
-        <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:6px">Desglose por producto</div>
-        <table class="tbl" style="font-size:10px;background:transparent"><thead><tr>
-          <th>SKU</th><th>Producto</th><th>Cant.</th><th>CBM</th><th>FOB prod USD</th><th>FOB inv USD</th>
-          <th>Derecho%</th><th>IVA%</th><th>IVA adic%</th><th>Costo u. ARS</th><th>Costo total ARS</th>
-        </tr></thead><tbody>
-          ${c.detalle_productos.map(d=>`<tr>
-            <td><span class="sku">${esc(d.sku)}</span></td>
-            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${esc(d.nombre)}</td>
-            <td>${d.cantidad}</td>
-            <td>${d.cbm||'—'}</td>
-            <td class="mono">${d.fob_prod_usd?'USD '+d.fob_prod_usd.toFixed(2):'—'}</td>
-            <td class="mono">${d.fob_inv_usd?'USD '+d.fob_inv_usd.toFixed(2):'—'}</td>
-            <td>${d.derecho_pct}%</td>
-            <td>${d.iva_pct}%</td>
-            <td>${d.iva_adic_pct}%</td>
-            <td class="mono" style="color:var(--acc)">${fS(Math.round(d.costo_unit_ars))}</td>
-            <td class="mono" style="font-weight:600">${fS(Math.round(d.costo_total_ars))}</td>
-          </tr>`).join('')}
-        </tbody></table>
-      </div>
-    </td></tr>`:''}`;
+  var totInv=0,totUds=0,cot=0;
+  list.forEach(function(c){if(!c.es_cotizacion){totInv+=(c.inversion_total||0);totUds+=(c.unidades_total||0);}else{cot++;}});
+  var kh='<div class="g4" style="margin-bottom:12px">'+
+    '<div class="kpi"><div class="kl">Compras reales</div><div class="kv">'+(list.length-cot)+'</div><div class="ks">'+cot+' cotizaciones</div></div>'+
+    '<div class="kpi"><div class="kl">Inversion total</div><div class="kv">'+fS(Math.round(totInv))+'</div></div>'+
+    '<div class="kpi"><div class="kl">Unidades totales</div><div class="kv">'+totUds.toLocaleString()+'</div></div>'+
+    '<div class="kpi"><div class="kl">Costo prom. u.</div><div class="kv">'+(totUds>0?fS(Math.round(totInv/totUds)):'—')+'</div></div></div>';
+  var sorted=list.map(function(c,i){return{c:c,i:i};}).sort(function(a,b){return b.c.fecha?b.c.fecha.localeCompare(a.c.fecha||''):0;});
+  var h='<table class="tbl" style="font-size:11px"><thead><tr><th></th><th>Fecha</th><th>Tipo</th><th>Descripcion</th><th>SKUs</th><th>Uds</th><th>Inversion ARS</th><th>Costo u.</th><th></th></tr></thead><tbody>';
+  sorted.forEach(function(x){
+    var c=x.c,i=x.i;
+    var costoU=c.unidades_total>0?(c.inversion_total/c.unidades_total):0;
+    var det=c.detalle_productos&&c.detalle_productos.length>0;
+    var esCot=c.es_cotizacion===true;
+    var ult=c.historial_precio&&c.historial_precio.length?c.historial_precio[c.historial_precio.length-1]:null;
+    var detHtml='';
+    if(det){
+      var rows=c.detalle_productos.map(function(d){
+        return '<tr><td><span class="sku">'+esc(d.sku)+'</span></td>'+
+          '<td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">'+esc(d.nombre||'')+'</td>'+
+          '<td>'+d.cantidad+'</td><td>'+(d.cbm||'—')+'</td>'+
+          '<td class="mono">'+(d.fob_prod_usd?'USD '+d.fob_prod_usd.toFixed(2):'—')+'</td>'+
+          '<td class="mono">'+(d.fob_inv_usd?'USD '+d.fob_inv_usd.toFixed(2):'—')+'</td>'+
+          '<td>'+d.derecho_pct+'%</td><td>'+d.iva_pct+'%</td><td>'+d.iva_adic_pct+'%</td>'+
+          '<td class="mono" style="color:var(--acc)">'+fS(Math.round(d.costo_unit_ars))+'</td>'+
+          '<td class="mono" style="font-weight:600">'+fS(Math.round(d.costo_total_ars))+'</td></tr>';
+      }).join('');
+      detHtml='<tr id="imp_det_row_'+i+'" style="display:none"><td colspan="9" style="padding:0">'+
+        '<div style="background:var(--s2);padding:10px 14px;border-left:3px solid var(--acc)">'+
+        '<div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:6px">DESGLOSE POR PRODUCTO</div>'+
+        '<table class="tbl" style="font-size:10px;background:transparent"><thead><tr>'+
+        '<th>SKU</th><th>Producto</th><th>Cant.</th><th>CBM</th>'+
+        '<th>FOB prod USD</th><th>FOB inv USD</th><th>Derecho%</th><th>IVA%</th><th>IVA adic%</th>'+
+        '<th>Costo u. ARS</th><th>Costo total ARS</th></tr></thead><tbody>'+rows+'</tbody></table></div></td></tr>';
+    }
+    h+='<tr>'+
+      '<td>'+(det?'<button class="btn-icon" onclick="impToggleDetalle('+i+')" id="imp_det_btn_'+i+'">▶</button>':'')+'</td>'+
+      '<td>'+(c.fecha||'—')+'</td>'+
+      '<td><span style="font-size:10px;padding:1px 5px;border-radius:5px;background:'+(c.tipo==='contenedor'?'rgba(77,163,255,.15)':'rgba(255,138,77,.15)')+';color:'+(c.tipo==='contenedor'?'var(--blu)':'var(--org)')+'">'+esc(c.tipo||'—')+'</span>'+
+      (esCot?' <span style="font-size:9px;padding:1px 5px;border-radius:5px;background:rgba(232,255,71,.1);color:var(--acc)">🔖</span>':'')+'</td>'+
+      '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">'+esc(c.descripcion||'—')+'</td>'+
+      '<td style="font-size:10px">'+((c.skus||[]).slice(0,3).join(', '))+((c.skus||[]).length>3?' +'+(c.skus.length-3):'')+'</td>'+
+      '<td class="mono">'+((c.unidades_total||0).toLocaleString())+'</td>'+
+      '<td class="mono">'+fS(Math.round(c.inversion_total||0))+(ult?'<div style="font-size:9px;color:'+(ult.variacion_pct>=0?'var(--red)':'var(--grn)')+'">'+( ult.variacion_pct>=0?'▲':'▼')+' '+Math.abs(ult.variacion_pct).toFixed(1)+'%</div>':'')+'</td>'+
+      '<td class="mono" style="color:var(--acc)">'+(costoU>0?fS(Math.round(costoU)):'—')+'</td>'+
+      '<td style="white-space:nowrap"><button class="btn-icon" onclick="impHistEditar('+i+')">✎</button>'+
+      '<button class="btn-icon" onclick="impHistEliminar('+i+')" style="color:var(--red)">✕</button></td>'+
+      '</tr>'+detHtml;
   });
   el.innerHTML=kh+h+'</tbody></table>';
 };
 
-window.impToggleDetalle=function(idx){
-  const row=document.getElementById('imp_det_row_'+idx);
-  const btn=document.getElementById('imp_det_btn_'+idx);
-  if(!row) return;
-  const visible=row.style.display!=='none';
-  row.style.display=visible?'none':'';
-  if(btn) btn.textContent=visible?'▶':'▼';
+window.impToggleDetalle=function(i){
+  var r=document.getElementById('imp_det_row_'+i);
+  var b=document.getElementById('imp_det_btn_'+i);
+  if(!r)return;
+  var v=r.style.display!=='none';
+  r.style.display=v?'none':'';
+  if(b)b.textContent=v?'▶':'▼';
 };
 
 window.impHistAgregar=function(){
-  const modal=`<div id="imp_hist_modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center">
-    <div style="background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:24px;width:520px;max-width:94vw;max-height:90vh;overflow-y:auto">
-      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;margin-bottom:16px">📦 Registrar compra / importación</div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-        <div><label class="lbl">Fecha</label><input class="inp" id="ihf_fecha" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
-        <div><label class="lbl">Tipo</label>
-          <select class="inp" id="ihf_tipo">
-            <option value="contenedor">🚢 Contenedor</option>
-            <option value="courier">✈ Courier</option>
-            <option value="compra_local">🏪 Compra local</option>
-            <option value="otro">Otro</option>
-          </select>
-        </div>
-        <div style="grid-column:1/-1"><label class="lbl">Descripción</label><input class="inp" id="ihf_desc" placeholder="ej: 40HC Sillas + Soportes TV - Junio 2026"></div>
-        <div><label class="lbl">Rubro principal</label>
-          <select class="inp" id="ihf_rubro">
-            <option value="">Sin clasificar</option>
-          </select>
-        </div>
-        <div><label class="lbl">Proveedor</label><input class="inp" id="ihf_prov" placeholder="Nombre del proveedor"></div>
-        <div><label class="lbl">FOB total USD</label><input class="inp" id="ihf_fob" type="number" placeholder="0"></div>
-        <div><label class="lbl">Inversión total ARS</label><input class="inp" id="ihf_inv" type="number" placeholder="0"><div style="font-size:9px;color:var(--t3);margin-top:2px">Todo incluido: flete, arancel, IVA, etc.</div></div>
-        <div><label class="lbl">Unidades totales</label><input class="inp" id="ihf_uds" type="number" placeholder="0"></div>
-        <div><label class="lbl">CBM total (m³)</label><input class="inp" id="ihf_cbm" type="number" placeholder="0" step="0.01"></div>
-      </div>
-
-      <div style="margin-bottom:12px">
-        <label class="lbl">SKUs incluidos (separados por coma)</label>
-        <textarea class="inp" id="ihf_skus" rows="2" placeholder="NVK-3000, NVK-22-64F, NVK-68-223" style="resize:vertical"></textarea>
-      </div>
-
-      <div style="margin-bottom:12px">
-        <label class="lbl">Notas</label>
-        <textarea class="inp" id="ihf_notas" rows="2" placeholder="Observaciones, número de BL, fecha de arribo, etc." style="resize:vertical"></textarea>
-      </div>
-
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button class="btn-g" onclick="document.getElementById('imp_hist_modal').remove()">Cancelar</button>
-        <button class="btn" onclick="impHistGuardar()">💾 Guardar</button>
-      </div>
-    </div>
-  </div>`;
+  var rubros=(window.RUBROS_NIVIKO||[]).map(function(r){return'<option value="'+r.id+'">'+esc(r.label)+'</option>';}).join('');
+  var modal='<div id="imp_hist_modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center">'+
+    '<div style="background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:24px;width:520px;max-width:94vw;max-height:90vh;overflow-y:auto">'+
+    '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:800;margin-bottom:16px">📦 Registrar compra</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+
+    '<div><label class="lbl">Fecha</label><input class="inp" id="ihf_fecha" type="date" value="'+new Date().toISOString().split('T')[0]+'"></div>'+
+    '<div><label class="lbl">Tipo</label><select class="inp" id="ihf_tipo">'+
+    '<option value="contenedor">🚢 Contenedor</option><option value="courier">✈ Courier</option>'+
+    '<option value="compra_local">🏪 Compra local</option><option value="otro">Otro</option></select></div>'+
+    '<div style="grid-column:1/-1"><label class="lbl">Descripcion</label><input class="inp" id="ihf_desc" placeholder="ej: 40HC Sillas + Soportes TV"></div>'+
+    '<div><label class="lbl">Rubro</label><select class="inp" id="ihf_rubro"><option value="">Sin clasificar</option>'+rubros+'</select></div>'+
+    '<div><label class="lbl">Proveedor</label><input class="inp" id="ihf_prov"></div>'+
+    '<div><label class="lbl">FOB total USD</label><input class="inp" id="ihf_fob" type="number" placeholder="0"></div>'+
+    '<div><label class="lbl">Inversion total ARS</label><input class="inp" id="ihf_inv" type="number" placeholder="0"><div style="font-size:9px;color:var(--t3)">Con todo incluido</div></div>'+
+    '<div><label class="lbl">Unidades totales</label><input class="inp" id="ihf_uds" type="number" placeholder="0"></div>'+
+    '<div><label class="lbl">CBM total</label><input class="inp" id="ihf_cbm" type="number" placeholder="0" step="0.01"></div>'+
+    '</div>'+
+    '<div style="margin-bottom:10px"><label class="lbl">SKUs incluidos (coma)</label>'+
+    '<textarea class="inp" id="ihf_skus" rows="2" placeholder="NVK-3000, NVK-22-64F" style="resize:vertical"></textarea></div>'+
+    '<div style="margin-bottom:12px"><label class="lbl">Notas</label>'+
+    '<textarea class="inp" id="ihf_notas" rows="2" style="resize:vertical"></textarea></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+    '<button class="btn-g" onclick="document.getElementById('imp_hist_modal').remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
+    '<button class="btn" onclick="window._impHistGuardarOverride?window._impHistGuardarOverride():impHistGuardar()">💾 Guardar</button>'+
+    '</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',modal);
 };
 
-// ── GUARDADO AUTOMÁTICO UNIFICADO ─────────────────────────────────────────────
-// Se llama desde Container, Courier y Multi al apretar "Guardar →"
-// No pide nada al usuario — usa los datos que ya calculó en la calculadora
-window.impGuardarCompraAuto=async function(datos){
-  if(!window._impHistorial){
-    const d=await fb.get('imp_historial').catch(()=>null);
-    window._impHistorial=d?.list||[];
-  }
-  const entry={
-    fecha: new Date().toISOString().split('T')[0],
-    tipo: datos.tipo||'contenedor',
-    descripcion: datos.descripcion||'',
-    rubro: datos.rubro||'',
-    proveedor: datos.proveedor||'',
-    fob_usd: datos.fob_usd||0,
-    inversion_total: datos.inversion_total||0,
-    unidades_total: datos.unidades_total||0,
-    cbm_total: datos.cbm_total||0,
-    skus: datos.skus||[],
-    detalle_productos: datos.detalle_productos||[], // desglose completo por producto (Multi)
-    aplicado_a_productos: datos.aplicado_a_productos!==false, // false solo si es cotización
-    es_cotizacion: datos.es_cotizacion||false,
-    notas: datos.es_cotizacion
-      ? 'Cotización — no aplicada a la base de costos de productos'
-      : 'Generado automáticamente desde '+(datos.tipo==='courier'?'Courier':datos.tipo==='contenedor'&&datos.skus?.length>1?'Multi':'Container'),
-    ts: new Date().toISOString(),
-    auto: true
-  };
-  window._impHistorial.push(entry);
-  const saved=await fb.set('imp_historial',{list:window._impHistorial}).catch(e=>{console.warn('[imp_historial]',e);return false;});
-  if(saved===false) toast('⚠ Error al guardar en el historial — revisá la conexión','err');
-  return entry;
-};
-
 window.impHistGuardar=async function(){
-  const item={
-    fecha:     document.getElementById('ihf_fecha')?.value||'',
-    tipo:      document.getElementById('ihf_tipo')?.value||'contenedor',
+  var item={
+    fecha:document.getElementById('ihf_fecha')?.value||'',
+    tipo:document.getElementById('ihf_tipo')?.value||'contenedor',
     descripcion:document.getElementById('ihf_desc')?.value||'',
-    rubro:     document.getElementById('ihf_rubro')?.value||'',
-    proveedor: document.getElementById('ihf_prov')?.value||'',
-    fob_usd:   parseFloat(document.getElementById('ihf_fob')?.value)||0,
+    rubro:document.getElementById('ihf_rubro')?.value||'',
+    proveedor:document.getElementById('ihf_prov')?.value||'',
+    fob_usd:parseFloat(document.getElementById('ihf_fob')?.value)||0,
     inversion_total:parseFloat(document.getElementById('ihf_inv')?.value)||0,
     unidades_total:parseInt(document.getElementById('ihf_uds')?.value)||0,
-    cbm_total: parseFloat(document.getElementById('ihf_cbm')?.value)||0,
-    skus:      (document.getElementById('ihf_skus')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
-    notas:     document.getElementById('ihf_notas')?.value||'',
-    ts:        new Date().toISOString()
+    cbm_total:parseFloat(document.getElementById('ihf_cbm')?.value)||0,
+    skus:(document.getElementById('ihf_skus')?.value||'').split(',').map(function(s){return s.trim();}).filter(Boolean),
+    notas:document.getElementById('ihf_notas')?.value||'',
+    detalle_productos:[],aplicado_a_productos:true,es_cotizacion:false,
+    ts:new Date().toISOString(),
   };
-  if(!window._impHistorial) window._impHistorial=[];
+  if(!window._impHistorial)window._impHistorial=[];
   window._impHistorial.push(item);
-  await fb.set('imp_historial',{list:window._impHistorial}).catch(()=>{});
+  await fb.set('imp_historial',{list:window._impHistorial}).catch(function(){});
   document.getElementById('imp_hist_modal')?.remove();
-  toast('✓ Compra registrada','ok');
+  toast('Compra registrada','ok');
   impRenderHistorial();
 };
 
-// Guardar referencia a la función original de "agregar" para poder restaurarla después de editar
-window._impHistGuardarOriginal = window._impHistGuardarOriginal || window.impHistGuardar;
-
 window.impHistEditar=async function(idx){
-  const item=window._impHistorial?.[idx]; if(!item) return;
-  impHistAgregar(); // abrir modal vacío
-  // Esperar que el DOM renderice
-  setTimeout(()=>{
-    document.getElementById('ihf_fecha').value=item.fecha||'';
-    document.getElementById('ihf_tipo').value=item.tipo||'contenedor';
-    document.getElementById('ihf_desc').value=item.descripcion||'';
-    const rubroEl=document.getElementById('ihf_rubro'); if(rubroEl) rubroEl.value=item.rubro||'';
-    document.getElementById('ihf_prov').value=item.proveedor||'';
-    document.getElementById('ihf_fob').value=item.fob_usd||'';
-    document.getElementById('ihf_inv').value=item.inversion_total||'';
-    document.getElementById('ihf_uds').value=item.unidades_total||'';
-    document.getElementById('ihf_cbm').value=item.cbm_total||'';
-    document.getElementById('ihf_skus').value=(item.skus||[]).join(', ');
-    document.getElementById('ihf_notas').value=item.notas||'';
-
-    // Mostrar historial de cambios de precio si existe
-    if(item.historial_precio?.length){
-      const histHtml=item.historial_precio.map(h=>
-        `<div style="font-size:10px;color:var(--t3);padding:2px 0">${h.fecha}: ${fS(Math.round(h.inversion_anterior))} → ${fS(Math.round(h.inversion_nueva))} (${h.variacion_pct>=0?'+':''}${h.variacion_pct.toFixed(1)}%)</div>`
-      ).join('');
-      const notasEl=document.getElementById('ihf_notas');
-      if(notasEl) notasEl.insertAdjacentHTML('afterend',
-        `<div id="ihf_historial_precio" style="margin-top:8px;padding:8px;background:var(--s2);border-radius:var(--r)">
-          <div style="font-size:10px;color:var(--acc);font-weight:600;margin-bottom:4px">📈 Historial de cambios de inversión</div>
-          ${histHtml}
-        </div>`);
-    }
-
-    // Override guardar para editar en vez de agregar
-    window.impHistGuardar=async function(){
-      const nuevaInversion=parseFloat(document.getElementById('ihf_inv')?.value)||0;
-      const inversionAnterior=item.inversion_total||0;
-
-      // Si cambió la inversión, registrar el cambio en el historial de precios
-      const historialPrecio=item.historial_precio||[];
-      if(nuevaInversion>0 && inversionAnterior>0 && Math.abs(nuevaInversion-inversionAnterior)>0.01){
-        const variacionPct=((nuevaInversion-inversionAnterior)/inversionAnterior)*100;
-        historialPrecio.push({
-          fecha: new Date().toISOString().split('T')[0],
-          inversion_anterior: inversionAnterior,
-          inversion_nueva: nuevaInversion,
-          variacion_pct: variacionPct,
-        });
+  var item=window._impHistorial?.[idx];if(!item)return;
+  impHistAgregar();
+  setTimeout(function(){
+    var s=function(id,v){var e=document.getElementById(id);if(e)e.value=v||'';};
+    s('ihf_fecha',item.fecha);s('ihf_tipo',item.tipo);s('ihf_desc',item.descripcion);
+    s('ihf_prov',item.proveedor);s('ihf_fob',item.fob_usd);s('ihf_inv',item.inversion_total);
+    s('ihf_uds',item.unidades_total);s('ihf_cbm',item.cbm_total);
+    s('ihf_skus',(item.skus||[]).join(', '));s('ihf_notas',item.notas);
+    var re=document.getElementById('ihf_rubro');if(re)re.value=item.rubro||'';
+    window._impHistGuardarOverride=async function(){
+      var nInv=parseFloat(document.getElementById('ihf_inv')?.value)||0;
+      var hp=item.historial_precio||[];
+      if(nInv>0&&item.inversion_total>0&&Math.abs(nInv-item.inversion_total)>0.01){
+        hp.push({fecha:new Date().toISOString().split('T')[0],
+          inversion_anterior:item.inversion_total,inversion_nueva:nInv,
+          variacion_pct:((nInv-item.inversion_total)/item.inversion_total)*100});
       }
-
-      const updated={...item,
+      var updated=Object.assign({},item,{
         fecha:document.getElementById('ihf_fecha')?.value,
         tipo:document.getElementById('ihf_tipo')?.value,
         descripcion:document.getElementById('ihf_desc')?.value,
         rubro:document.getElementById('ihf_rubro')?.value||'',
         proveedor:document.getElementById('ihf_prov')?.value,
         fob_usd:parseFloat(document.getElementById('ihf_fob')?.value)||0,
-        inversion_total:nuevaInversion,
+        inversion_total:nInv,
         unidades_total:parseInt(document.getElementById('ihf_uds')?.value)||0,
         cbm_total:parseFloat(document.getElementById('ihf_cbm')?.value)||0,
-        skus:(document.getElementById('ihf_skus')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
+        skus:(document.getElementById('ihf_skus')?.value||'').split(',').map(function(s){return s.trim();}).filter(Boolean),
         notas:document.getElementById('ihf_notas')?.value||'',
-        historial_precio: historialPrecio,
-      };
+        historial_precio:hp,
+      });
       window._impHistorial[idx]=updated;
-      await fb.set('imp_historial',{list:window._impHistorial}).catch(()=>{});
+      await fb.set('imp_historial',{list:window._impHistorial}).catch(function(){});
       document.getElementById('imp_hist_modal')?.remove();
-      // Restaurar la función original de guardar (no dejarla en null)
-      window.impHistGuardar=window._impHistGuardarOriginal;
-
-      if(historialPrecio.length>0 && historialPrecio[historialPrecio.length-1].fecha===new Date().toISOString().split('T')[0]){
-        const ultimo=historialPrecio[historialPrecio.length-1];
-        const signo=ultimo.variacion_pct>=0?'subió':'bajó';
-        const color=ultimo.variacion_pct>=0?'⚠':'✓';
-        toast(`${color} Compra actualizada — la inversión ${signo} ${Math.abs(ultimo.variacion_pct).toFixed(1)}%`,'ok');
-      } else {
-        toast('✓ Compra actualizada','ok');
-      }
+      window._impHistGuardarOverride=null;
+      if(hp.length&&hp[hp.length-1].fecha===new Date().toISOString().split('T')[0]){
+        var u=hp[hp.length-1];
+        toast((u.variacion_pct>=0?'Inversion subio ':'Inversion bajo ')+Math.abs(u.variacion_pct).toFixed(1)+'%','ok');
+      }else toast('Compra actualizada','ok');
       impRenderHistorial();
     };
   },50);
 };
 
 window.impHistEliminar=async function(idx){
-  if(!confirm('¿Eliminar esta compra?')) return;
+  if(!confirm('Eliminar esta compra del historial?'))return;
   window._impHistorial.splice(idx,1);
-  await fb.set('imp_historial',{list:window._impHistorial}).catch(()=>{});
-  toast('Compra eliminada','ok');
+  await fb.set('imp_historial',{list:window._impHistorial}).catch(function(){});
+  toast('Eliminada','ok');
   impRenderHistorial();
 };
 
-
-// ══════════════════════════════════════════════════════════════════════════════
-// RESUMEN EJECUTIVO — texto narrativo del período en Overview
-// ══════════════════════════════════════════════════════════════════════════════
-function ovRenderResumenEjecutivo(d){
-  const el=document.getElementById('ov_resumen_texto'); if(!el) return;
-  const{dateFrom,dateTo,canales,totVentas,totGanancia,totUnidades,totOrdenes,mgGlobal,mgTotCosto,ml,may,fj}=d;
-
-  if(!totVentas){
-    el.innerHTML='Sin ventas registradas en el período <strong>'+dateFrom+' → '+dateTo+'</strong>.';
-    return;
-  }
-
-  const partes=[];
-
-  // 1. Apertura con el total
-  const diasPeriodo=Math.max(1,Math.round((new Date(dateTo)-new Date(dateFrom))/864e5)+1);
-  const promDiario=totVentas/diasPeriodo;
-  partes.push(`En el período del <strong>${dateFrom}</strong> al <strong>${dateTo}</strong> (${diasPeriodo} día${diasPeriodo!==1?'s':''}) se facturaron <strong style="color:var(--acc)">${fS(Math.round(totVentas))}</strong> en ${totOrdenes.toLocaleString('es-AR')} operaciones, con una ganancia neta de <strong style="color:${totGanancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(totGanancia))}</strong> (margen del <strong>${mgGlobal.toFixed(1)}%</strong> sobre venta, <strong>${mgTotCosto.toFixed(1)}%</strong> sobre costo de mercadería).`);
-
-  // 2. Promedio diario si el período es largo
-  if(diasPeriodo>=3){
-    partes.push(`Esto representa un promedio de <strong>${fS(Math.round(promDiario))}/día</strong> y ${Math.round(totUnidades/diasPeriodo)} unidades/día.`);
-  }
-
-  // 3. Comparación entre canales
-  if(canales.length>1){
-    const mejorMg=[...canales].sort((a,b)=>{
-      const mgA=a.venta>0?a.ganancia/a.venta:0, mgB=b.venta>0?b.ganancia/b.venta:0;
-      return mgB-mgA;
-    })[0];
-    const mejorVenta=[...canales].sort((a,b)=>b.venta-a.venta)[0];
-    const mgMejor=mejorMg.venta>0?(mejorMg.ganancia/mejorMg.venta*100):0;
-    if(mejorMg.nombre!==mejorVenta.nombre){
-      partes.push(`<strong>${mejorVenta.nombre}</strong> concentra el mayor volumen de ventas, pero <strong>${mejorMg.nombre}</strong> tiene el mejor margen relativo (${mgMejor.toFixed(1)}%).`);
-    } else {
-      partes.push(`<strong>${mejorVenta.nombre}</strong> lidera tanto en volumen como en margen (${mgMejor.toFixed(1)}%).`);
-    }
-  }
-
-  // 4. Alerta de rubros negativos (si hay datos de rubro ya calculados arriba)
-  // Se recalcula liviano acá para no depender de orden de ejecución
-  const ordsFiltradas=(typeof S!=='undefined'?S.orders:[]).filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
-  const porRubroTmp={};
-  ordsFiltradas.forEach(o=>{
-    const p=S.products.find(x=>x.sku===o.sku||x.sku===o.sku?.replace(/-[NBRGPSMA](-X\d+)?$/i,''));
-    const r=p?.rubro||p?.rubroAuto||'sin_clasificar';
-    if(!porRubroTmp[r]) porRubroTmp[r]={ventas:0,ganancia:0};
-    porRubroTmp[r].ventas+=o.venta||0; porRubroTmp[r].ganancia+=o.ganancia||0;
-  });
-  const rubrosNeg=Object.entries(porRubroTmp).filter(([,v])=>v.ganancia<0&&v.ventas>0);
-  const rubroLabels2=Object.fromEntries((window.RUBROS_NIVIKO||[]).map(r=>[r.id,r.label]));
-  if(rubrosNeg.length){
-    const nombres=rubrosNeg.map(([r])=>rubroLabels2[r]||r).join(', ');
-    partes.push(`⚠ <strong style="color:var(--red)">${rubrosNeg.length} rubro${rubrosNeg.length!==1?'s':''}</strong> con ganancia negativa este período: ${nombres}. Vale la pena revisar precios o costos.`);
-  }
-
-  // 5. Rubro top
-  const rubroTop=Object.entries(porRubroTmp).sort((a,b)=>b[1].ganancia-a[1].ganancia)[0];
-  if(rubroTop&&rubroTop[1].ganancia>0){
-    const label=rubroLabels2[rubroTop[0]]||rubroTop[0];
-    partes.push(`El rubro más rentable fue <strong style="color:var(--acc)">${label}</strong> con ${fS(Math.round(rubroTop[1].ganancia))} de ganancia.`);
-  }
-
-  // 6. Alertas de sincronización
-  const metaCheck=S.cfg?.lastReconcile;
-  if(!metaCheck){
-    partes.push(`<span style="color:var(--org)">Nota: nunca se ejecutó una reconciliación de canceladas — los números pueden incluir órdenes que luego se cancelaron.</span>`);
-  }
-
-  el.innerHTML=partes.join(' ');
-}
-
-
-// ══════════════════════════════════════════════════════════════════════════════
-// HISTORIAL DE COMPRAS — Tabs de Rentabilidad Real y Estimador
-// ══════════════════════════════════════════════════════════════════════════════
-
-window.impTabHist=function(tab){
-  ['lista','rentab','estimar'].forEach(t=>{
-    const p=document.getElementById('ih_panel_'+t);
-    const b=document.getElementById('ihtab_'+t);
-    if(p) p.style.display=t===tab?'':'none';
-    if(b){b.style.background=t===tab?'var(--acc)':'';b.style.color=t===tab?'#000':'';}
-  });
-  if(tab==='rentab') impRenderRentabilidadReal();
-  if(tab==='estimar') impPopularEstimador();
-};
-
-// Poblar el select de rubro en el formulario al abrir el modal
-const _origImpHistAgregar=window.impHistAgregar;
-window.impHistAgregar=function(){
-  _origImpHistAgregar();
-  setTimeout(()=>{
-    const sel=document.getElementById('ihf_rubro');
-    if(sel) sel.innerHTML='<option value="">Sin clasificar</option>'+
-      (window.RUBROS_NIVIKO||[]).map(r=>`<option value="${r.id}">${esc(r.label)}</option>`).join('');
-  },10);
-};
-
-// ── RENTABILIDAD REAL: cruza cada compra con sus ventas reales ──────────────
 window.impRenderRentabilidadReal=async function(){
-  const el=document.getElementById('ih_rentab_body'); if(!el) return;
-  el.innerHTML='<div style="color:var(--t3)">⏳ Calculando...</div>';
-
-  if(!window._impHistorial){
-    const d=await fb.get('imp_historial').catch(()=>null);
-    window._impHistorial=d?.list||[];
-  }
-  const compras=window._impHistorial.filter(c=>c.skus?.length);
-  if(!compras.length){
-    el.innerHTML='<p style="color:var(--t3);text-align:center;padding:16px">Registrá compras con SKUs asociados para ver su rentabilidad real.</p>';
-    return;
-  }
-
-  let h='<table class="tbl" style="font-size:11px"><thead><tr>'+
-    '<th>Fecha compra</th><th>Descripción</th><th>Inversión</th><th>Unidades compradas</th>'+
-    '<th>Unidades vendidas</th><th>% vendido</th><th>Venta generada</th><th>Ganancia generada</th>'+
-    '<th>ROI sobre inversión</th><th>Días hasta agotar</th><th>Velocidad venta</th>'+
+  var el=document.getElementById('ih_rentab_body');if(!el)return;
+  el.innerHTML='<div style="color:var(--t3)">Calculando...</div>';
+  if(!window._impHistorial){var d=await fb.get('imp_historial').catch(function(){return null;});window._impHistorial=d&&d.list?d.list:[];}
+  var compras=(window._impHistorial||[]).filter(function(c){return c.skus&&c.skus.length&&!c.es_cotizacion;});
+  if(!compras.length){el.innerHTML='<p style="color:var(--t3);text-align:center;padding:16px">Registra compras con SKUs para ver rentabilidad real.</p>';return;}
+  var h='<table class="tbl" style="font-size:11px"><thead><tr>'+
+    '<th>Fecha</th><th>Descripcion</th><th>Inversion</th><th>Uds compradas</th>'+
+    '<th>Uds vendidas</th><th>% vendido</th><th>Venta generada</th><th>Ganancia</th><th>ROI</th><th>Velocidad</th>'+
     '</tr></thead><tbody>';
-
-  compras.forEach(c=>{
-    // Buscar todas las ventas (ML + Mayorista) de los SKUs de esta compra desde la fecha de compra en adelante
-    const skusSet=new Set(c.skus.map(s=>s.trim().toUpperCase()));
-    const ordsRelacionadas=(S.orders||[]).filter(o=>
-      o.fecha>=c.fecha && o.estado!=='cancelled' &&
-      [...skusSet].some(sk=>o.sku?.toUpperCase().startsWith(sk))
-    );
-    const mayRelacionados=((typeof _mayPedidos!=='undefined'&&_mayPedidos?.length)?_mayPedidos:(window._mayPedidosCache||[]))
-      .filter(p=>p.fecha>=c.fecha)
-      .flatMap(p=>(p.items||[]).filter(it=>[...skusSet].some(sk=>(it.sku||it.codigo||'').toUpperCase().startsWith(sk))));
-
-    const udsVendidasML=ordsRelacionadas.reduce((s,o)=>s+(o.unidades||1),0);
-    const udsVendidasMay=mayRelacionados.reduce((s,it)=>s+(it.qty||0),0);
-    const udsVendidas=udsVendidasML+udsVendidasMay;
-
-    const ventaML=ordsRelacionadas.reduce((s,o)=>s+(o.venta||0),0);
-    const ventaMay=mayRelacionados.reduce((s,it)=>{
-      const vSiva=(it.lista||0)*(it.qty||1)*(1-(it.dcom_pct||0)/100)*(1-(it.dfin_pct||0)/100);
-      return s+vSiva;
-    },0);
-    const ventaTotal=ventaML+ventaMay;
-
-    const ganML=ordsRelacionadas.reduce((s,o)=>s+(o.ganancia||0),0);
-    const ganMay=mayRelacionados.reduce((s,it)=>{
-      const vSiva=(it.lista||0)*(it.qty||1)*(1-(it.dcom_pct||0)/100)*(1-(it.dfin_pct||0)/100);
-      const costoIt=(it.costo||0)*(it.qty||1);
-      return s+(vSiva-costoIt);
-    },0);
-    const ganTotal=ganML+ganMay;
-
-    const pctVendido=c.unidades_total>0?(udsVendidas/c.unidades_total*100):0;
-    const roi=c.inversion_total>0?(ganTotal/c.inversion_total*100):0;
-
-    // Fecha de última venta para calcular velocidad
-    const fechasVenta=[...ordsRelacionadas.map(o=>o.fecha)].filter(Boolean).sort();
-    const ultimaVenta=fechasVenta[fechasVenta.length-1];
-    let diasTranscurridos=0, diasAgotar='—', velocidad='—';
-    if(c.fecha){
-      diasTranscurridos=Math.max(1,Math.round((new Date()-new Date(c.fecha))/864e5));
-      if(udsVendidas>0){
-        const udsPorDia=udsVendidas/diasTranscurridos;
-        velocidad=udsPorDia.toFixed(1)+' u/día';
-        if(pctVendido>=99){
-          diasAgotar=ultimaVenta?Math.round((new Date(ultimaVenta)-new Date(c.fecha))/864e5)+' d':'—';
-        } else if(udsPorDia>0){
-          const restantes=c.unidades_total-udsVendidas;
-          diasAgotar='~'+Math.round(restantes/udsPorDia)+'d más';
-        }
-      }
-    }
-
-    const roiC=roi>=50?'var(--grn)':roi>=0?'var(--org)':'var(--red)';
-    const pctC=pctVendido>=80?'var(--grn)':pctVendido>=40?'var(--org)':'var(--red)';
-
-    h+=`<tr>
-      <td>${c.fecha||'—'}</td>
-      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis">${esc(c.descripcion||'—')}</td>
-      <td class="mono">${fS(Math.round(c.inversion_total||0))}</td>
-      <td>${(c.unidades_total||0).toLocaleString()}</td>
-      <td class="mono">${udsVendidas.toLocaleString()}</td>
-      <td style="color:${pctC};font-weight:600">${pctVendido.toFixed(0)}%</td>
-      <td class="mono">${fS(Math.round(ventaTotal))}</td>
-      <td class="mono" style="color:${ganTotal>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(ganTotal))}</td>
-      <td style="color:${roiC};font-weight:700">${roi.toFixed(0)}%</td>
-      <td style="font-size:10px;color:var(--t3)">${diasAgotar}</td>
-      <td style="font-size:10px;color:var(--t3)">${velocidad}</td>
-    </tr>`;
+  compras.forEach(function(c){
+    var skusSet=new Set((c.skus||[]).map(function(s){return s.trim().toUpperCase();}));
+    var ords=(S.orders||[]).filter(function(o){
+      return o.fecha>=c.fecha&&o.estado!=='cancelled'&&Array.from(skusSet).some(function(sk){return o.sku&&o.sku.toUpperCase().startsWith(sk);});
+    });
+    var udsV=ords.reduce(function(s,o){return s+(o.unidades||1);},0);
+    var ventaT=ords.reduce(function(s,o){return s+(o.venta||0);},0);
+    var ganT=ords.reduce(function(s,o){return s+(o.ganancia||0);},0);
+    var pctV=c.unidades_total>0?(udsV/c.unidades_total*100):0;
+    var roi=c.inversion_total>0?(ganT/c.inversion_total*100):0;
+    var dias=c.fecha?Math.max(1,Math.round((new Date()-new Date(c.fecha))/864e5)):1;
+    var vel=udsV>0?(udsV/dias*30).toFixed(1)+' u/mes':'—';
+    h+='<tr>'+
+      '<td>'+(c.fecha||'—')+'</td>'+
+      '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">'+esc(c.descripcion||'—')+'</td>'+
+      '<td class="mono">'+fS(Math.round(c.inversion_total||0))+'</td>'+
+      '<td>'+(c.unidades_total||0).toLocaleString()+'</td>'+
+      '<td class="mono">'+udsV.toLocaleString()+'</td>'+
+      '<td style="color:'+(pctV>=80?'var(--grn)':pctV>=40?'var(--org)':'var(--red)')+';font-weight:600">'+pctV.toFixed(0)+'%</td>'+
+      '<td class="mono">'+fS(Math.round(ventaT))+'</td>'+
+      '<td class="mono" style="color:'+(ganT>=0?'var(--grn)':'var(--red)')+'">'+fS(Math.round(ganT))+'</td>'+
+      '<td style="color:'+(roi>=50?'var(--grn)':roi>=0?'var(--org)':'var(--red)')+';font-weight:700">'+roi.toFixed(0)+'%</td>'+
+      '<td style="font-size:10px;color:var(--t3)">'+vel+'</td></tr>';
   });
-  h+='</tbody></table>';
-  el.innerHTML=h;
+  el.innerHTML=h+'</tbody></table>';
 };
 
-// ── ESTIMADOR: predice rentabilidad de un contenedor nuevo según histórico del rubro ──
 window.impPopularEstimador=function(){
-  const sel=document.getElementById('ihe_rubro'); if(!sel) return;
+  var sel=document.getElementById('ihe_rubro');if(!sel)return;
   sel.innerHTML='<option value="">Seleccionar rubro...</option>'+
-    (window.RUBROS_NIVIKO||[]).map(r=>`<option value="${r.id}">${esc(r.label)}</option>`).join('');
+    (window.RUBROS_NIVIKO||[]).map(function(r){return'<option value="'+r.id+'">'+esc(r.label)+'</option>';}).join('');
 };
 
-window.impEstimarRecalcular=async function(){
-  const rubro=document.getElementById('ihe_rubro')?.value;
-  const inversion=parseFloat(document.getElementById('ihe_inversion')?.value)||0;
-  const unidades=parseInt(document.getElementById('ihe_unidades')?.value)||0;
-  const resEl=document.getElementById('ih_estimar_resultado');
-  if(!resEl) return;
-
-  if(!rubro){
-    resEl.innerHTML='<p style="color:var(--t3);font-size:11px;padding:12px">Seleccioná un rubro para ver el histórico.</p>';
-    return;
-  }
-
-  // Buscar todos los SKUs de ese rubro y su performance histórica
-  const skusDelRubro=S.products.filter(p=>(p.rubro||p.rubroAuto)===rubro).map(p=>p.sku);
-  if(!skusDelRubro.length){
-    resEl.innerHTML='<p style="color:var(--org);font-size:11px;padding:12px">No hay productos clasificados en este rubro todavía.</p>';
-    return;
-  }
-
-  const ordsDelRubro=(S.orders||[]).filter(o=>o.estado!=='cancelled'&&skusDelRubro.includes(o.sku));
-  if(!ordsDelRubro.length){
-    resEl.innerHTML='<p style="color:var(--org);font-size:11px;padding:12px">No hay historial de ventas para este rubro todavía.</p>';
-    return;
-  }
-
-  // Margen histórico promedio del rubro
-  const ventaHist=ordsDelRubro.reduce((s,o)=>s+(o.venta||0),0);
-  const ganHist=ordsDelRubro.reduce((s,o)=>s+(o.ganancia||0),0);
-  const costoHist=ordsDelRubro.reduce((s,o)=>s+(o.costo||0),0);
-  const mgVentaHist=ventaHist>0?(ganHist/ventaHist*100):0;
-  const mgCostoHist=costoHist>0?(ganHist/costoHist*100):0;
-
-  // Velocidad de venta histórica (unidades por mes)
-  const fechas=ordsDelRubro.map(o=>o.fecha).filter(Boolean).sort();
-  const diasHist=fechas.length>1?Math.max(1,Math.round((new Date(fechas[fechas.length-1])-new Date(fechas[0]))/864e5)):30;
-  const udsHist=ordsDelRubro.reduce((s,o)=>s+(o.unidades||1),0);
-  const udsPorMes=udsHist/(diasHist/30);
-
-  // Proyección
-  const rubroInfo=(window.RUBROS_NIVIKO||[]).find(r=>r.id===rubro);
-  const ganEstimada=inversion>0?inversion*(mgCostoHist/100):0;
-  const roiEstimado=mgCostoHist;
-  const mesesParaVender=unidades>0&&udsPorMes>0?(unidades/udsPorMes):0;
-  const contenedoresPorAno=mesesParaVender>0?(12/mesesParaVender):0;
-  const ganAnualEstimada=ganEstimada*contenedoresPorAno;
-
-  resEl.innerHTML=`
-    <div style="background:rgba(232,255,71,.04);border:1px solid rgba(232,255,71,.2);border-radius:var(--r);padding:14px;margin-bottom:12px">
-      <div style="font-size:11px;color:var(--t3);margin-bottom:10px">
-        Basado en <strong style="color:var(--t1)">${ordsDelRubro.length.toLocaleString()}</strong> ventas históricas de
-        <strong style="color:${rubroInfo?.color||'var(--acc)'}">${esc(rubroInfo?.label||rubro)}</strong>
-        en los últimos ${Math.round(diasHist)} días.
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px">
-        <div style="background:var(--s2);border-radius:var(--r);padding:10px">
-          <div style="font-size:10px;color:var(--t3)">Margen histórico s/venta</div>
-          <div style="font-size:18px;font-weight:800;color:${mgVentaHist>=15?'var(--grn)':mgVentaHist>=8?'var(--org)':'var(--red)'}">${mgVentaHist.toFixed(1)}%</div>
-        </div>
-        <div style="background:var(--s2);border-radius:var(--r);padding:10px">
-          <div style="font-size:10px;color:var(--t3)">Margen histórico s/costo</div>
-          <div style="font-size:18px;font-weight:800;color:${mgCostoHist>=20?'var(--grn)':mgCostoHist>=10?'var(--org)':'var(--red)'}">${mgCostoHist.toFixed(1)}%</div>
-        </div>
-        <div style="background:var(--s2);border-radius:var(--r);padding:10px">
-          <div style="font-size:10px;color:var(--t3)">Velocidad de venta histórica</div>
-          <div style="font-size:18px;font-weight:800;color:var(--acc)">${udsPorMes.toFixed(0)} u/mes</div>
-        </div>
-        <div style="background:var(--s2);border-radius:var(--r);padding:10px">
-          <div style="font-size:10px;color:var(--t3)">Contenedores/año posibles</div>
-          <div style="font-size:18px;font-weight:800;color:var(--t1)">${contenedoresPorAno>0?contenedoresPorAno.toFixed(1):'—'}</div>
-        </div>
-      </div>
-      ${inversion>0?`
-      <div style="border-top:1px solid var(--b1);padding-top:12px;margin-top:4px">
-        <div style="font-size:10px;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:8px">Proyección para esta compra</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-          <div>
-            <div style="font-size:10px;color:var(--t3)">Ganancia estimada</div>
-            <div style="font-size:16px;font-weight:700;color:var(--grn)">${fS(Math.round(ganEstimada))}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--t3)">ROI estimado</div>
-            <div style="font-size:16px;font-weight:700;color:${roiEstimado>=50?'var(--grn)':'var(--org)'}">${roiEstimado.toFixed(0)}%</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--t3)">Tiempo de venta estimado</div>
-            <div style="font-size:16px;font-weight:700;color:var(--t1)">${mesesParaVender>0?mesesParaVender.toFixed(1)+' meses':'—'}</div>
-          </div>
-        </div>
-        ${ganAnualEstimada>0?`<div style="margin-top:10px;font-size:11px;color:var(--t3)">
-          Si repetís este tipo de compra cada vez que se agote el stock, podrías generar aproximadamente <strong style="color:var(--acc)">${fS(Math.round(ganAnualEstimada))}/año</strong> en este rubro.
-        </div>`:''}
-      </div>`:'<p style="font-size:11px;color:var(--t3);text-align:center;padding:8px">Completá inversión y unidades para ver la proyección.</p>'}
-    </div>`;
+window.impEstimarRecalcular=function(){
+  var rubro=document.getElementById('ihe_rubro')?.value;
+  var inv=parseFloat(document.getElementById('ihe_inversion')?.value)||0;
+  var uds=parseInt(document.getElementById('ihe_unidades')?.value)||0;
+  var el=document.getElementById('ih_estimar_resultado');if(!el)return;
+  if(!rubro){el.innerHTML='';return;}
+  var skus=(S.products||[]).filter(function(p){return(p.rubro||p.rubroAuto)===rubro;}).map(function(p){return p.sku;});
+  var ords=(S.orders||[]).filter(function(o){return o.estado!=='cancelled'&&skus.includes(o.sku);});
+  if(!ords.length){el.innerHTML='<p style="color:var(--org);font-size:11px">Sin ventas historicas en este rubro.</p>';return;}
+  var vH=ords.reduce(function(s,o){return s+(o.venta||0);},0);
+  var gH=ords.reduce(function(s,o){return s+(o.ganancia||0);},0);
+  var cH=ords.reduce(function(s,o){return s+(o.costo||0);},0);
+  var mgV=vH>0?(gH/vH*100):0,mgC=cH>0?(gH/cH*100):0;
+  var fechas=ords.map(function(o){return o.fecha;}).filter(Boolean).sort();
+  var dias=fechas.length>1?Math.max(1,Math.round((new Date(fechas[fechas.length-1])-new Date(fechas[0]))/864e5)):30;
+  var uTotal=ords.reduce(function(s,o){return s+(o.unidades||1);},0);
+  var uMes=uTotal/(dias/30);
+  var ganEst=inv>0?inv*(mgC/100):0;
+  var meses=uds>0&&uMes>0?(uds/uMes):0;
+  var contAno=meses>0?(12/meses):0;
+  var ri=(window.RUBROS_NIVIKO||[]).find(function(r){return r.id===rubro;});
+  el.innerHTML='<div style="background:rgba(232,255,71,.04);border:1px solid rgba(232,255,71,.2);border-radius:var(--r);padding:14px">'+
+    '<div style="font-size:11px;color:var(--t3);margin-bottom:10px">Basado en '+ords.length+' ventas de <strong style="color:'+(ri?ri.color:'var(--acc)')+'">'+esc(ri?ri.label:rubro)+'</strong></div>'+
+    '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">'+
+    '<div style="background:var(--s2);border-radius:var(--r);padding:10px"><div style="font-size:10px;color:var(--t3)">Margen s/venta</div><div style="font-size:18px;font-weight:800;color:'+(mgV>=15?'var(--grn)':mgV>=8?'var(--org)':'var(--red)')+'">'+mgV.toFixed(1)+'%</div></div>'+
+    '<div style="background:var(--s2);border-radius:var(--r);padding:10px"><div style="font-size:10px;color:var(--t3)">Margen s/costo</div><div style="font-size:18px;font-weight:800;color:'+(mgC>=20?'var(--grn)':mgC>=10?'var(--org)':'var(--red)')+'">'+mgC.toFixed(1)+'%</div></div>'+
+    '<div style="background:var(--s2);border-radius:var(--r);padding:10px"><div style="font-size:10px;color:var(--t3)">Velocidad</div><div style="font-size:18px;font-weight:800;color:var(--acc)">'+uMes.toFixed(0)+' u/mes</div></div>'+
+    '<div style="background:var(--s2);border-radius:var(--r);padding:10px"><div style="font-size:10px;color:var(--t3)">Contenedores/ano</div><div style="font-size:18px;font-weight:800">'+(contAno>0?contAno.toFixed(1):'—')+'</div></div></div>'+
+    (inv>0?'<div style="border-top:1px solid var(--b1);padding-top:10px"><div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:8px">PROYECCION</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'+
+    '<div><div style="font-size:10px;color:var(--t3)">Ganancia estimada</div><div style="font-size:16px;font-weight:700;color:var(--grn)">'+fS(Math.round(ganEst))+'</div></div>'+
+    '<div><div style="font-size:10px;color:var(--t3)">ROI estimado</div><div style="font-size:16px;font-weight:700;color:'+(mgC>=50?'var(--grn)':'var(--org)')+'">'+mgC.toFixed(0)+'%</div></div>'+
+    '<div><div style="font-size:10px;color:var(--t3)">Tiempo de venta</div><div style="font-size:16px;font-weight:700">'+(meses>0?meses.toFixed(1)+' meses':'—')+'</div></div>'+
+    '</div></div>':'')+'</div>';
 };
+
 </script>
