@@ -2214,14 +2214,6 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <select class="inp" id="mp_rubro" style="margin-bottom:10px">
       <option value="">— Auto-detectar desde ML —</option>
     </select>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <div style="flex:1"><label class="lbl">U/pedido (portafolio)</label><input class="inp" id="mp_uds_pedido" type="number" placeholder="Uds por contenedor"></div>
-      <div style="flex:1"><label class="lbl">CBM (m³/u)</label><input class="inp" id="mp_cbm" type="number" step="0.001" placeholder="0.000"></div>
-      <div style="flex:1">
-        <label class="lbl" title="Peso aforado para fee logístico en marketplaces. Aforado = max(peso real, Alto×Ancho×Prof/4000)">Peso aforado (kg)</label>
-        <input class="inp" id="mp_peso_aforado" type="number" step="0.1" placeholder="kg" title="Peso aforado para fee logístico Fulljaus/Frávega/Megatone">
-      </div>
-    </div>
     <div class="macts"><button class="btn-g" onclick="closeModal('mProd')">Cancelar</button><button class="btn" id="saveProdBtn" onclick="saveProd()">Guardar</button></div>
   </div>
 </div>
@@ -2436,12 +2428,6 @@ function updateCalLabel(){
   }
 }
 function getOrders(){return S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);}
-function getOrdersFiltered(){
-  const{from,to}=getRange();
-  const dateFrom=from.split('T')[0], dateTo=to.split('T')[0];
-  const byAcct=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  return byAcct.filter(o=>o.fecha&&o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
-}
 function getRange(){
   const argNow=new Date(new Date().getTime()-3*60*60*1000);
   const fmt=d=>d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
@@ -3378,7 +3364,7 @@ function renderAlertasPage(){
 
 // ── OVERVIEW ──────────────────────────────────────────────────
 function renderOverview(){
-  const o=getOrdersFiltered();
+  const o=getOrders();
   const v=o.reduce((s,x)=>s+x.venta,0),g=o.reduce((s,x)=>s+x.ganancia,0),u=o.reduce((s,x)=>s+x.unidades,0);
   const costo=o.reduce((s,x)=>s+(x.costo||0),0);
   const pctVenta=v>0?g/v:0;
@@ -3393,10 +3379,10 @@ function renderOverview(){
     '<div class="kpi red"><div class="kl">Costo mercadería</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+' de la facturación</div></div>'+
     '<div class="kpi org"><div class="kl">Unidades</div><div class="kv">'+u.toLocaleString('es-AR')+'</div><div class="ks">Ticket prom: '+fS(o.length?v/o.length:0)+'</div></div>';
   const accts=["GBA","BHO","IURA","GBS"];
-  const gA={};accts.forEach(a=>{gA[a]=o.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
+  const gA={};accts.forEach(a=>{gA[a]=S.orders.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
   const maxG=Math.max(...Object.values(gA).map(Math.abs),1);
   document.getElementById("acctBars").innerHTML=accts.map(a=>'<div class="br"><div class="bl">'+a+'</div><div class="bt"><div class="bf" style="width:'+Math.abs(gA[a])/maxG*100+'%;background:'+ac(a)+'"></div></div><div class="bv" style="color:'+(gA[a]>=0?"var(--grn)":"var(--red)")+'">'+fS(gA[a])+"</div></div>").join("");
-  drawDonut(accts,o);
+  drawDonut(accts);
   const sm={};o.forEach(x=>{if(!sm[x.sku])sm[x.sku]={desc:x.desc,u:0,v:0,g:0};sm[x.sku].u+=x.unidades;sm[x.sku].v+=x.venta;sm[x.sku].g+=x.ganancia;});
   const top=Object.entries(sm).sort((a,b)=>b[1].g-a[1].g).slice(0,10);
   let tH="";
@@ -3407,11 +3393,10 @@ function renderOverview(){
   renderAlertPanel();
   renderCanalesIntegrados();
 }
-function drawDonut(accts,filteredOrds){
-  const ords=filteredOrds||S.orders;
+function drawDonut(accts){
   const c=document.getElementById("donut");if(!c)return;
   const ctx=c.getContext("2d");
-  const vals=accts.map(a=>ords.filter(x=>x.acct===a).reduce((s,x)=>s+x.venta,0));
+  const vals=accts.map(a=>S.orders.filter(x=>x.acct===a).reduce((s,x)=>s+x.venta,0));
   const total=vals.reduce((a,b)=>a+b,0);
   ctx.clearRect(0,0,100,100);
   if(!total){ctx.beginPath();ctx.arc(50,50,40,0,2*Math.PI);ctx.fillStyle="#1E1E24";ctx.fill();}
@@ -3810,7 +3795,6 @@ window.editProd=sku=>{
   document.getElementById("mp_pack").value=p.pack||packFromSku(p.sku);
   const udsEl=document.getElementById("mp_uds_pedido"); if(udsEl) udsEl.value=p.uds_pedido||'';
   const cbmEl=document.getElementById("mp_cbm"); if(cbmEl) cbmEl.value=p.cbm||'';
-  const pesoAforadoEl=document.getElementById("mp_peso_aforado"); if(pesoAforadoEl) pesoAforadoEl.value=p.peso_aforado||'';
   const rubroEl=document.getElementById("mp_rubro"); if(rubroEl) rubroEl.value=p.rubro||'';
   openModal("mProd");
 };
@@ -3830,9 +3814,8 @@ window.saveProd=async()=>{
   if(ars<=0){toast("Ingresá el costo ARS","err");return;}
   const udsPedido=parseInt(document.getElementById("mp_uds_pedido")?.value)||0;
   const cbm=parseFloat(document.getElementById("mp_cbm")?.value)||0;
-  const pesoAforado=parseFloat(document.getElementById("mp_peso_aforado")?.value)||0;
   const rubro=document.getElementById("mp_rubro")?.value||'';
-  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{}),...(pesoAforado?{peso_aforado:pesoAforado}:{}),...(rubro?{rubro}:{rubro:undefined})};
+  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{}),...(rubro?{rubro}:{rubro:undefined})};
   // Limpiar rubroAuto si se asignó rubro manual
   if(rubro){ const p=S.products.find(x=>x.sku===sku); if(p) delete p.rubroAuto; }
   S.prodEdits[sku]=prod;
@@ -11641,46 +11624,7 @@ window.FJ_MARKETS_CFG = {
   bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
 };
 
-// Config de costos por defecto con datos reales de Frávega y Megatone (actualizados 2026)
-// Estos valores se pisan con lo guardado en Firebase al cargar configuración guardada
-window.FJ_CONFIG_DEFAULTS = {
-  fravegasc: {
-    comision: 16, publicidad: 0, gastos_extra: 0, fee_logistico_fijo: 0,
-    // Fee logístico por peso aforado (AMBA) - Frávega actúa como "Oncity/nacional"
-    // Tabla imagen 2: por tramos de peso aforado
-    fee_logistico_peso: [
-      {hasta_kg:1.5,   monto:4309},
-      {hasta_kg:5,     monto:5509},
-      {hasta_kg:10,    monto:6779},
-      {hasta_kg:15,    monto:6779},
-      {hasta_kg:20,    monto:9219},
-      {hasta_kg:25,    monto:13209},
-      {hasta_kg:35,    monto:14639},
-      {hasta_kg:50,    monto:19809},
-      {hasta_kg:81,    monto:23109},
-      {hasta_kg:100,   monto:33009},
-      {hasta_kg:250,   monto:38509},
-      {hasta_kg:5000,  monto:71509},
-    ],
-    // Financiación (imagen 3 - tasa violeta)
-    cuotas_tabla: {1:0, 3:6.8, 6:10.6, 9:13.7, 12:16.6}
-  },
-  megatone: {
-    comision: 14, publicidad: 0, gastos_extra: 0, fee_logistico_fijo: 0,
-    // Fee logístico por peso aforado - Megatone (imagen 1 AMBA)
-    fee_logistico_peso: [
-      {hasta_kg:2,   monto:3960},
-      {hasta_kg:10,  monto:5649},
-      {hasta_kg:30,  monto:11365},
-      {hasta_kg:75,  monto:17530},
-      {hasta_kg:200, monto:32248},
-      {hasta_kg:500, monto:59591},
-      {hasta_kg:9999,monto:87370},
-    ],
-    // Financiación (imagen 1 - Megatone)
-    cuotas_tabla: {1:0, 3:6.8, 6:10.6, 9:13.7, 12:16.6}
-  },
-};
+// Config de costos por defecto (se pisa con lo guardado en Firebase)
 window.FJ_CONFIG = {
   global: {iva_com:21, fee_fulljaus:1, ret_iva:0, ret_gan:0, iibb:4, tc:1000},
   markets: {}
@@ -11696,14 +11640,6 @@ window.renderFulljaus = async function(){
   try{
     const cfg = await fb.get('fulljaus_config').catch(()=>null);
     if(cfg) window.FJ_CONFIG = {...window.FJ_CONFIG, ...cfg};
-    // Aplicar defaults de Frávega y Megatone si no tienen config guardada
-    if(window.FJ_CONFIG_DEFAULTS){
-      Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([cod,def])=>{
-        if(!window.FJ_CONFIG.markets[cod]||Object.keys(window.FJ_CONFIG.markets[cod]).length===0){
-          window.FJ_CONFIG.markets[cod]=def;
-        }
-      });
-    }
   }catch(e){}
 
   // Inicializar fechas
@@ -11785,32 +11721,16 @@ window.fjCargar = async function(){
 
     window._fjOrdenes = d.orders||[];
 
-    // Cruzar con S.products — match exacto o por SKU base (sin variante de color)
-    const fjFindProd=sku=>{
-      if(!sku||sku==='—') return null;
-      let p=S.products.find(x=>x.sku===sku);
-      if(p) return p;
-      // Intento por SKU base (quitar sufijo de color/variante)
-      const base=sku.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,'');
-      if(base!==sku) p=S.products.find(x=>x.sku===base);
-      if(p) return p;
-      // Intento por prefijo (el SKU de FJ puede tener sufijos adicionales)
-      return S.products.find(x=>sku.startsWith(x.sku)||x.sku.startsWith(sku))||null;
-    };
+    // Cruzar con S.products para enrichment
     window._fjOrdenes = window._fjOrdenes.map(o=>{
-      const items=(o.items||[]).map(it=>{
-        const prod=fjFindProd(it.sku);
+      const items=o.items.map(it=>{
+        const prod=S.products.find(p=>p.sku===it.sku);
         return {...it, _prod:prod||null, _costoARS:prod?.ars||0};
       });
-      // Si la orden tiene un solo item o sku directo, también buscar por o.sku
-      const prodDirecto=fjFindProd(o.sku);
-      const costoTotal=items.length>0
-        ? items.reduce((s,it)=>s+(it._costoARS*(it.qty||1)),0)
-        : (prodDirecto?.ars||0)*(o.unidades||1);
+      const costoTotal=items.reduce((s,it)=>s+(it._costoARS*it.qty),0);
       const costosFJ=fjCalcularCostos(o);
       const ganancia=o.venta - costoTotal - costosFJ.total;
-      return {...o, items, _costos:costosFJ, _costo_prod:costoTotal, _ganancia:ganancia,
-        _prod_encontrado: items.some(i=>i._costoARS>0)||costoTotal>0};
+      return {...o, items, _costos:costosFJ, _costo_prod:costoTotal, _ganancia:ganancia};
     });
 
     if(hdrEl) hdrEl.textContent=`✓ ${window._fjOrdenes.length} órdenes · ${from} → ${to}`;
@@ -11856,19 +11776,8 @@ function fjCalcularCostos(orden){
   const pctCuotas=(tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).reverse().find(k=>parseInt(k)<=cuotas)]||0)/100;
   const gastoCuotas=venta*pctCuotas;
 
-  // 3. Fee logístico — por peso aforado si hay tabla, sino fijo
-  let feeLogis=mktCfg.fee_logistico_fijo||0;
-  const tabPeso=mktCfg.fee_logistico_peso;
-  if(tabPeso&&tabPeso.length){
-    // Intentar obtener peso aforado del producto
-    const prod=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X\d+)?$/i,''));
-    const pesoKg=prod?.peso_aforado||0;
-    if(pesoKg>0){
-      const tramo=tabPeso.find(t=>pesoKg<=t.hasta_kg);
-      feeLogis=tramo?tramo.monto:(tabPeso[tabPeso.length-1]?.monto||0);
-      feeLogis*=(orden.unidades||1); // multiplicar por unidades
-    }
-  }
+  // 3. Fee logístico (por peso o fijo)
+  const feeLogis=mktCfg.fee_logistico_fijo||0; // ARS fijo por orden
 
   // 4. Publicidad / gastos extras
   const pctPub=(mktCfg.publicidad||0)/100;
@@ -12482,11 +12391,7 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  // Capturar período ANTES del await para que no cambie
-  const{from:rf,to:rt}=getRange();
-  const dateFrom=rf.split('T')[0], dateTo=rt.split('T')[0];
-  const byAcct=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  const ordsML=byAcct.filter(o=>o.fecha&&o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
+  const ordsML=getOrders(); // órdenes ML filtradas por período activo
 
   // ── ML ──
   const ml={
@@ -12651,7 +12556,10 @@ window.renderCanalesIntegrados = async function(){
         <td>${r.unidades.toLocaleString()}</td>
       </tr>`;
     });
-    el.parentElement.insertAdjacentHTML('beforeend',rh+'</tbody></table></div>');
+    // Render en div fijo para evitar triplicar
+  let rubroDiv=document.getElementById('ov_canales_rubros');
+  if(!rubroDiv){rubroDiv=document.createElement('div');rubroDiv.id='ov_canales_rubros';el.parentElement.appendChild(rubroDiv);}
+  rubroDiv.innerHTML=rh+'</tbody></table></div>';
   }
 };
 
@@ -12766,7 +12674,7 @@ window.impHistAgregar=function(){
     '<div style="margin-bottom:12px"><label class="lbl">Notas</label>'+
     '<textarea class="inp" id="ihf_notas" rows="2" style="resize:vertical"></textarea></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-    '<button class="btn-g" onclick="document.getElementById('imp_hist_modal').remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
+    '<button class="btn-g" onclick="document.getElementById(&quot;imp_hist_modal&quot;).remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
     '<button class="btn" onclick="window._impHistGuardarOverride?window._impHistGuardarOverride():impHistGuardar()">💾 Guardar</button>'+
     '</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',modal);
