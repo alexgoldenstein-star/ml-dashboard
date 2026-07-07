@@ -337,6 +337,11 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar rubro</button>
           <button class="btn-g btn-sm" onclick="prodDesactivarPubPorRubro()" style="font-size:11px;color:var(--red)" title="Desactivar pub en todos los productos del rubro seleccionado">❌ Sin pub (rubro)</button>
           <button class="btn-g btn-sm" onclick="prodActivarPubPorRubro()" style="font-size:11px;color:var(--grn)" title="Activar pub en todos los productos del rubro seleccionado">✅ Con pub (rubro)</button>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:11px;color:var(--t3)">Peso aforado:</span>
+            <input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:70px;padding:3px 6px;font-size:11px">
+            <button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px" title="Aplicar peso aforado a los productos seleccionados">⚖ Aplicar</button>
+          </div>
           <button class="btn-g btn-sm" onclick="prodLimpiarSeleccion()" style="font-size:11px;color:var(--t3)">✕ Limpiar</button>
         </div>
 
@@ -2214,6 +2219,12 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <select class="inp" id="mp_rubro" style="margin-bottom:10px">
       <option value="">— Auto-detectar desde ML —</option>
     </select>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="flex:1"><label class="lbl">U/pedido</label><input class="inp" id="mp_uds_pedido" type="number" placeholder="Uds/contenedor"></div>
+      <div style="flex:1"><label class="lbl">CBM (m³/u)</label><input class="inp" id="mp_cbm" type="number" step="0.001" placeholder="0.000"></div>
+      <div style="flex:1"><label class="lbl" title="Peso aforado = max(peso real, A×An×P/4000). Usado para fee logístico Fulljaus">Peso aforado (kg)</label>
+        <input class="inp" id="mp_peso_aforado" type="number" step="0.1" placeholder="kg"></div>
+    </div>
     <div class="macts"><button class="btn-g" onclick="closeModal('mProd')">Cancelar</button><button class="btn" id="saveProdBtn" onclick="saveProd()">Guardar</button></div>
   </div>
 </div>
@@ -2428,6 +2439,12 @@ function updateCalLabel(){
   }
 }
 function getOrders(){return S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);}
+function getOrdersFiltered(){
+  const{from,to}=getRange();
+  const df=from.split('T')[0],dt=to.split('T')[0];
+  const a=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
+  return a.filter(o=>o.fecha&&o.fecha>=df&&o.fecha<=dt&&o.estado!=='cancelled');
+}
 function getRange(){
   const argNow=new Date(new Date().getTime()-3*60*60*1000);
   const fmt=d=>d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
@@ -3364,7 +3381,7 @@ function renderAlertasPage(){
 
 // ── OVERVIEW ──────────────────────────────────────────────────
 function renderOverview(){
-  const o=getOrders();
+  const o=getOrdersFiltered();
   const v=o.reduce((s,x)=>s+x.venta,0),g=o.reduce((s,x)=>s+x.ganancia,0),u=o.reduce((s,x)=>s+x.unidades,0);
   const costo=o.reduce((s,x)=>s+(x.costo||0),0);
   const pctVenta=v>0?g/v:0;
@@ -3379,10 +3396,10 @@ function renderOverview(){
     '<div class="kpi red"><div class="kl">Costo mercadería</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+' de la facturación</div></div>'+
     '<div class="kpi org"><div class="kl">Unidades</div><div class="kv">'+u.toLocaleString('es-AR')+'</div><div class="ks">Ticket prom: '+fS(o.length?v/o.length:0)+'</div></div>';
   const accts=["GBA","BHO","IURA","GBS"];
-  const gA={};accts.forEach(a=>{gA[a]=S.orders.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
+  const gA={};accts.forEach(a=>{gA[a]=o.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
   const maxG=Math.max(...Object.values(gA).map(Math.abs),1);
   document.getElementById("acctBars").innerHTML=accts.map(a=>'<div class="br"><div class="bl">'+a+'</div><div class="bt"><div class="bf" style="width:'+Math.abs(gA[a])/maxG*100+'%;background:'+ac(a)+'"></div></div><div class="bv" style="color:'+(gA[a]>=0?"var(--grn)":"var(--red)")+'">'+fS(gA[a])+"</div></div>").join("");
-  drawDonut(accts);
+  drawDonut(accts,o);
   const sm={};o.forEach(x=>{if(!sm[x.sku])sm[x.sku]={desc:x.desc,u:0,v:0,g:0};sm[x.sku].u+=x.unidades;sm[x.sku].v+=x.venta;sm[x.sku].g+=x.ganancia;});
   const top=Object.entries(sm).sort((a,b)=>b[1].g-a[1].g).slice(0,10);
   let tH="";
@@ -3393,10 +3410,11 @@ function renderOverview(){
   renderAlertPanel();
   renderCanalesIntegrados();
 }
-function drawDonut(accts){
+function drawDonut(accts,filteredOrds){
+  const ords=filteredOrds||S.orders;
   const c=document.getElementById("donut");if(!c)return;
   const ctx=c.getContext("2d");
-  const vals=accts.map(a=>S.orders.filter(x=>x.acct===a).reduce((s,x)=>s+x.venta,0));
+  const vals=accts.map(a=>ords.filter(x=>x.acct===a).reduce((s,x)=>s+x.venta,0));
   const total=vals.reduce((a,b)=>a+b,0);
   ctx.clearRect(0,0,100,100);
   if(!total){ctx.beginPath();ctx.arc(50,50,40,0,2*Math.PI);ctx.fillStyle="#1E1E24";ctx.fill();}
@@ -3795,6 +3813,7 @@ window.editProd=sku=>{
   document.getElementById("mp_pack").value=p.pack||packFromSku(p.sku);
   const udsEl=document.getElementById("mp_uds_pedido"); if(udsEl) udsEl.value=p.uds_pedido||'';
   const cbmEl=document.getElementById("mp_cbm"); if(cbmEl) cbmEl.value=p.cbm||'';
+  const paEl=document.getElementById("mp_peso_aforado"); if(paEl) paEl.value=p.peso_aforado||'';
   const rubroEl=document.getElementById("mp_rubro"); if(rubroEl) rubroEl.value=p.rubro||'';
   openModal("mProd");
 };
@@ -3814,8 +3833,9 @@ window.saveProd=async()=>{
   if(ars<=0){toast("Ingresá el costo ARS","err");return;}
   const udsPedido=parseInt(document.getElementById("mp_uds_pedido")?.value)||0;
   const cbm=parseFloat(document.getElementById("mp_cbm")?.value)||0;
+  const pesoAforado=parseFloat(document.getElementById("mp_peso_aforado")?.value)||0;
   const rubro=document.getElementById("mp_rubro")?.value||'';
-  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{}),...(rubro?{rubro}:{rubro:undefined})};
+  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{}),...(pesoAforado?{peso_aforado:pesoAforado}:{}),...(rubro?{rubro}:{rubro:undefined})};
   // Limpiar rubroAuto si se asignó rubro manual
   if(rubro){ const p=S.products.find(x=>x.sku===sku); if(p) delete p.rubroAuto; }
   S.prodEdits[sku]=prod;
@@ -11624,7 +11644,28 @@ window.FJ_MARKETS_CFG = {
   bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
 };
 
-// Config de costos por defecto (se pisa con lo guardado en Firebase)
+// Tablas reales de Frávega y Megatone (actualizadas 2026)
+window.FJ_CONFIG_DEFAULTS = {
+  fravegasc: {
+    comision:16, publicidad:0, gastos_extra:0, fee_logistico_fijo:0,
+    fee_logistico_peso:[
+      {hasta_kg:1.5,monto:4309},{hasta_kg:5,monto:5509},{hasta_kg:10,monto:6779},
+      {hasta_kg:15,monto:6779},{hasta_kg:20,monto:9219},{hasta_kg:25,monto:13209},
+      {hasta_kg:35,monto:14639},{hasta_kg:50,monto:19809},{hasta_kg:81,monto:23109},
+      {hasta_kg:100,monto:33009},{hasta_kg:250,monto:38509},{hasta_kg:5000,monto:71509},
+    ],
+    cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6},
+  },
+  megatone:{
+    comision:14, publicidad:0, gastos_extra:0, fee_logistico_fijo:0,
+    fee_logistico_peso:[
+      {hasta_kg:2,monto:3960},{hasta_kg:10,monto:5649},{hasta_kg:30,monto:11365},
+      {hasta_kg:75,monto:17530},{hasta_kg:200,monto:32248},{hasta_kg:500,monto:59591},
+      {hasta_kg:9999,monto:87370},
+    ],
+    cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6},
+  },
+};
 window.FJ_CONFIG = {
   global: {iva_com:21, fee_fulljaus:1, ret_iva:0, ret_gan:0, iibb:4, tc:1000},
   markets: {}
@@ -11640,6 +11681,13 @@ window.renderFulljaus = async function(){
   try{
     const cfg = await fb.get('fulljaus_config').catch(()=>null);
     if(cfg) window.FJ_CONFIG = {...window.FJ_CONFIG, ...cfg};
+    // Aplicar defaults si el marketplace no tiene config guardada
+    if(window.FJ_CONFIG_DEFAULTS){
+      Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([cod,def])=>{
+        if(!window.FJ_CONFIG.markets[cod]||!Object.keys(window.FJ_CONFIG.markets[cod]).length)
+          window.FJ_CONFIG.markets[cod]=def;
+      });
+    }
   }catch(e){}
 
   // Inicializar fechas
@@ -11721,13 +11769,25 @@ window.fjCargar = async function(){
 
     window._fjOrdenes = d.orders||[];
 
-    // Cruzar con S.products para enrichment
+    // Cruzar con S.products — match exacto, por base o por prefijo
+    const fjFindProd=sku=>{
+      if(!sku||sku==='—') return null;
+      let p=S.products.find(x=>x.sku===sku);
+      if(p) return p;
+      const base=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
+      if(base!==sku) p=S.products.find(x=>x.sku===base);
+      if(p) return p;
+      return S.products.find(x=>sku.startsWith(x.sku)||x.sku.startsWith(sku))||null;
+    };
     window._fjOrdenes = window._fjOrdenes.map(o=>{
-      const items=o.items.map(it=>{
-        const prod=S.products.find(p=>p.sku===it.sku);
+      const items=(o.items||[]).map(it=>{
+        const prod=fjFindProd(it.sku);
         return {...it, _prod:prod||null, _costoARS:prod?.ars||0};
       });
-      const costoTotal=items.reduce((s,it)=>s+(it._costoARS*it.qty),0);
+      const prodDir=fjFindProd(o.sku);
+      const costoTotal=items.length>0
+        ? items.reduce((s,it)=>s+(it._costoARS*(it.qty||1)),0)
+        : (prodDir?.ars||0)*(o.unidades||1);
       const costosFJ=fjCalcularCostos(o);
       const ganancia=o.venta - costoTotal - costosFJ.total;
       return {...o, items, _costos:costosFJ, _costo_prod:costoTotal, _ganancia:ganancia};
@@ -11776,8 +11836,17 @@ function fjCalcularCostos(orden){
   const pctCuotas=(tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).reverse().find(k=>parseInt(k)<=cuotas)]||0)/100;
   const gastoCuotas=venta*pctCuotas;
 
-  // 3. Fee logístico (por peso o fijo)
-  const feeLogis=mktCfg.fee_logistico_fijo||0; // ARS fijo por orden
+  // 3. Fee logístico — por peso aforado si hay tabla, sino fijo por orden
+  let feeLogis=mktCfg.fee_logistico_fijo||0;
+  const tabPeso=mktCfg.fee_logistico_peso;
+  if(tabPeso&&tabPeso.length){
+    const prod=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,''));
+    const kg=prod?.peso_aforado||0;
+    if(kg>0){
+      const tramo=tabPeso.find(t=>kg<=t.hasta_kg);
+      feeLogis=(tramo?tramo.monto:(tabPeso[tabPeso.length-1]?.monto||0))*(orden.unidades||1);
+    }
+  }
 
   // 4. Publicidad / gastos extras
   const pctPub=(mktCfg.publicidad||0)/100;
@@ -12362,6 +12431,30 @@ window.prodDesactivarPubPorRubro=async function(){
   renderProds();
 };
 
+window.prodAplicarPesoAforado=async function(){
+  const kg=parseFloat(document.getElementById('bulk_peso_aforado')?.value)||0;
+  if(!kg){toast('Ingresá el peso aforado en kg','err');return;}
+  if(!window._prodSeleccionados?.size&&!document.getElementById('prodFiltroRubro')?.value){
+    toast('Seleccioná productos o filtrá por rubro primero','err');return;
+  }
+  let targets=[];
+  if(window._prodSeleccionados?.size){
+    targets=[...window._prodSeleccionados];
+  } else {
+    const rubro=document.getElementById('prodFiltroRubro')?.value;
+    if(rubro&&rubro!=='__sin_asignar__')
+      targets=S.products.filter(p=>(p.rubro||p.rubroAuto)===rubro).map(p=>p.sku);
+  }
+  if(!targets.length){toast('Sin productos para actualizar','err');return;}
+  targets.forEach(sku=>{
+    const p=S.products.find(x=>x.sku===sku);
+    if(p) p.peso_aforado=kg;
+  });
+  await guardarRubroEnFirebase(targets);
+  toast('✓ '+targets.length+' productos con peso aforado '+kg+'kg','ok');
+  renderProds();
+};
+
 window.prodActivarPubPorRubro=async function(){
   const rubro=document.getElementById('prod_bulk_rubro')?.value;
   if(!rubro){ toast('Seleccioná un rubro primero','err'); return; }
@@ -12556,10 +12649,7 @@ window.renderCanalesIntegrados = async function(){
         <td>${r.unidades.toLocaleString()}</td>
       </tr>`;
     });
-    // Render en div fijo para evitar triplicar
-  let rubroDiv=document.getElementById('ov_canales_rubros');
-  if(!rubroDiv){rubroDiv=document.createElement('div');rubroDiv.id='ov_canales_rubros';el.parentElement.appendChild(rubroDiv);}
-  rubroDiv.innerHTML=rh+'</tbody></table></div>';
+    el.parentElement.insertAdjacentHTML('beforeend',rh+'</tbody></table></div>');
   }
 };
 
@@ -12674,7 +12764,7 @@ window.impHistAgregar=function(){
     '<div style="margin-bottom:12px"><label class="lbl">Notas</label>'+
     '<textarea class="inp" id="ihf_notas" rows="2" style="resize:vertical"></textarea></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-    '<button class="btn-g" onclick="document.getElementById(&quot;imp_hist_modal&quot;).remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
+    '<button class="btn-g" onclick="document.getElementById('imp_hist_modal').remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
     '<button class="btn" onclick="window._impHistGuardarOverride?window._impHistGuardarOverride():impHistGuardar()">💾 Guardar</button>'+
     '</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',modal);
