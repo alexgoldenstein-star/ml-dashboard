@@ -337,10 +337,10 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar rubro</button>
           <button class="btn-g btn-sm" onclick="prodDesactivarPubPorRubro()" style="font-size:11px;color:var(--red)" title="Desactivar pub en todos los productos del rubro seleccionado">❌ Sin pub (rubro)</button>
           <button class="btn-g btn-sm" onclick="prodActivarPubPorRubro()" style="font-size:11px;color:var(--grn)" title="Activar pub en todos los productos del rubro seleccionado">✅ Con pub (rubro)</button>
-          <div style="display:flex;align-items:center;gap:4px">
+          <div style="display:flex;align-items:center;gap:4px;margin-left:4px">
             <span style="font-size:11px;color:var(--t3)">Peso aforado:</span>
-            <input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:70px;padding:3px 6px;font-size:11px">
-            <button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px" title="Aplicar peso aforado a los productos seleccionados">⚖ Aplicar</button>
+            <input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:65px;padding:3px 6px;font-size:11px">
+            <button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px" title="Aplicar peso aforado a seleccionados o al rubro filtrado">⚖ Aplicar</button>
           </div>
           <button class="btn-g btn-sm" onclick="prodLimpiarSeleccion()" style="font-size:11px;color:var(--t3)">✕ Limpiar</button>
         </div>
@@ -2222,7 +2222,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <div style="flex:1"><label class="lbl">U/pedido</label><input class="inp" id="mp_uds_pedido" type="number" placeholder="Uds/contenedor"></div>
       <div style="flex:1"><label class="lbl">CBM (m³/u)</label><input class="inp" id="mp_cbm" type="number" step="0.001" placeholder="0.000"></div>
-      <div style="flex:1"><label class="lbl" title="Peso aforado = max(peso real, A×An×P/4000). Usado para fee logístico Fulljaus">Peso aforado (kg)</label>
+      <div style="flex:1"><label class="lbl" title="Peso aforado = max(peso real, Alto×Ancho×Prof/4000)">Peso aforado (kg)</label>
         <input class="inp" id="mp_peso_aforado" type="number" step="0.1" placeholder="kg"></div>
     </div>
     <div class="macts"><button class="btn-g" onclick="closeModal('mProd')">Cancelar</button><button class="btn" id="saveProdBtn" onclick="saveProd()">Guardar</button></div>
@@ -11644,28 +11644,23 @@ window.FJ_MARKETS_CFG = {
   bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
 };
 
-// Tablas reales de Frávega y Megatone (actualizadas 2026)
+// Tablas reales Frávega (img2) y Megatone (img1) — actualizadas 2026
 window.FJ_CONFIG_DEFAULTS = {
-  fravegasc: {
-    comision:16, publicidad:0, gastos_extra:0, fee_logistico_fijo:0,
+  fravegasc:{comision:16,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,
     fee_logistico_peso:[
       {hasta_kg:1.5,monto:4309},{hasta_kg:5,monto:5509},{hasta_kg:10,monto:6779},
       {hasta_kg:15,monto:6779},{hasta_kg:20,monto:9219},{hasta_kg:25,monto:13209},
       {hasta_kg:35,monto:14639},{hasta_kg:50,monto:19809},{hasta_kg:81,monto:23109},
       {hasta_kg:100,monto:33009},{hasta_kg:250,monto:38509},{hasta_kg:5000,monto:71509},
-    ],
-    cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6},
-  },
-  megatone:{
-    comision:14, publicidad:0, gastos_extra:0, fee_logistico_fijo:0,
+    ],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},
+  megatone:{comision:14,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,
     fee_logistico_peso:[
       {hasta_kg:2,monto:3960},{hasta_kg:10,monto:5649},{hasta_kg:30,monto:11365},
       {hasta_kg:75,monto:17530},{hasta_kg:200,monto:32248},{hasta_kg:500,monto:59591},
       {hasta_kg:9999,monto:87370},
-    ],
-    cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6},
-  },
+    ],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},
 };
+// Config de costos por defecto (se pisa con lo guardado en Firebase)
 window.FJ_CONFIG = {
   global: {iva_com:21, fee_fulljaus:1, ret_iva:0, ret_gan:0, iibb:4, tc:1000},
   markets: {}
@@ -11681,7 +11676,6 @@ window.renderFulljaus = async function(){
   try{
     const cfg = await fb.get('fulljaus_config').catch(()=>null);
     if(cfg) window.FJ_CONFIG = {...window.FJ_CONFIG, ...cfg};
-    // Aplicar defaults si el marketplace no tiene config guardada
     if(window.FJ_CONFIG_DEFAULTS){
       Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([cod,def])=>{
         if(!window.FJ_CONFIG.markets[cod]||!Object.keys(window.FJ_CONFIG.markets[cod]).length)
@@ -11769,7 +11763,6 @@ window.fjCargar = async function(){
 
     window._fjOrdenes = d.orders||[];
 
-    // Cruzar con S.products — match exacto, por base o por prefijo
     const fjFindProd=sku=>{
       if(!sku||sku==='—') return null;
       let p=S.products.find(x=>x.sku===sku);
@@ -11836,12 +11829,12 @@ function fjCalcularCostos(orden){
   const pctCuotas=(tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).reverse().find(k=>parseInt(k)<=cuotas)]||0)/100;
   const gastoCuotas=venta*pctCuotas;
 
-  // 3. Fee logístico — por peso aforado si hay tabla, sino fijo por orden
+  // 3. Fee logístico — por peso aforado si hay tabla, sino fijo
   let feeLogis=mktCfg.fee_logistico_fijo||0;
   const tabPeso=mktCfg.fee_logistico_peso;
   if(tabPeso&&tabPeso.length){
-    const prod=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,''));
-    const kg=prod?.peso_aforado||0;
+    const prodFJ=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,''));
+    const kg=prodFJ?.peso_aforado||0;
     if(kg>0){
       const tramo=tabPeso.find(t=>kg<=t.hasta_kg);
       feeLogis=(tramo?tramo.monto:(tabPeso[tabPeso.length-1]?.monto||0))*(orden.unidades||1);
@@ -12431,30 +12424,6 @@ window.prodDesactivarPubPorRubro=async function(){
   renderProds();
 };
 
-window.prodAplicarPesoAforado=async function(){
-  const kg=parseFloat(document.getElementById('bulk_peso_aforado')?.value)||0;
-  if(!kg){toast('Ingresá el peso aforado en kg','err');return;}
-  if(!window._prodSeleccionados?.size&&!document.getElementById('prodFiltroRubro')?.value){
-    toast('Seleccioná productos o filtrá por rubro primero','err');return;
-  }
-  let targets=[];
-  if(window._prodSeleccionados?.size){
-    targets=[...window._prodSeleccionados];
-  } else {
-    const rubro=document.getElementById('prodFiltroRubro')?.value;
-    if(rubro&&rubro!=='__sin_asignar__')
-      targets=S.products.filter(p=>(p.rubro||p.rubroAuto)===rubro).map(p=>p.sku);
-  }
-  if(!targets.length){toast('Sin productos para actualizar','err');return;}
-  targets.forEach(sku=>{
-    const p=S.products.find(x=>x.sku===sku);
-    if(p) p.peso_aforado=kg;
-  });
-  await guardarRubroEnFirebase(targets);
-  toast('✓ '+targets.length+' productos con peso aforado '+kg+'kg','ok');
-  renderProds();
-};
-
 window.prodActivarPubPorRubro=async function(){
   const rubro=document.getElementById('prod_bulk_rubro')?.value;
   if(!rubro){ toast('Seleccioná un rubro primero','err'); return; }
@@ -12484,7 +12453,10 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  const ordsML=getOrders(); // órdenes ML filtradas por período activo
+  const{from:rf,to:rt}=getRange();
+  const dateFrom=rf.split('T')[0],dateTo=rt.split('T')[0];
+  const byAcct=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
+  const ordsML=byAcct.filter(o=>o.fecha&&o.fecha>=dateFrom&&o.fecha<=dateTo&&o.estado!=='cancelled');
 
   // ── ML ──
   const ml={
@@ -12649,7 +12621,9 @@ window.renderCanalesIntegrados = async function(){
         <td>${r.unidades.toLocaleString()}</td>
       </tr>`;
     });
-    el.parentElement.insertAdjacentHTML('beforeend',rh+'</tbody></table></div>');
+    let rubroDiv=document.getElementById('ov_canales_rubros');
+  if(!rubroDiv){rubroDiv=document.createElement('div');rubroDiv.id='ov_canales_rubros';el.parentElement.appendChild(rubroDiv);}
+  rubroDiv.innerHTML=rh+'</tbody></table></div>';
   }
 };
 
