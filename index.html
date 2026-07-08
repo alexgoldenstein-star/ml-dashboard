@@ -337,11 +337,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
           <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar rubro</button>
           <button class="btn-g btn-sm" onclick="prodDesactivarPubPorRubro()" style="font-size:11px;color:var(--red)" title="Desactivar pub en todos los productos del rubro seleccionado">❌ Sin pub (rubro)</button>
           <button class="btn-g btn-sm" onclick="prodActivarPubPorRubro()" style="font-size:11px;color:var(--grn)" title="Activar pub en todos los productos del rubro seleccionado">✅ Con pub (rubro)</button>
-          <div style="display:flex;align-items:center;gap:4px;margin-left:4px">
-            <span style="font-size:11px;color:var(--t3)">Peso aforado:</span>
-            <input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:65px;padding:3px 6px;font-size:11px">
-            <button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px" title="Aplicar peso aforado a seleccionados o al rubro filtrado">⚖ Aplicar</button>
-          </div>
+          <div style="display:flex;align-items:center;gap:4px;margin-left:4px"><span style="font-size:11px;color:var(--t3)">Peso aforado:</span><input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:65px;padding:3px 6px;font-size:11px"><button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px">⚖ Aplicar</button></div>
           <button class="btn-g btn-sm" onclick="prodLimpiarSeleccion()" style="font-size:11px;color:var(--t3)">✕ Limpiar</button>
         </div>
 
@@ -2222,7 +2218,7 @@ html,body{height:100%;overflow:hidden;font-family:"DM Sans",sans-serif;font-size
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <div style="flex:1"><label class="lbl">U/pedido</label><input class="inp" id="mp_uds_pedido" type="number" placeholder="Uds/contenedor"></div>
       <div style="flex:1"><label class="lbl">CBM (m³/u)</label><input class="inp" id="mp_cbm" type="number" step="0.001" placeholder="0.000"></div>
-      <div style="flex:1"><label class="lbl" title="Peso aforado = max(peso real, Alto×Ancho×Prof/4000)">Peso aforado (kg)</label>
+      <div style="flex:1"><label class="lbl" title="max(peso real, Alto×Ancho×Prof/4000)">Peso aforado (kg)</label>
         <input class="inp" id="mp_peso_aforado" type="number" step="0.1" placeholder="kg"></div>
     </div>
     <div class="macts"><button class="btn-g" onclick="closeModal('mProd')">Cancelar</button><button class="btn" id="saveProdBtn" onclick="saveProd()">Guardar</button></div>
@@ -11644,22 +11640,7 @@ window.FJ_MARKETS_CFG = {
   bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
 };
 
-// Tablas reales Frávega (img2) y Megatone (img1) — actualizadas 2026
-window.FJ_CONFIG_DEFAULTS = {
-  fravegasc:{comision:16,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,
-    fee_logistico_peso:[
-      {hasta_kg:1.5,monto:4309},{hasta_kg:5,monto:5509},{hasta_kg:10,monto:6779},
-      {hasta_kg:15,monto:6779},{hasta_kg:20,monto:9219},{hasta_kg:25,monto:13209},
-      {hasta_kg:35,monto:14639},{hasta_kg:50,monto:19809},{hasta_kg:81,monto:23109},
-      {hasta_kg:100,monto:33009},{hasta_kg:250,monto:38509},{hasta_kg:5000,monto:71509},
-    ],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},
-  megatone:{comision:14,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,
-    fee_logistico_peso:[
-      {hasta_kg:2,monto:3960},{hasta_kg:10,monto:5649},{hasta_kg:30,monto:11365},
-      {hasta_kg:75,monto:17530},{hasta_kg:200,monto:32248},{hasta_kg:500,monto:59591},
-      {hasta_kg:9999,monto:87370},
-    ],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},
-};
+window.FJ_CONFIG_DEFAULTS={fravegasc:{comision:16,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,fee_logistico_peso:[{hasta_kg:1.5,monto:4309},{hasta_kg:5,monto:5509},{hasta_kg:10,monto:6779},{hasta_kg:15,monto:6779},{hasta_kg:20,monto:9219},{hasta_kg:25,monto:13209},{hasta_kg:35,monto:14639},{hasta_kg:50,monto:19809},{hasta_kg:81,monto:23109},{hasta_kg:100,monto:33009},{hasta_kg:250,monto:38509},{hasta_kg:5000,monto:71509}],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},megatone:{comision:14,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,fee_logistico_peso:[{hasta_kg:2,monto:3960},{hasta_kg:10,monto:5649},{hasta_kg:30,monto:11365},{hasta_kg:75,monto:17530},{hasta_kg:200,monto:32248},{hasta_kg:500,monto:59591},{hasta_kg:9999,monto:87370}],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}}};
 // Config de costos por defecto (se pisa con lo guardado en Firebase)
 window.FJ_CONFIG = {
   global: {iva_com:21, fee_fulljaus:1, ret_iva:0, ret_gan:0, iibb:4, tc:1000},
@@ -11676,12 +11657,7 @@ window.renderFulljaus = async function(){
   try{
     const cfg = await fb.get('fulljaus_config').catch(()=>null);
     if(cfg) window.FJ_CONFIG = {...window.FJ_CONFIG, ...cfg};
-    if(window.FJ_CONFIG_DEFAULTS){
-      Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([cod,def])=>{
-        if(!window.FJ_CONFIG.markets[cod]||!Object.keys(window.FJ_CONFIG.markets[cod]).length)
-          window.FJ_CONFIG.markets[cod]=def;
-      });
-    }
+    if(window.FJ_CONFIG_DEFAULTS){Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([cod,def])=>{if(!window.FJ_CONFIG.markets[cod]||!Object.keys(window.FJ_CONFIG.markets[cod]).length)window.FJ_CONFIG.markets[cod]=def;});}
   }catch(e){}
 
   // Inicializar fechas
@@ -11772,18 +11748,12 @@ window.fjCargar = async function(){
       if(p) return p;
       return S.products.find(x=>sku.startsWith(x.sku)||x.sku.startsWith(sku))||null;
     };
-    window._fjOrdenes = window._fjOrdenes.map(o=>{
-      const items=(o.items||[]).map(it=>{
-        const prod=fjFindProd(it.sku);
-        return {...it, _prod:prod||null, _costoARS:prod?.ars||0};
-      });
+    window._fjOrdenes=window._fjOrdenes.map(o=>{
+      const items=(o.items||[]).map(it=>{const prod=fjFindProd(it.sku);return {...it,_prod:prod||null,_costoARS:prod?.ars||0};});
       const prodDir=fjFindProd(o.sku);
-      const costoTotal=items.length>0
-        ? items.reduce((s,it)=>s+(it._costoARS*(it.qty||1)),0)
-        : (prodDir?.ars||0)*(o.unidades||1);
+      const costoTotal=items.length>0?items.reduce((s,it)=>s+(it._costoARS*(it.qty||1)),0):(prodDir?.ars||0)*(o.unidades||1);
       const costosFJ=fjCalcularCostos(o);
-      const ganancia=o.venta - costoTotal - costosFJ.total;
-      return {...o, items, _costos:costosFJ, _costo_prod:costoTotal, _ganancia:ganancia};
+      return {...o,items,_costos:costosFJ,_costo_prod:costoTotal,_ganancia:o.venta-costoTotal-costosFJ.total};
     });
 
     if(hdrEl) hdrEl.textContent=`✓ ${window._fjOrdenes.length} órdenes · ${from} → ${to}`;
@@ -11829,17 +11799,9 @@ function fjCalcularCostos(orden){
   const pctCuotas=(tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).reverse().find(k=>parseInt(k)<=cuotas)]||0)/100;
   const gastoCuotas=venta*pctCuotas;
 
-  // 3. Fee logístico — por peso aforado si hay tabla, sino fijo
   let feeLogis=mktCfg.fee_logistico_fijo||0;
   const tabPeso=mktCfg.fee_logistico_peso;
-  if(tabPeso&&tabPeso.length){
-    const prodFJ=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,''));
-    const kg=prodFJ?.peso_aforado||0;
-    if(kg>0){
-      const tramo=tabPeso.find(t=>kg<=t.hasta_kg);
-      feeLogis=(tramo?tramo.monto:(tabPeso[tabPeso.length-1]?.monto||0))*(orden.unidades||1);
-    }
-  }
+  if(tabPeso&&tabPeso.length){const prodFJ=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,''));const kg=prodFJ?.peso_aforado||0;if(kg>0){const tramo=tabPeso.find(t=>kg<=t.hasta_kg);feeLogis=(tramo?tramo.monto:(tabPeso[tabPeso.length-1]?.monto||0))*(orden.unidades||1);}}
 
   // 4. Publicidad / gastos extras
   const pctPub=(mktCfg.publicidad||0)/100;
