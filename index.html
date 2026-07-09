@@ -12797,7 +12797,7 @@ window.impHistAgregar=function(){
     '<div style="margin-bottom:12px"><label class="lbl">Notas</label>'+
     '<textarea class="inp" id="ihf_notas" rows="2" style="resize:vertical"></textarea></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-    '<button class="btn-g" onclick="document.getElementById('imp_hist_modal').remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
+    '<button class="btn-g" onclick="document.getElementById("imp_hist_modal").remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
     '<button class="btn" onclick="window._impHistGuardarOverride?window._impHistGuardarOverride():impHistGuardar()">💾 Guardar</button>'+
     '</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',modal);
@@ -12822,7 +12822,7 @@ window.impHistGuardar=async function(){
   if(!window._impHistorial)window._impHistorial=[];
   window._impHistorial.push(item);
   await fb.set('imp_historial',{list:window._impHistorial}).catch(function(){});
-  document.getElementById('imp_hist_modal')?.remove();
+  document.getElementById("imp_hist_modal")?.remove();
   toast('Compra registrada','ok');
   impRenderHistorial();
 };
@@ -12861,7 +12861,7 @@ window.impHistEditar=async function(idx){
       });
       window._impHistorial[idx]=updated;
       await fb.set('imp_historial',{list:window._impHistorial}).catch(function(){});
-      document.getElementById('imp_hist_modal')?.remove();
+      document.getElementById("imp_hist_modal")?.remove();
       window._impHistGuardarOverride=null;
       if(hp.length&&hp[hp.length-1].fecha===new Date().toISOString().split('T')[0]){
         var u=hp[hp.length-1];
