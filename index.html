@@ -231,7 +231,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
     </button>
     <div class="cal-pop" id="calPop"></div>
     <button class="hamburger" onclick="document.querySelector('.sb').classList.toggle('open')" title="Menú">☰</button>
-  <button id="themeBtn" onclick="(function(){const l=document.documentElement.getAttribute('data-theme')==='light';document.documentElement.setAttribute('data-theme',l?'':'light');localStorage.setItem('nt',l?'d':'l');document.getElementById('themeBtn').textContent=l?'🌙':'☀️';})();" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--b1);background:var(--s2);cursor:pointer;font-size:15px;flex-shrink:0;">🌙</button>
+  <button id="themeBtn" onclick="(function(){const l=document.documentElement.getAttribute('data-theme')==='light';document.documentElement.setAttribute('data-theme',l?''  :'light');localStorage.setItem('nt',l?'d':'l');document.getElementById('themeBtn').textContent=l?'🌙':'☀️';})();" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--b1);background:var(--s2);cursor:pointer;font-size:15px;flex-shrink:0;">🌙</button>
   <button class="tb-icon" id="refreshBtn" onclick="doRefresh()">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 8A6 6 0 112 8M14 8V4M14 8h-4"/></svg>
     </button>
@@ -351,9 +351,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar rubro</button>
           <button class="btn-g btn-sm" onclick="prodDesactivarPubPorRubro()" style="font-size:11px;color:var(--red)" title="Desactivar pub en todos los productos del rubro seleccionado">❌ Sin pub (rubro)</button>
           <button class="btn-g btn-sm" onclick="prodActivarPubPorRubro()" style="font-size:11px;color:var(--grn)" title="Activar pub en todos los productos del rubro seleccionado">✅ Con pub (rubro)</button>
-          <span style="margin-left:8px;font-size:11px;color:var(--t3)">|  Peso aforado:</span>
-          <input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:65px;padding:3px 6px;font-size:11px">
-          <button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px">⚖ Aplicar</button>
+          <span style="margin-left:8px;font-size:11px;color:var(--t3)">| Peso aforado:</span><input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:65px;padding:3px 6px;font-size:11px"><button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px">⚖ Aplicar</button>
           <button class="btn-g btn-sm" onclick="prodLimpiarSeleccion()" style="font-size:11px;color:var(--t3)">✕ Limpiar</button>
         </div>
 
@@ -2232,10 +2230,9 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
       <option value="">— Auto-detectar desde ML —</option>
     </select>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-      <div><label class="lbl">U/pedido</label><input class="inp" id="mp_uds_pedido" type="number" placeholder="Uds/contenedor"></div>
+      <div><label class="lbl">U/pedido</label><input class="inp" id="mp_uds_pedido" type="number" placeholder="Ej: 100"></div>
       <div><label class="lbl">CBM (m³/u)</label><input class="inp" id="mp_cbm" type="number" step="0.001" placeholder="0.000"></div>
-      <div><label class="lbl" title="Peso aforado = max(peso real, A×An×P/4000)">Peso aforado kg</label>
-        <input class="inp" id="mp_peso_aforado" type="number" step="0.1" placeholder="ej: 8.5"></div>
+      <div><label class="lbl" title="max(peso real, Alto×Ancho×Prof/4000)">Peso aforado (kg)</label><input class="inp" id="mp_peso_aforado" type="number" step="0.1" placeholder="ej: 8.5"></div>
     </div>
     <div class="macts"><button class="btn-g" onclick="closeModal('mProd')">Cancelar</button><button class="btn" id="saveProdBtn" onclick="saveProd()">Guardar</button></div>
   </div>
@@ -2456,12 +2453,7 @@ function updateCalLabel(){
   }
 }
 function getOrders(){return S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);}
-function getOrdersFiltered(){
-  const{from,to}=getRange();
-  const df=from.split('T')[0],dt=to.split('T')[0];
-  const a=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  return a.filter(o=>o.fecha&&o.fecha>=df&&o.fecha<=dt&&o.estado!=='cancelled');
-}
+function getOrdersFiltered(){const{from,to}=getRange();const df=from.split('T')[0],dt=to.split('T')[0];const a=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);return a.filter(o=>o.fecha&&o.fecha>=df&&o.fecha<=dt&&o.estado!=='cancelled');}
 function getRange(){
   const argNow=new Date(new Date().getTime()-3*60*60*1000);
   const fmt=d=>d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
@@ -11661,21 +11653,7 @@ window.FJ_MARKETS_CFG = {
   bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
 };
 
-window.FJ_CONFIG_DEFAULTS={
-  fravegasc:{comision:16,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,
-    fee_logistico_peso:[
-      {hasta_kg:1.5,monto:4309},{hasta_kg:5,monto:5509},{hasta_kg:10,monto:6779},
-      {hasta_kg:15,monto:6779},{hasta_kg:20,monto:9219},{hasta_kg:25,monto:13209},
-      {hasta_kg:35,monto:14639},{hasta_kg:50,monto:19809},{hasta_kg:81,monto:23109},
-      {hasta_kg:100,monto:33009},{hasta_kg:250,monto:38509},{hasta_kg:5000,monto:71509},
-    ],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},
-  megatone:{comision:14,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,
-    fee_logistico_peso:[
-      {hasta_kg:2,monto:3960},{hasta_kg:10,monto:5649},{hasta_kg:30,monto:11365},
-      {hasta_kg:75,monto:17530},{hasta_kg:200,monto:32248},{hasta_kg:500,monto:59591},
-      {hasta_kg:9999,monto:87370},
-    ],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},
-};
+window.FJ_CONFIG_DEFAULTS={fravegasc:{comision:16,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,fee_logistico_peso:[{hasta_kg:1.5,monto:4309},{hasta_kg:5,monto:5509},{hasta_kg:10,monto:6779},{hasta_kg:15,monto:6779},{hasta_kg:20,monto:9219},{hasta_kg:25,monto:13209},{hasta_kg:35,monto:14639},{hasta_kg:50,monto:19809},{hasta_kg:81,monto:23109},{hasta_kg:100,monto:33009},{hasta_kg:250,monto:38509},{hasta_kg:5000,monto:71509}],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},megatone:{comision:14,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,fee_logistico_peso:[{hasta_kg:2,monto:3960},{hasta_kg:10,monto:5649},{hasta_kg:30,monto:11365},{hasta_kg:75,monto:17530},{hasta_kg:200,monto:32248},{hasta_kg:500,monto:59591},{hasta_kg:9999,monto:87370}],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}}};
 // Config de costos por defecto (se pisa con lo guardado en Firebase)
 window.FJ_CONFIG = {
   global: {iva_com:21, fee_fulljaus:1, ret_iva:0, ret_gan:0, iibb:4, tc:1000},
@@ -11692,12 +11670,7 @@ window.renderFulljaus = async function(){
   try{
     const cfg = await fb.get('fulljaus_config').catch(()=>null);
     if(cfg) window.FJ_CONFIG = {...window.FJ_CONFIG, ...cfg};
-    if(window.FJ_CONFIG_DEFAULTS){
-      Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([k,v])=>{
-        if(!window.FJ_CONFIG.markets[k]||!Object.keys(window.FJ_CONFIG.markets[k]).length)
-          window.FJ_CONFIG.markets[k]=v;
-      });
-    }
+    if(window.FJ_CONFIG_DEFAULTS)Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([k,v])=>{if(!window.FJ_CONFIG.markets[k]||!Object.keys(window.FJ_CONFIG.markets[k]).length)window.FJ_CONFIG.markets[k]=v;});
   }catch(e){}
 
   // Inicializar fechas
@@ -11781,21 +11754,10 @@ window.fjCargar = async function(){
 
     // Cruzar con S.products para enrichment
     window._fjOrdenes = window._fjOrdenes.map(o=>{
-      const _fjFp=sku=>{
-        if(!sku||sku==='—') return null;
-        let p=S.products.find(x=>x.sku===sku); if(p) return p;
-        const b=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
-        if(b!==sku) p=S.products.find(x=>x.sku===b); if(p) return p;
-        return S.products.find(x=>sku.startsWith(x.sku)||x.sku.startsWith(sku))||null;
-      };
-      const items=(o.items||[]).map(it=>{
-        const prod=_fjFp(it.sku);
-        return {...it,_prod:prod||null,_costoARS:prod?.ars||0};
-      });
+      const _fjFp=sku=>{if(!sku||sku==='—')return null;let p=S.products.find(x=>x.sku===sku);if(p)return p;const b=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');if(b!==sku)p=S.products.find(x=>x.sku===b);return p||S.products.find(x=>sku.startsWith(x.sku)||x.sku.startsWith(sku))||null;};
+      const items=(o.items||[]).map(it=>{const prod=_fjFp(it.sku);return {...it,_prod:prod||null,_costoARS:prod?.ars||0};});
       const _pdFj=_fjFp(o.sku);
-      const costoTotal=items.length>0
-        ?items.reduce((s,it)=>s+(it._costoARS*(it.qty||1)),0)
-        :(_pdFj?.ars||0)*(o.unidades||1);
+      const costoTotal=items.length>0?items.reduce((s,it)=>s+(it._costoARS*(it.qty||1)),0):(_pdFj?.ars||0)*(o.unidades||1);
       const costosFJ=fjCalcularCostos(o);
       const ganancia=o.venta - costoTotal - costosFJ.total;
       return {...o, items, _costos:costosFJ, _costo_prod:costoTotal, _ganancia:ganancia};
@@ -11844,17 +11806,7 @@ function fjCalcularCostos(orden){
   const pctCuotas=(tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).reverse().find(k=>parseInt(k)<=cuotas)]||0)/100;
   const gastoCuotas=venta*pctCuotas;
 
-  let feeLogis=mktCfg.fee_logistico_fijo||0;
-  const _tp=mktCfg.fee_logistico_peso;
-  if(_tp&&_tp.length){
-    const _pr=S.products?.find(p=>p.sku===orden.sku||
-      p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,''));
-    const _kg=_pr?.peso_aforado||0;
-    if(_kg>0){
-      const _tr=_tp.find(t=>_kg<=t.hasta_kg);
-      feeLogis=((_tr?_tr.monto:_tp[_tp.length-1]?.monto)||0)*(orden.unidades||1);
-    }
-  }
+  let feeLogis=mktCfg.fee_logistico_fijo||0;const _tp=mktCfg.fee_logistico_peso;if(_tp&&_tp.length){const _pr=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,''));const _kg=_pr?.peso_aforado||0;if(_kg>0){const _tr=_tp.find(t=>_kg<=t.hasta_kg);feeLogis=((_tr?_tr.monto:_tp[_tp.length-1]?.monto)||0)*(orden.unidades||1);}}
 
   // 4. Publicidad / gastos extras
   const pctPub=(mktCfg.publicidad||0)/100;
@@ -12468,12 +12420,13 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  const{from:_f,to:_t}=getRange();
-  const _df=_f.split('T')[0],_dt=_t.split('T')[0];
-  const _ba=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  const ordsML=_ba.filter(o=>o.fecha&&o.fecha>=_df&&o.fecha<=_dt&&o.estado!=='cancelled');
+  // ── PERÍODO ACTIVO — capturar ANTES de cualquier await ──
+  const{from:_rf,to:_rt}=getRange();
+  const _df=_rf.split('T')[0], _dt=_rt.split('T')[0];
 
-  // ── ML ──
+  // ── ML — filtrado por período ──
+  const _allML=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
+  const ordsML=_allML.filter(o=>o.fecha&&o.fecha>=_df&&o.fecha<=_dt&&o.estado!=='cancelled');
   const ml={
     nombre:'MercadoLibre', color:'#E8FF47', icono:'📦',
     ventas:  ordsML.reduce((s,o)=>s+(o.venta||0),0),
@@ -12483,15 +12436,16 @@ window.renderCanalesIntegrados = async function(){
     costo:   ordsML.reduce((s,o)=>s+(o.costo||0),0),
   };
 
-  // ── MAYORISTA — leer _mayPedidos si están disponibles ──
+  // ── MAYORISTA — filtrado por el MISMO período ──
   let may={nombre:'Mayorista',color:'#4DA3FF',icono:'🏪',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    // Intentar cargar desde Firebase si no está en memoria
     if((typeof _mayPedidos==='undefined'||!_mayPedidos?.length)&&typeof fb!=='undefined'){
       const mayData=await fb.get('mayorista').catch(()=>null);
       if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
     }
-    const peds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
+    const allPeds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
+    // FILTRO DE FECHA — solo pedidos dentro del período activo
+    const peds=allPeds.filter(p=>p.fecha&&p.fecha>=_df&&p.fecha<=_dt);
     peds.forEach(p=>{
       may.ventas   +=(p.venta_siva||p.total_siva||0);
       may.ganancia +=(p.ganancia||0);
@@ -12501,10 +12455,15 @@ window.renderCanalesIntegrados = async function(){
     });
   }catch(e){}
 
-  // ── FULLJAUS — leer _fjOrdenes si están disponibles ──
+  // ── FULLJAUS — filtrado por el MISMO período ──
   let fj={nombre:'Fulljaus',color:'#FF8A4D',icono:'🛒',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    const fjOrds=typeof _fjOrdenes!=='undefined'?_fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)):[];
+    const allFJ=typeof _fjOrdenes!=='undefined'?_fjOrdenes:[];
+    // FILTRO DE FECHA — solo órdenes dentro del período activo
+    const fjOrds=allFJ.filter(o=>
+      !['DEVTOT','ANUL','NOAPRO'].includes(o.estado) &&
+      o.fecha && o.fecha>=_df && o.fecha<=_dt
+    );
     fjOrds.forEach(o=>{
       fj.ventas   +=(o.venta||0);
       fj.ganancia +=(o._ganancia||0);
@@ -12914,10 +12873,8 @@ window.impEstimarRecalcular=function(){
 };
 
 
-// ── AUTH ──────────────────────────────────────────────────────────────────────
 window.loginConGoogle=async function(){
-  const btn=document.getElementById('btnGoogle');
-  const err=document.getElementById('loginErr');
+  const btn=document.getElementById('btnGoogle'),err=document.getElementById('loginErr');
   if(btn){btn.disabled=true;btn.textContent='Conectando...';}
   err.style.display='none';
   try{
@@ -12926,34 +12883,25 @@ window.loginConGoogle=async function(){
     const res=await signInWithPopup(auth,prov);
     if(!EMAILS_OK.includes(res.user.email)){
       await signOut(auth);
-      err.textContent='❌ '+res.user.email+' no está autorizado.';
+      err.textContent='❌ '+res.user.email+' no tiene acceso.';
       err.style.display='block';
       if(btn){btn.disabled=false;btn.textContent='Continuar con Google';}
     }
   }catch(e){
-    if(e.code!=='auth/popup-closed-by-user'){
-      err.textContent='Error: '+e.message;
-      err.style.display='block';
-    }
+    if(e.code!=='auth/popup-closed-by-user'){err.textContent='Error: '+e.message;err.style.display='block';}
     if(btn){btn.disabled=false;btn.textContent='Continuar con Google';}
   }
 };
-window.cerrarSesion=async function(){
-  if(confirm('¿Cerrar sesión?')){await signOut(auth);}
-};
-// Escuchar auth — init() solo se llama cuando el usuario está autenticado
+window.cerrarSesion=async function(){if(confirm('¿Cerrar sesión?'))await signOut(auth);};
 onAuthStateChanged(auth,async(user)=>{
   if(user&&EMAILS_OK.includes(user.email)){
     document.getElementById('loginScreen').style.display='none';
-    const aw=document.getElementById('appWrap');
-    if(aw)aw.style.display='block';
-    const su=document.getElementById('sb_user_info');
-    if(su) su.textContent=user.displayName||user.email;
+    const aw=document.getElementById('appWrap');if(aw)aw.style.display='block';
+    const su=document.getElementById('sb_user_info');if(su)su.textContent=user.displayName||user.email;
     if(!_authReady){_authReady=true;if(typeof init==='function')await init();}
   }else{
     document.getElementById('loginScreen').style.display='flex';
-    const aw=document.getElementById('appWrap');
-    if(aw)aw.style.display='none';
+    const aw=document.getElementById('appWrap');if(aw)aw.style.display='none';
     _authReady=false;
   }
 });
