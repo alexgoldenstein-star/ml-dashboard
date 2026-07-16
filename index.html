@@ -151,7 +151,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
       <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
       Continuar con Google
     </button>
-    <div id="loginErr" style="margin-top:12px;font-size:12px;color:var(--red);display:none;padding:8px 12px;background:rgba(255,77,77,.08);border-radius:8px"></div>
+    <div id="loginErr" style="margin-top:12px;font-size:12px;color:var(--red);display:none;padding:8px;background:rgba(255,77,77,.08);border-radius:8px"></div>
   </div>
 </div>
 <div id="appWrap" style="display:none;height:100%;width:100%">
@@ -231,7 +231,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
     </button>
     <div class="cal-pop" id="calPop"></div>
     <button class="hamburger" onclick="document.querySelector('.sb').classList.toggle('open')" title="Menú">☰</button>
-  <button id="themeBtn" onclick="(function(){const l=document.documentElement.getAttribute('data-theme')==='light';document.documentElement.setAttribute('data-theme',l?''  :'light');localStorage.setItem('nt',l?'d':'l');document.getElementById('themeBtn').textContent=l?'🌙':'☀️';})();" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--b1);background:var(--s2);cursor:pointer;font-size:15px;flex-shrink:0;">🌙</button>
+  <button id="themeBtn" onclick="(function(){const l=document.documentElement.getAttribute('data-theme')==='light';document.documentElement.setAttribute('data-theme',l?''  :'light');document.getElementById('themeBtn').textContent=l?'🌙':'☀️';})();" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--b1);background:var(--s2);cursor:pointer;font-size:15px;flex-shrink:0;">🌙</button>
   <button class="tb-icon" id="refreshBtn" onclick="doRefresh()">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 8A6 6 0 112 8M14 8V4M14 8h-4"/></svg>
     </button>
@@ -351,7 +351,6 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar rubro</button>
           <button class="btn-g btn-sm" onclick="prodDesactivarPubPorRubro()" style="font-size:11px;color:var(--red)" title="Desactivar pub en todos los productos del rubro seleccionado">❌ Sin pub (rubro)</button>
           <button class="btn-g btn-sm" onclick="prodActivarPubPorRubro()" style="font-size:11px;color:var(--grn)" title="Activar pub en todos los productos del rubro seleccionado">✅ Con pub (rubro)</button>
-          <span style="margin-left:8px;font-size:11px;color:var(--t3)">| Peso aforado:</span><input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:65px;padding:3px 6px;font-size:11px"><button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px">⚖ Aplicar</button>
           <button class="btn-g btn-sm" onclick="prodLimpiarSeleccion()" style="font-size:11px;color:var(--t3)">✕ Limpiar</button>
         </div>
 
@@ -6136,7 +6135,7 @@ window.toast=(msg,type)=>{
 window.openMob=()=>{document.getElementById("sb").classList.add("open");document.getElementById("mobOv").classList.add("show");};
 window.closeMob=()=>{document.getElementById("sb").classList.remove("open");document.getElementById("mobOv").classList.remove("show");};
 
-// init() llamado desde onAuthStateChanged
+init();
 
 // ── ADS AGENTE ───────────────────────────────────────────────────────────────
 let _adsHistory=[], _adsContexto='', _adsInited=false, _adsData=null;
@@ -11653,11 +11652,46 @@ window.FJ_MARKETS_CFG = {
   bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
 };
 
-window.FJ_CONFIG_DEFAULTS={fravegasc:{comision:16,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,fee_logistico_peso:[{hasta_kg:1.5,monto:4309},{hasta_kg:5,monto:5509},{hasta_kg:10,monto:6779},{hasta_kg:15,monto:6779},{hasta_kg:20,monto:9219},{hasta_kg:25,monto:13209},{hasta_kg:35,monto:14639},{hasta_kg:50,monto:19809},{hasta_kg:81,monto:23109},{hasta_kg:100,monto:33009},{hasta_kg:250,monto:38509},{hasta_kg:5000,monto:71509}],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},megatone:{comision:14,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,fee_logistico_peso:[{hasta_kg:2,monto:3960},{hasta_kg:10,monto:5649},{hasta_kg:30,monto:11365},{hasta_kg:75,monto:17530},{hasta_kg:200,monto:32248},{hasta_kg:500,monto:59591},{hasta_kg:9999,monto:87370}],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}}};
+// Tablas reales de costos por marketplace (actualizadas julio 2026)
+window.FJ_CONFIG_DEFAULTS = {
+  fravegasc:{
+    nombre:'Frávega', comision:16, publicidad:0, gastos_extra:0, fee_logistico_fijo:0,
+    // Fee logístico por peso aforado — tabla Frávega nacional
+    fee_logistico_peso:[
+      {hasta_kg:1.5,monto:4309},{hasta_kg:5,monto:5509},
+      {hasta_kg:10,monto:6779},{hasta_kg:15,monto:6779},
+      {hasta_kg:20,monto:9219},{hasta_kg:25,monto:13209},
+      {hasta_kg:35,monto:14639},{hasta_kg:50,monto:19809},
+      {hasta_kg:81,monto:23109},{hasta_kg:100,monto:33009},
+      {hasta_kg:250,monto:38509},{hasta_kg:5000,monto:71509},
+    ],
+    // Órdenes < $35.000: fee reducido
+    fee_logistico_peso_menor35k:[
+      {hasta_kg:1.5,monto:1016},{hasta_kg:5,monto:2755},
+      {hasta_kg:10,monto:3390},{hasta_kg:15,monto:3390},
+      {hasta_kg:20,monto:4610},{hasta_kg:25,monto:6605},
+      {hasta_kg:35,monto:7320},{hasta_kg:50,monto:9905},
+      {hasta_kg:81,monto:11555},{hasta_kg:100,monto:16505},
+      {hasta_kg:250,monto:19255},{hasta_kg:5000,monto:35755},
+    ],
+    cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6},
+  },
+  megatone:{
+    nombre:'Megatone', comision:14, publicidad:0, gastos_extra:0, fee_logistico_fijo:0,
+    // Fee logístico AMBA por peso aforado
+    fee_logistico_peso:[
+      {hasta_kg:2,monto:3960},{hasta_kg:10,monto:5649},
+      {hasta_kg:30,monto:11365},{hasta_kg:75,monto:17530},
+      {hasta_kg:200,monto:32248},{hasta_kg:500,monto:59591},
+      {hasta_kg:9999,monto:87370},
+    ],
+    cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6},
+  },
+};
 // Config de costos por defecto (se pisa con lo guardado en Firebase)
 window.FJ_CONFIG = {
   global: {iva_com:21, fee_fulljaus:1, ret_iva:0, ret_gan:0, iibb:4, tc:1000},
-  markets: {}
+  markets: window.FJ_CONFIG_DEFAULTS ? JSON.parse(JSON.stringify(window.FJ_CONFIG_DEFAULTS)) : {}
 };
 
 // Cache de órdenes cargadas
@@ -11792,7 +11826,7 @@ function fjCalcularCostos(orden){
   const mkt=orden.marketplace||'';
   const cfg=window.FJ_CONFIG;
   const global=cfg.global||{};
-  const mktCfg=cfg.markets?.[mkt]||{};
+  const mktCfg=cfg.markets?.[mkt]||window.FJ_CONFIG_DEFAULTS?.[mkt]||{};
 
   const venta=orden.venta||0;
   const cuotas=orden.cuotas||1;
@@ -11806,7 +11840,19 @@ function fjCalcularCostos(orden){
   const pctCuotas=(tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).reverse().find(k=>parseInt(k)<=cuotas)]||0)/100;
   const gastoCuotas=venta*pctCuotas;
 
-  let feeLogis=mktCfg.fee_logistico_fijo||0;const _tp=mktCfg.fee_logistico_peso;if(_tp&&_tp.length){const _pr=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,''));const _kg=_pr?.peso_aforado||0;if(_kg>0){const _tr=_tp.find(t=>_kg<=t.hasta_kg);feeLogis=((_tr?_tr.monto:_tp[_tp.length-1]?.monto)||0)*(orden.unidades||1);}}
+  // 3. Fee logístico — por peso aforado si hay tabla, sino fijo
+  let feeLogis=mktCfg.fee_logistico_fijo||0;
+  const _tp=venta<35000&&mktCfg.fee_logistico_peso_menor35k
+    ? mktCfg.fee_logistico_peso_menor35k
+    : mktCfg.fee_logistico_peso;
+  if(_tp&&_tp.length){
+    const _pr=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,''));
+    const _kg=_pr?.peso_aforado||0;
+    if(_kg>0){
+      const _tr=_tp.find(t=>_kg<=t.hasta_kg);
+      feeLogis=((_tr?_tr.monto:_tp[_tp.length-1]?.monto)||0)*(orden.unidades||1);
+    }
+  }
 
   // 4. Publicidad / gastos extras
   const pctPub=(mktCfg.publicidad||0)/100;
@@ -11844,14 +11890,14 @@ function fjCalcularCostos(orden){
 
 // ── KPIs ──────────────────────────────────────────────────────────────────────
 function fjActualizarKPIs(){
-  const ords=window._fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+  const ords=window._fjOrdenes.filter(o>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
   const totV=ords.reduce((s,o)=>s+(o.venta||0),0);
   const totG=ords.reduce((s,o)=>s+(o._ganancia||0),0);
   const mg=totV>0?(totG/totV*100):0;
 
-  const sk=(id,v,c)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(c)el.style.color=c;}};
+  const sk=(id,v,color)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(color)el.style.color=color;}};
   sk('fjk_ventas', fS(Math.round(totV)));
-  sk('fjk_ventas_s').textContent=ords.length+' órdenes';
+  sk('fjk_ventas_s', ords.length+' órdenes');
   sk('fjk_gan', fS(Math.round(totG)), totG>=0?'var(--grn)':'var(--red)');
   sk('fjk_gan_s', 'excl. anuladas/dev.');
   sk('fjk_mg', mg.toFixed(1)+'%', mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)');
@@ -12420,13 +12466,9 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  // ── PERÍODO ACTIVO — capturar ANTES de cualquier await ──
-  const{from:_rf,to:_rt}=getRange();
-  const _df=_rf.split('T')[0], _dt=_rt.split('T')[0];
+  const{from:_f,to:_t}=getRange();const _df=_f.split('T')[0],_dt=_t.split('T')[0];const _ba=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);const ordsML=_ba.filter(o=>o.fecha&&o.fecha>=_df&&o.fecha<=_dt&&o.estado!=='cancelled');
 
-  // ── ML — filtrado por período ──
-  const _allML=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  const ordsML=_allML.filter(o=>o.fecha&&o.fecha>=_df&&o.fecha<=_dt&&o.estado!=='cancelled');
+  // ── ML ──
   const ml={
     nombre:'MercadoLibre', color:'#E8FF47', icono:'📦',
     ventas:  ordsML.reduce((s,o)=>s+(o.venta||0),0),
@@ -12436,16 +12478,15 @@ window.renderCanalesIntegrados = async function(){
     costo:   ordsML.reduce((s,o)=>s+(o.costo||0),0),
   };
 
-  // ── MAYORISTA — filtrado por el MISMO período ──
+  // ── MAYORISTA — leer _mayPedidos si están disponibles ──
   let may={nombre:'Mayorista',color:'#4DA3FF',icono:'🏪',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
+    // Intentar cargar desde Firebase si no está en memoria
     if((typeof _mayPedidos==='undefined'||!_mayPedidos?.length)&&typeof fb!=='undefined'){
       const mayData=await fb.get('mayorista').catch(()=>null);
       if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
     }
-    const allPeds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
-    // FILTRO DE FECHA — solo pedidos dentro del período activo
-    const peds=allPeds.filter(p=>p.fecha&&p.fecha>=_df&&p.fecha<=_dt);
+    const peds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
     peds.forEach(p=>{
       may.ventas   +=(p.venta_siva||p.total_siva||0);
       may.ganancia +=(p.ganancia||0);
@@ -12455,15 +12496,10 @@ window.renderCanalesIntegrados = async function(){
     });
   }catch(e){}
 
-  // ── FULLJAUS — filtrado por el MISMO período ──
+  // ── FULLJAUS — leer _fjOrdenes si están disponibles ──
   let fj={nombre:'Fulljaus',color:'#FF8A4D',icono:'🛒',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    const allFJ=typeof _fjOrdenes!=='undefined'?_fjOrdenes:[];
-    // FILTRO DE FECHA — solo órdenes dentro del período activo
-    const fjOrds=allFJ.filter(o=>
-      !['DEVTOT','ANUL','NOAPRO'].includes(o.estado) &&
-      o.fecha && o.fecha>=_df && o.fecha<=_dt
-    );
+    const fjOrds=typeof _fjOrdenes!=='undefined'?_fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)):[];
     fjOrds.forEach(o=>{
       fj.ventas   +=(o.venta||0);
       fj.ganancia +=(o._ganancia||0);
@@ -12905,5 +12941,62 @@ onAuthStateChanged(auth,async(user)=>{
     _authReady=false;
   }
 });
+
+// ── TABLA EDITABLE PESO AFORADO ──────────────────────────────────────────────
+window.renderPesoAforadoTable=function(){
+  const el=document.getElementById('peso_aforado_table_body'); if(!el) return;
+  const filtro=(document.getElementById('pa_filtro')?.value||'').toLowerCase();
+  const prods=S.products.filter(p=>
+    !filtro || (p.sku||'').toLowerCase().includes(filtro) || (p.desc||'').toLowerCase().includes(filtro)
+  );
+  el.innerHTML=prods.map(p=>`<tr>
+    <td><span class="sku">${esc(p.sku)}</span></td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.desc||'—')}</td>
+    <td>${esc((window.RUBROS_NIVIKO||[]).find(r=>r.id===(p.rubro||p.rubroAuto))?.label||p.rubro||p.rubroAuto||'—')}</td>
+    <td class="mono">${p.ars?fS(Math.round(p.ars)):'—'}</td>
+    <td>
+      <input type="number" step="0.1" min="0" value="${p.peso_aforado||''}"
+        placeholder="kg" data-sku="${esc(p.sku)}"
+        class="inp pa-input" style="width:80px;padding:3px 8px;font-size:12px"
+        onchange="paSetPeso(this)">
+    </td>
+  </tr>`).join('');
+};
+
+window.paSetPeso=function(input){
+  const sku=input.dataset.sku;
+  const kg=parseFloat(input.value)||0;
+  const p=S.products.find(x=>x.sku===sku);
+  if(p) p.peso_aforado=kg;
+  // mark as dirty for bulk save
+  if(!window._paDirty) window._paDirty=new Set();
+  window._paDirty.add(sku);
+};
+
+window.paSaveAll=async function(){
+  if(!window._paDirty?.size){toast('Sin cambios para guardar','ok');return;}
+  const skus=[...window._paDirty];
+  const btn=document.getElementById('paSaveBtn');
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+  try{
+    await guardarRubroEnFirebase(skus);
+    window._paDirty=new Set();
+    toast('✓ Peso aforado guardado en '+skus.length+' productos','ok');
+  }catch(e){toast('Error: '+e.message,'err');}
+  if(btn){btn.disabled=false;btn.textContent='💾 Guardar cambios';}
+};
+
+window.prodAplicarPesoAforado=async function(){
+  const kg=parseFloat(document.getElementById('bulk_peso_aforado')?.value)||0;
+  if(!kg){toast('Ingresá el peso aforado en kg','err');return;}
+  let t=[];
+  if(window._prodSeleccionados?.size) t=[...window._prodSeleccionados];
+  else{const r=document.getElementById('prodFiltroRubro')?.value;if(r&&r!=='__sin_asignar__')t=S.products.filter(p=>(p.rubro||p.rubroAuto)===r).map(p=>p.sku);}
+  if(!t.length){toast('Seleccioná productos o filtrá por rubro','err');return;}
+  t.forEach(s=>{const p=S.products.find(x=>x.sku===s);if(p)p.peso_aforado=kg;});
+  await guardarRubroEnFirebase(t);
+  toast('✓ '+t.length+' productos · '+kg+'kg','ok');
+  renderProds();
+};
 
 </script>
