@@ -2579,6 +2579,12 @@ function applyProductCosts(orders){
 }
 
 // ── REFRESH ───────────────────────────────────────────────────
+
+// Helper: peso aforado cell para tabla de productos
+function pesoCell(x){
+  return '<input type="number" step="0.1" value="'+(x.peso_aforado||'')+'" placeholder="—" data-sku="'+esc(x.sku)+'" onchange="paSet(this)" class="inp" style="width:58px;padding:2px 4px;font-size:11px;text-align:center">';
+}
+
 window.doRefresh=async()=>{
   if(S.loading)return;
   if(!S.accounts.length){toast("Conectá al menos una cuenta ML","err");return;}
@@ -3659,7 +3665,7 @@ window.renderProds=function renderProds(){
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.iva==21?"rgba(77,163,255,.1)":"rgba(255,138,77,.1)")+";color:"+(x.iva==21?"var(--blu)":"var(--org)")+"\">"+x.iva+"%</span></td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.pub===false?"rgba(255,77,77,.08)":"rgba(71,232,127,.1)")+";color:"+(x.pub===false?"var(--red)":"var(--grn)")+"\">"+(x.pub===false?"No":"Sí")+"</span></td>"+
       "<td>"+(um[x.sku]||0)+"</td>"+
-      '<td><input type="number" step="0.1" '+'value="'+( x.peso_aforado||"")+'" '+'placeholder="—" '+'data-sku="'+esc(x.sku)+'" '+'onchange="paSet(this)" '+'class="inp" style="width:58px;padding:2px 4px;font-size:11px;text-align:center"></td>'+
+"<td>"+pesoCell(x)+"</td>"+
       "<td class=\"mono "+gc+"\">"+fS(g)+"</td>"+
       "<td class=\""+pc+"\">"+(v>0?pct(g/v):"—")+"</td>"+
       "<td><div style=\"display:flex;gap:4px\"><button class=\"btn-icon\" onclick=\"editProd('"+esc(x.sku)+"')\">✎</button><button class=\"btn-icon\" onclick=\"delProd('"+esc(x.sku)+"')\" style=\"color:var(--red)\">✕</button></div></td>"+
@@ -7394,7 +7400,7 @@ window.portVerHistorico = function(idx){
     +'<div><span style="font-size:15px;font-weight:600">'+esc(d.nombre)+'</span>'
     +(d.desc&&d.desc!==d.nombre?'<div style="font-size:11px;color:var(--t3)">'+esc(d.desc)+'</div>':'')
     +'</div>'
-    +'<button onclick="this.closest(\'[style*=fixed]\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px;line-height:1">×</button></div>'
+    +'<button onclick="this.parentElement.parentElement.parentElement.remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px;line-height:1">×</button></div>'
 
     // KPIs históricos
     +'<div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:8px">📊 Historial '+h.primerVenta?.substring(0,7)+' → '+h.ultimaVenta?.substring(0,7)+'</div>'
@@ -12927,7 +12933,7 @@ window.fjVerOrden=function(ordId){
   modal.innerHTML='<div style="background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:24px;width:500px;max-width:94vw;max-height:88vh;overflow-y:auto">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'+
     '<div><span style="font-size:15px;font-weight:800;color:'+color+'">'+esc(nombre)+'</span><span style="font-size:11px;color:var(--t3);margin-left:8px">#'+esc(o.referencia||String(o.id))+'</span></div>'+
-    '<button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:18px">✕</button></div>'+
+    '<button onclick="this.parentElement.parentElement.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:18px">✕</button></div>'+
     '<div style="background:var(--s2);border-radius:var(--r);padding:10px;margin-bottom:12px;font-size:12px">'+
     '<span class="sku">'+esc(o.sku||'—')+'</span> '+esc(o.desc||o.items?.[0]?.desc||'')+'<br>'+
     '<span style="color:var(--t3)">'+(o.unidades||1)+' u. · '+(o.fecha||'—')+' · '+(o.cuotas>1?o.cuotas+' cuotas':'Sin financiación')+' · '+esc(o.estado)+'</span></div>'+
