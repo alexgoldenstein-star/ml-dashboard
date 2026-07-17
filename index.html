@@ -11784,34 +11784,47 @@ window.fjSync = async function(){
 // ── CALCULAR COSTOS (con config configurable) ─────────────────────────────────
 function fjCalcularCostos(orden){
   const mkt=orden.marketplace||'';
-  const cfg=window.FJ_CONFIG;
+  const cfg=window.FJ_CONFIG||{global:{},markets:{}};
   const global=cfg.global||{};
   const mktCfg=cfg.markets?.[mkt]||window.FJ_CONFIG_DEFAULTS?.[mkt]||{};
 
   const venta=orden.venta||0;
   const cuotas=orden.cuotas||1;
+  const unidades=orden.unidades||1;
+  const sku=orden.sku||'';
 
   // 1. Comisión marketplace
-  const pctCom=(mktCfg.comision||0)/100;
-  const comision=venta*pctCom;
+  const comision=venta*((mktCfg.comision||0)/100);
 
-  // 2. Costo financiación — SOLO si cuotas > 1 (1 cuota = sin financiación)
+  // 2. Costo financiación — $0 cuando cuotas=1 (el cliente pagó de contado)
   const tabCuotas=mktCfg.cuotas_tabla||{1:0};
-  const pctCuotas=cuotas>1?((tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).map(Number).filter(k=>k<=cuotas).sort((a,b)=>b-a)[0]]||0)/100):0;
+  const pctCuotas=cuotas>1
+    ?((tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).map(Number).filter(k=>k<=cuotas).sort((a,b)=>b-a)[0]]||0)/100)
+    :0;
   const gastoCuotas=venta*pctCuotas;
 
+  // 3. Fee logístico por peso aforado del producto
   let feeLogis=mktCfg.fee_logistico_fijo||0;
-  const _tp2=venta<35000&&mktCfg.fee_logistico_peso_menor35k?mktCfg.fee_logistico_peso_menor35k:mktCfg.fee_logistico_peso;
-  if(_tp2&&_tp2.length){const _prr=S.products?.find(p=>p.sku===orden.sku||p.sku===orden.sku?.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,""));const _kgg=_prr?.peso_aforado||0;if(_kgg>0){const _trr=_tp2.find(t=>_kgg<=t.hasta_kg);feeLogis=((_trr?_trr.monto:_tp2[_tp2.length-1]?.monto)||0)*(orden.unidades||1);}}
+  const _tabPeso=venta<35000&&mktCfg.fee_logistico_peso_menor35k
+    ?mktCfg.fee_logistico_peso_menor35k
+    :mktCfg.fee_logistico_peso;
+  if(_tabPeso&&_tabPeso.length){
+    const skuBase=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
+    const _prod=S.products?.find(p=>p.sku===sku||p.sku===skuBase);
+    const _kg=_prod?.peso_aforado||0;
+    if(_kg>0){
+      const _tr=_tabPeso.find(t=>_kg<=t.hasta_kg);
+      feeLogis=((_tr?_tr.monto:_tabPeso[_tabPeso.length-1]?.monto)||0)*unidades;
+    }
+  }
 
   // 4. Publicidad / gastos extras
-  const pctPub=(mktCfg.publicidad||0)/100;
-  const gastoExtra=venta*pctPub + (mktCfg.gastos_extra||0);
+  const gastoExtra=venta*((mktCfg.publicidad||0)/100)+(mktCfg.gastos_extra||0);
 
-  // 5. Fee Fulljaus (siempre 1%)
+  // 5. Fee Fulljaus — 0.75%
   const feeFulljaus=venta*((global.fee_fulljaus||0.75)/100);
 
-  // 6. IVA sobre comisión — REMOVIDO (no aplica en este esquema)
+  // 6. IVA sobre comisión — REMOVIDO
   const ivaComision=0;
 
   // 7. IIBB
@@ -11821,6 +11834,11 @@ function fjCalcularCostos(orden){
   const retIVA=venta*((global.ret_iva||0)/100);
   const retGan=venta*((global.ret_gan||0)/100);
 
+  // Costo del producto desde S.products
+  const skuBase2=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
+  const prodObj=S.products?.find(p=>p.sku===sku||p.sku===skuBase2);
+  const costoProd=Math.round((prodObj?.ars||0)*unidades);
+
   const total=comision+gastoCuotas+feeLogis+gastoExtra+feeFulljaus+iibb+retIVA+retGan;
 
   return {
@@ -11829,11 +11847,11 @@ function fjCalcularCostos(orden){
     feeLogis:    Math.round(feeLogis),
     gastoExtra:  Math.round(gastoExtra),
     feeFulljaus: Math.round(feeFulljaus),
-    ivaComision: Math.round(ivaComision),
+    ivaComision: 0,
     iibb:        Math.round(iibb),
     retIVA:      Math.round(retIVA),
     retGan:      Math.round(retGan),
-    costoProd:   Math.round((_pObj?.ars||0)*(orden.unidades||1)),
+    costoProd,
     total:       Math.round(total),
     pctTotal:    venta>0?(total/venta*100).toFixed(1)+'%':'—'
   };
@@ -12697,7 +12715,7 @@ window.impHistAgregar=function(){
     '<div style="margin-bottom:12px"><label class="lbl">Notas</label>'+
     '<textarea class="inp" id="ihf_notas" rows="2" style="resize:vertical"></textarea></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-    '<button class="btn-g" onclick="document.getElementById("imp_hist_modal").remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
+    '<button class="btn-g" onclick="document.getElementById('imp_hist_modal').remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
     '<button class="btn" onclick="window._impHistGuardarOverride?window._impHistGuardarOverride():impHistGuardar()">💾 Guardar</button>'+
     '</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',modal);
