@@ -12715,10 +12715,11 @@ window.impHistAgregar=function(){
     '<div style="margin-bottom:12px"><label class="lbl">Notas</label>'+
     '<textarea class="inp" id="ihf_notas" rows="2" style="resize:vertical"></textarea></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-    '<button class="btn-g" onclick="document.getElementById('imp_hist_modal').remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
+    '<button class="btn-g" id="imp_hist_cancel_btn">Cancelar</button>'+
     '<button class="btn" onclick="window._impHistGuardarOverride?window._impHistGuardarOverride():impHistGuardar()">💾 Guardar</button>'+
     '</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',modal);
+  (function(){var b=document.getElementById('imp_hist_cancel_btn');if(b)b.onclick=function(){var m=document.getElementById('imp_hist_modal');if(m)m.remove();window._impHistGuardarOverride=null;};})();
 };
 
 window.impHistGuardar=async function(){
@@ -12930,40 +12931,61 @@ window.fjVerOrden=function(ordId){
   const o=(window._fjOrdenes||[]).find(x=>String(x.id)===String(ordId));
   if(!o){toast('Orden no encontrada','err');return;}
   const costos=o._costos||fjCalcularCostos(o);
-  const venta=o.venta||0,costoProd=o._costo_prod||costos.costoProd||0;
+  const venta=o.venta||0;
+  const costoProd=o._costo_prod||costos.costoProd||0;
   const ganancia=o._ganancia||(venta-costoProd-costos.total);
   const mg=venta>0?(ganancia/venta*100):0;
-  const nombre=window.FJ_MARKETS_CFG?.[o.marketplace]?.nombre||o.marketplaceNombre||o.marketplace||'—';
-  const color=window.FJ_MARKETS_CFG?.[o.marketplace]?.color||'var(--acc)';
-  const modal=document.createElement('div');
-  modal.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center';
-  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const nombre=window.FJ_CONFIG_DEFAULTS?.[o.marketplace]?.nombre||o.marketplaceNombre||o.marketplace||'—';
+  const cuotasLabel=o.cuotas>1?(o.cuotas+' cuotas'):'1 cuota (sin costo financiero)';
+
+  // Filas de desglose
   const rows=[
-    ['Costo de producto',costoProd,'t3'],
-    ['Comisión marketplace',costos.comision,'red'],
-    ['Costo financiación '+(o.cuotas>1?'('+o.cuotas+' cuotas)':'(1 cuota = sin costo)'),costos.gastoCuotas,o.cuotas>1?'red':'t3'],
-    ['Fee logístico',costos.feeLogis,'red'],
-    ['Fee Fulljaus (0.75%)',costos.feeFulljaus,'red'],
-    ['IIBB',costos.iibb,'red'],
-    ['Retenciones',(costos.retIVA||0)+(costos.retGan||0),'red'],
-    ['Publicidad / extras',costos.gastoExtra,'red'],
-  ];
-  modal.innerHTML='<div style="background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:24px;width:500px;max-width:94vw;max-height:88vh;overflow-y:auto">'+
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'+
-    '<div><span style="font-size:15px;font-weight:800;color:'+color+'">'+esc(nombre)+'</span><span style="font-size:11px;color:var(--t3);margin-left:8px">#'+esc(o.referencia||String(o.id))+'</span></div>'+
-    '<button onclick="this.parentElement.parentElement.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:18px">✕</button></div>'+
-    '<div style="background:var(--s2);border-radius:var(--r);padding:10px;margin-bottom:12px;font-size:12px">'+
-    '<span class="sku">'+esc(o.sku||'—')+'</span> '+esc(o.desc||o.items?.[0]?.desc||'')+'<br>'+
-    '<span style="color:var(--t3)">'+(o.unidades||1)+' u. · '+(o.fecha||'—')+' · '+(o.cuotas>1?o.cuotas+' cuotas':'Sin financiación')+' · '+esc(o.estado)+'</span></div>'+
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">'+
-    '<div style="background:var(--s2);border-radius:var(--r);padding:10px;text-align:center"><div style="font-size:10px;color:var(--t3)">Venta bruta</div><div style="font-size:16px;font-weight:700">'+fS(Math.round(venta))+'</div></div>'+
-    '<div style="background:var(--s2);border-radius:var(--r);padding:10px;text-align:center;border-top:2px solid var(--red)"><div style="font-size:10px;color:var(--t3)">Total costos</div><div style="font-size:16px;font-weight:700;color:var(--red)">'+fS(Math.round(costos.total+costoProd))+'</div></div>'+
-    '<div style="background:var(--s2);border-radius:var(--r);padding:10px;text-align:center;border-top:2px solid '+(ganancia>=0?'var(--grn)':'var(--red)')+'"><div style="font-size:10px;color:var(--t3)">Ganancia</div><div style="font-size:16px;font-weight:700;color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">'+fS(Math.round(ganancia))+'</div></div></div>'+
-    '<table class="tbl" style="font-size:11px"><thead><tr><th>Concepto</th><th>Monto</th><th>% venta</th></tr></thead><tbody>'+
-    rows.filter(r=>r[1]!==undefined).map(([l,m,col])=>'<tr><td>'+l+'</td><td class="mono" style="color:var(--'+col+')">'+(m>0?fS(Math.round(m)):'-')+'</td><td style="color:var(--'+col+')">'+(venta>0&&m>0?(m/venta*100).toFixed(1)+'%':'—')+'</td></tr>').join('')+
-    '<tr style="font-weight:700;border-top:2px solid var(--b1)"><td style="color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">Ganancia neta</td><td class="mono" style="color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">'+fS(Math.round(ganancia))+'</td><td style="color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">'+mg.toFixed(1)+'%</td></tr>'+
-    '</tbody></table></div>';
-  document.body.appendChild(modal);
+    ['Costo de producto', costoProd, costoProd>0?'var(--t2)':'var(--t3)'],
+    ['Comisión marketplace ('+(costos.comision&&venta>0?(costos.comision/venta*100).toFixed(1):0)+'%)', costos.comision, 'var(--red)'],
+    ['Financiación '+cuotasLabel, costos.gastoCuotas, o.cuotas>1?'var(--red)':'var(--t3)'],
+    ['Fee logístico', costos.feeLogis, 'var(--red)'],
+    ['Fee Fulljaus (0.75%)', costos.feeFulljaus, 'var(--red)'],
+    ['IIBB', costos.iibb, 'var(--red)'],
+    ['Retenciones', (costos.retIVA||0)+(costos.retGan||0), 'var(--red)'],
+    ['Publicidad / extras', costos.gastoExtra, 'var(--red)'],
+  ].filter(r=>r[1]>0);
+
+  const pct=n=>venta>0&&n>0?(n/venta*100).toFixed(1)+'%':'—';
+
+  // Build using DOM — no string concatenation needed
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center';
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:24px;width:500px;max-width:94vw;max-height:88vh;overflow-y:auto';
+
+  box.innerHTML=[
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">',
+      '<div>',
+        '<span style="font-size:15px;font-weight:800;color:var(--org)">'+esc(nombre)+'</span>',
+        '<span style="font-size:11px;color:var(--t3);margin-left:8px">#'+esc(o.referencia||String(o.id||''))+'</span>',
+      '</div>',
+      '<button id="fj_modal_close" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:20px;line-height:1">&#x2715;</button>',
+    '</div>',
+    '<div style="background:var(--s2);border-radius:var(--r);padding:10px;margin-bottom:12px;font-size:12px">',
+      '<span class="sku">'+esc(o.sku||'—')+'</span> '+esc(o.desc||'')+'<br>',
+      '<span style="color:var(--t3)">'+(o.unidades||1)+' u. · '+(o.fecha||'—')+' · '+cuotasLabel+' · '+esc(o.estado)+'</span>',
+    '</div>',
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">',
+      '<div style="background:var(--s2);border-radius:var(--r);padding:10px;text-align:center"><div style="font-size:10px;color:var(--t3)">Venta bruta</div><div style="font-size:16px;font-weight:700">'+fS(Math.round(venta))+'</div></div>',
+      '<div style="background:var(--s2);border-radius:var(--r);padding:10px;text-align:center;border-top:2px solid var(--red)"><div style="font-size:10px;color:var(--t3)">Total costos</div><div style="font-size:16px;font-weight:700;color:var(--red)">'+fS(Math.round(costos.total+costoProd))+'</div></div>',
+      '<div style="background:var(--s2);border-radius:var(--r);padding:10px;text-align:center;border-top:2px solid '+(ganancia>=0?'var(--grn)':'var(--red)')+'"><div style="font-size:10px;color:var(--t3)">Ganancia</div><div style="font-size:16px;font-weight:700;color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">'+fS(Math.round(ganancia))+'</div></div>',
+    '</div>',
+    '<table class="tbl" style="font-size:11px"><thead><tr><th>Concepto</th><th>Monto</th><th>% venta</th></tr></thead><tbody>',
+    rows.map(function(r){return '<tr><td>'+r[0]+'</td><td class="mono" style="color:'+r[2]+'">'+fS(Math.round(r[1]))+'</td><td style="color:'+r[2]+'">'+pct(r[1])+'</td></tr>';}).join(''),
+    '<tr style="font-weight:700;border-top:2px solid var(--b1)"><td style="color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">Ganancia neta ('+mg.toFixed(1)+'%)</td><td class="mono" style="color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">'+fS(Math.round(ganancia))+'</td><td style="color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">'+mg.toFixed(1)+'%</td></tr>',
+    '</tbody></table>',
+  ].join('');
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  document.getElementById('fj_modal_close').onclick=function(){overlay.remove();};
 };
 
 // ── REFRESH también sincroniza Fulljaus ──
