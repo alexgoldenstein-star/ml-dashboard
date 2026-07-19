@@ -143,7 +143,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
 </style>
 </head>
 <body>
-<div id="loginScreen" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center"><div style="text-align:center;max-width:340px;width:90%;padding:32px;background:var(--s1);border:1px solid var(--b1);border-radius:20px"><div style="font-family:Arial,sans-serif;font-weight:900;font-size:26px;color:var(--acc);margin-bottom:4px">NIVIKO</div><div style="font-size:13px;color:var(--t3);margin-bottom:24px">ML Dashboard · Acceso privado</div><button id="btnGoogle" onclick="loginConGoogle()" style="width:100%;padding:13px;background:var(--s2);border:1px solid var(--b2);border-radius:12px;cursor:pointer;font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;justify-content:center;gap:10px"><svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Continuar con Google</button><div id="loginErr" style="margin-top:12px;font-size:12px;color:var(--red);display:none;padding:8px;background:rgba(255,77,77,.08);border-radius:8px"></div></div></div>
+<div id="loginScreen" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center"><div style="text-align:center;max-width:340px;width:90%;padding:32px;background:var(--s1);border:1px solid var(--b1);border-radius:20px"><div style="font-family:Arial,sans-serif;font-weight:900;font-size:26px;color:var(--acc);margin-bottom:4px">NIVIKO</div><div style="font-size:13px;color:var(--t3);margin-bottom:24px">ML Dashboard - Acceso privado</div><button id="btnGoogle" onclick="loginConGoogle()" style="width:100%;padding:13px;background:var(--s2);border:1px solid var(--b2);border-radius:12px;cursor:pointer;font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;justify-content:center;gap:10px"><svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Continuar con Google</button><div id="loginErr" style="margin-top:12px;font-size:12px;color:var(--red);display:none;padding:8px;background:rgba(255,77,77,.08);border-radius:8px"></div></div></div>
 <div id="appWrap" style="display:none;height:100%;width:100%">
 <div class="app">
 <aside class="sb" id="sb">
@@ -220,8 +220,8 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
       <span id="calLabel">Fechas</span>
     </button>
     <div class="cal-pop" id="calPop"></div>
-    <button class="hamburger" onclick="document.querySelector('.sb').classList.toggle('open')" title="Menú">☰</button>
-  <button id="themeBtn" onclick="(function(){const l=document.documentElement.getAttribute('data-theme')==='light';document.documentElement.setAttribute('data-theme',l?''  :'light');document.getElementById('themeBtn').textContent=l?'🌙':'☀️';})();" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--b1);background:var(--s2);cursor:pointer;font-size:15px;flex-shrink:0;">🌙</button>
+    <button class="hamburger" onclick="document.querySelector('.sb').classList.toggle('open')" title="Menu">&#9776;</button>
+  <button id="themeBtn" onclick="(function(){var l=document.documentElement.getAttribute('data-theme')==='light';document.documentElement.setAttribute('data-theme',l?''  :'light');document.getElementById('themeBtn').textContent=l?'&#x1F319;':'&#x2600;';})()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--b1);background:var(--s2);cursor:pointer;font-size:15px;flex-shrink:0;">&#x1F319;</button>
   <button class="tb-icon" id="refreshBtn" onclick="doRefresh()">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 8A6 6 0 112 8M14 8V4M14 8h-4"/></svg>
     </button>
@@ -341,7 +341,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar rubro</button>
           <button class="btn-g btn-sm" onclick="prodDesactivarPubPorRubro()" style="font-size:11px;color:var(--red)" title="Desactivar pub en todos los productos del rubro seleccionado">❌ Sin pub (rubro)</button>
           <button class="btn-g btn-sm" onclick="prodActivarPubPorRubro()" style="font-size:11px;color:var(--grn)" title="Activar pub en todos los productos del rubro seleccionado">✅ Con pub (rubro)</button>
-          <span style="margin-left:6px;font-size:11px;color:var(--t3)">| Peso:</span><input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:60px;padding:3px 5px;font-size:11px"><button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px">⚖</button>
+          <span style="margin-left:6px;font-size:11px;color:var(--t3)">| Peso kg:</span><input id="bulk_peso_aforado" type="number" step="0.1" placeholder="kg" class="inp" style="width:58px;padding:3px 5px;font-size:11px"><button class="btn-g btn-sm" onclick="prodAplicarPesoAforado()" style="font-size:11px">Aplicar</button>
           <button class="btn-g btn-sm" onclick="prodLimpiarSeleccion()" style="font-size:11px;color:var(--t3)">✕ Limpiar</button>
         </div>
 
@@ -2219,7 +2219,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
     <select class="inp" id="mp_rubro" style="margin-bottom:10px">
       <option value="">— Auto-detectar desde ML —</option>
     </select>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px"><div><label class="lbl">U/pedido</label><input class="inp" id="mp_uds_pedido" type="number" placeholder="100"></div><div><label class="lbl">CBM (m³/u)</label><input class="inp" id="mp_cbm" type="number" step="0.001" placeholder="0.000"></div><div><label class="lbl">Peso aforado (kg)</label><input class="inp" id="mp_peso_aforado" type="number" step="0.1" placeholder="8.5"></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px"><div><label class="lbl">U/pedido</label><input class="inp" id="mp_uds_pedido" type="number" placeholder="100"></div><div><label class="lbl">CBM (m3/u)</label><input class="inp" id="mp_cbm" type="number" step="0.001" placeholder="0.000"></div><div><label class="lbl">Peso aforado (kg)</label><input class="inp" id="mp_peso_aforado" type="number" step="0.1" placeholder="8.5"></div></div>
     <div class="macts"><button class="btn-g" onclick="closeModal('mProd')">Cancelar</button><button class="btn" id="saveProdBtn" onclick="saveProd()">Guardar</button></div>
   </div>
 </div>
@@ -2262,11 +2262,11 @@ const AC={GBA:"#4DA3FF",BHO:"#A78BFA",IURA:"#FF8A4D",GBS:"#47E87F",ALL:"#E8FF47"
 const CATS=[{id:"MLA1499",n:"Computación"},{id:"MLA1051",n:"Celulares"},{id:"MLA1000",n:"Electrónica"},{id:"MLA1574",n:"Electrodomésticos"},{id:"MLA9440",n:"Muebles y Hogar"},{id:"MLA1367",n:"Deportes"},{id:"MLA5726",n:"Herramientas"},{id:"MLA1071",n:"Juguetes"}];
 const CORD_NAME={1:"CABA",2:"1er GBA",3:"2do GBA"};
 
-const _app=initializeApp(FBCFG);
-const db=getFirestore(_app);
-const auth=getAuth(_app);
-const EMAILS_OK=["alexgoldenstein3@gmail.com","goldensteinbrian@gmail.com"];
-let _authReady=false;
+var _app=initializeApp(FBCFG);
+var db=getFirestore(_app);
+var auth=getAuth(_app);
+var EMAILS_OK=["alexgoldenstein3@gmail.com","goldensteinbrian@gmail.com"];
+var _authReady=false;
 const fb={
   async get(id){try{const d=await getDoc(doc(db,"ml_dashboard",id));return d.exists()?d.data():null;}catch{return null;}},
   async set(id,data){try{await setDoc(doc(db,"ml_dashboard",id),data);}catch(e){console.warn("fbSet",id,e);}}
@@ -2439,7 +2439,7 @@ function updateCalLabel(){
   }
 }
 function getOrders(){return S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);}
-function getOrdersFiltered(){const{from,to}=getRange();const df=from.split("T")[0],dt=to.split("T")[0];const a=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);return a.filter(o=>o.fecha&&o.fecha>=df&&o.fecha<=dt&&o.estado!=="cancelled");}
+function getOrdersFiltered(){var rng=getRange();var df=rng.from.split("T")[0],dt=rng.to.split("T")[0];var a=S.acct==="ALL"?S.orders:S.orders.filter(function(o){return o.acct===S.acct;});return a.filter(function(o){return o.fecha&&o.fecha>=df&&o.fecha<=dt&&o.estado!=="cancelled";});}
 function getRange(){
   const argNow=new Date(new Date().getTime()-3*60*60*1000);
   const fmt=d=>d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
@@ -2579,12 +2579,6 @@ function applyProductCosts(orders){
 }
 
 // ── REFRESH ───────────────────────────────────────────────────
-
-// Helper: peso aforado cell para tabla de productos
-function pesoCell(x){
-  return '<input type="number" step="0.1" value="'+(x.peso_aforado||'')+'" placeholder="—" data-sku="'+esc(x.sku)+'" onchange="paSet(this)" class="inp" style="width:58px;padding:2px 4px;font-size:11px;text-align:center">';
-}
-
 window.doRefresh=async()=>{
   if(S.loading)return;
   if(!S.accounts.length){toast("Conectá al menos una cuenta ML","err");return;}
@@ -3397,7 +3391,7 @@ function renderOverview(){
     '<div class="kpi red"><div class="kl">Costo mercadería</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+' de la facturación</div></div>'+
     '<div class="kpi org"><div class="kl">Unidades</div><div class="kv">'+u.toLocaleString('es-AR')+'</div><div class="ks">Ticket prom: '+fS(o.length?v/o.length:0)+'</div></div>';
   const accts=["GBA","BHO","IURA","GBS"];
-  const gA={};accts.forEach(a=>{gA[a]=o.filter(x=>x.acct===a).reduce((s,x)=>s+x.ganancia,0);});
+  const gA={};accts.forEach(a=>{gA[a]=o.filter(function(x){return x.acct===a;}).reduce(function(s,x){return s+x.ganancia;},0);});
   const maxG=Math.max(...Object.values(gA).map(Math.abs),1);
   document.getElementById("acctBars").innerHTML=accts.map(a=>'<div class="br"><div class="bl">'+a+'</div><div class="bt"><div class="bf" style="width:'+Math.abs(gA[a])/maxG*100+'%;background:'+ac(a)+'"></div></div><div class="bv" style="color:'+(gA[a]>=0?"var(--grn)":"var(--red)")+'">'+fS(gA[a])+"</div></div>").join("");
   drawDonut(accts,o);
@@ -3412,10 +3406,10 @@ function renderOverview(){
   renderCanalesIntegrados();
 }
 function drawDonut(accts,fO){
-  const ords2=fO||S.orders;
+  var ords2=fO||S.orders;
   const c=document.getElementById("donut");if(!c)return;
   const ctx=c.getContext("2d");
-  const vals=accts.map(a=>ords2.filter(x=>x.acct===a).reduce((s,x)=>s+x.venta,0));
+  const vals=accts.map(function(a){return ords2.filter(function(x){return x.acct===a;}).reduce((s,x)=>s+x.venta,0));
   const total=vals.reduce((a,b)=>a+b,0);
   ctx.clearRect(0,0,100,100);
   if(!total){ctx.beginPath();ctx.arc(50,50,40,0,2*Math.PI);ctx.fillStyle="#1E1E24";ctx.fill();}
@@ -3664,8 +3658,7 @@ window.renderProds=function renderProds(){
       "<td class=\"mono\">$"+Math.round(x.ars).toLocaleString("es-AR")+"</td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.iva==21?"rgba(77,163,255,.1)":"rgba(255,138,77,.1)")+";color:"+(x.iva==21?"var(--blu)":"var(--org)")+"\">"+x.iva+"%</span></td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.pub===false?"rgba(255,77,77,.08)":"rgba(71,232,127,.1)")+";color:"+(x.pub===false?"var(--red)":"var(--grn)")+"\">"+(x.pub===false?"No":"Sí")+"</span></td>"+
-      "<td>"+(um[x.sku]||0)+"</td>"+
-"<td>"+pesoCell(x)+"</td>"+
+      "<td>"+(um[x.sku]||0)+"</td>"+"<td>"+"<input type='number' step='0.1' "+"value='"+(x.peso_aforado||"")+"'  "+"placeholder='---' "+"data-sku='"+esc(x.sku)+"' "+"onchange='paSet(this)' "+"class='inp' style='width:58px;padding:2px 4px;font-size:11px;text-align:center'"+">"+"</td>"+
       "<td class=\"mono "+gc+"\">"+fS(g)+"</td>"+
       "<td class=\""+pc+"\">"+(v>0?pct(g/v):"—")+"</td>"+
       "<td><div style=\"display:flex;gap:4px\"><button class=\"btn-icon\" onclick=\"editProd('"+esc(x.sku)+"')\">✎</button><button class=\"btn-icon\" onclick=\"delProd('"+esc(x.sku)+"')\" style=\"color:var(--red)\">✕</button></div></td>"+
@@ -3815,7 +3808,7 @@ window.editProd=sku=>{
   document.getElementById("mp_pack").value=p.pack||packFromSku(p.sku);
   const udsEl=document.getElementById("mp_uds_pedido"); if(udsEl) udsEl.value=p.uds_pedido||'';
   const cbmEl=document.getElementById("mp_cbm"); if(cbmEl) cbmEl.value=p.cbm||'';
-  const _pae=document.getElementById("mp_peso_aforado"); if(_pae) _pae.value=p.peso_aforado||'';
+  var paeEl=document.getElementById("mp_peso_aforado"); if(paeEl) paeEl.value=p.peso_aforado||'';
   const rubroEl=document.getElementById("mp_rubro"); if(rubroEl) rubroEl.value=p.rubro||'';
   openModal("mProd");
 };
@@ -11646,7 +11639,6 @@ window.FJ_MARKETS_CFG = {
   bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
 };
 
-window.FJ_CONFIG_DEFAULTS={fravegasc:{nombre:"Frávega",comision:16,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,fee_logistico_peso:[{hasta_kg:1.5,monto:4309},{hasta_kg:5,monto:5509},{hasta_kg:10,monto:6779},{hasta_kg:20,monto:9219},{hasta_kg:30,monto:14639},{hasta_kg:75,monto:19809},{hasta_kg:200,monto:23109},{hasta_kg:5000,monto:38509}],fee_logistico_peso_menor35k:[{hasta_kg:1.5,monto:1016},{hasta_kg:5,monto:2755},{hasta_kg:10,monto:3390},{hasta_kg:20,monto:4610},{hasta_kg:30,monto:6605},{hasta_kg:75,monto:7320},{hasta_kg:200,monto:9905},{hasta_kg:5000,monto:11555}],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}},megatone:{nombre:"Megatone",comision:14,publicidad:0,gastos_extra:0,fee_logistico_fijo:0,fee_logistico_peso:[{hasta_kg:2,monto:3960},{hasta_kg:5,monto:4500},{hasta_kg:10,monto:5649},{hasta_kg:20,monto:8500},{hasta_kg:30,monto:11365},{hasta_kg:75,monto:17530},{hasta_kg:200,monto:32248},{hasta_kg:9999,monto:59591}],cuotas_tabla:{1:0,3:6.8,6:10.6,9:13.7,12:16.6}}};
 // Config de costos por defecto (se pisa con lo guardado en Firebase)
 window.FJ_CONFIG = {
   global: {iva_com:21, fee_fulljaus:0.75, ret_iva:0, ret_gan:0, iibb:4, tc:1000},
@@ -11663,7 +11655,7 @@ window.renderFulljaus = async function(){
   try{
     const cfg = await fb.get('fulljaus_config').catch(()=>null);
     if(cfg) window.FJ_CONFIG={...window.FJ_CONFIG,...cfg};
-    if(window.FJ_CONFIG_DEFAULTS)Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([k,v])=>{if(!window.FJ_CONFIG.markets[k]||!Object.keys(window.FJ_CONFIG.markets[k]).length)window.FJ_CONFIG.markets[k]=v;});
+    if(window.FJ_CONFIG_DEFAULTS)Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(function(kv){var k=kv[0],v=kv[1];if(!window.FJ_CONFIG.markets[k]||!Object.keys(window.FJ_CONFIG.markets[k]).length)window.FJ_CONFIG.markets[k]=v;});
   }catch(e){}
 
   // Inicializar fechas
@@ -11747,14 +11739,14 @@ window.fjCargar = async function(){
 
     // Cruzar con S.products para enrichment
     window._fjOrdenes = window._fjOrdenes.map(o=>{
-      const _fjF=sku=>{if(!sku||sku==="—")return null;let p=S.products.find(x=>x.sku===sku);if(p)return p;const b=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,"").replace(/-X[0-9]+$/i,"");if(b!==sku)p=S.products.find(x=>x.sku===b);return p||S.products.find(x=>sku.startsWith(x.sku)||x.sku.startsWith(sku))||null;};
-      const items=(o.items||[]).map(it=>{const prod=_fjF(it.sku);return {...it,_prod:prod||null,_costoARS:prod?.ars||0};});
-      const _pdF=_fjF(o.sku);
-      const costoTotal=items.length>0?items.reduce((s,it)=>s+(it._costoARS*(it.qty||1)),0):(_pdF?.ars||0)*(o.unidades||1);
+      const fjFp=function(sku){if(!sku)return null;var p=S.products.find(function(x){return x.sku===sku;});if(p)return p;var b=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,"").replace(/-X[0-9]+$/i,"");if(b!==sku)p=S.products.find(function(x){return x.sku===b;});return p||S.products.find(function(x){return sku.startsWith(x.sku)||x.sku.startsWith(sku);})||null;};
+      const items=(o.items||[]).map(function(it){var prod=fjFp(it.sku);return Object.assign({},it,{_prod:prod||null,_costoARS:prod?prod.ars||0:0});});
+      const pdFj=fjFp(o.sku);
+      const costoTotal=items.length>0?items.reduce(function(s,it){return s+(it._costoARS*(it.qty||1));},0):(pdFj?pdFj.ars||0:0)*(o.unidades||1);
       const costosFJ=fjCalcularCostos(o);
-      const _cp=costosFJ.costoProd>0?costosFJ.costoProd:costoTotal;
-      const ganancia=o.venta - _cp - costosFJ.total;
-      return {...o, items, _costos:costosFJ, _costo_prod:_cp, _ganancia:ganancia};
+      const cpFinal=costosFJ.costoProd>0?costosFJ.costoProd:costoTotal;
+      const ganancia=o.venta - cpFinal - costosFJ.total;
+      return {...o, items, _costos:costosFJ, _costo_prod:cpFinal, _ganancia:ganancia};
     });
 
     if(hdrEl) hdrEl.textContent=`✓ ${window._fjOrdenes.length} órdenes · ${from} → ${to}`;
@@ -11785,59 +11777,55 @@ window.fjSync = async function(){
 function fjCalcularCostos(orden){
   const mkt=orden.marketplace||'';
   const cfg=window.FJ_CONFIG||{global:{},markets:{}};
-  const global=cfg.global||{};
-  const mktCfg=cfg.markets?.[mkt]||window.FJ_CONFIG_DEFAULTS?.[mkt]||{};
-
+  const G=cfg.global||{};
+  const M=cfg.markets?.[mkt]||window.FJ_CONFIG_DEFAULTS?.[mkt]||{};
   const venta=orden.venta||0;
   const cuotas=orden.cuotas||1;
-  const unidades=orden.unidades||1;
   const sku=orden.sku||'';
+  const uds=orden.unidades||1;
+  const skuBase=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
 
-  // 1. Comisión marketplace
-  const comision=venta*((mktCfg.comision||0)/100);
+  // 1. Comisión
+  const comision=venta*((M.comision||0)/100);
 
-  // 2. Costo financiación — $0 cuando cuotas=1 (el cliente pagó de contado)
-  const tabCuotas=mktCfg.cuotas_tabla||{1:0};
+  // 2. Cuotas — $0 cuando cuotas=1 (sin interés para vos, lo paga el cliente al banco)
+  const tabCuotas=M.cuotas_tabla||{1:0};
   const pctCuotas=cuotas>1
-    ?((tabCuotas[cuotas]||tabCuotas[Object.keys(tabCuotas).map(Number).filter(k=>k<=cuotas).sort((a,b)=>b-a)[0]]||0)/100)
+    ?((tabCuotas[cuotas]||tabCuotas[Math.max(...Object.keys(tabCuotas).map(Number).filter(k=>k<=cuotas))]||0)/100)
     :0;
   const gastoCuotas=venta*pctCuotas;
 
-  // 3. Fee logístico por peso aforado del producto
-  let feeLogis=mktCfg.fee_logistico_fijo||0;
-  const _tabPeso=venta<35000&&mktCfg.fee_logistico_peso_menor35k
-    ?mktCfg.fee_logistico_peso_menor35k
-    :mktCfg.fee_logistico_peso;
-  if(_tabPeso&&_tabPeso.length){
-    const skuBase=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
-    const _prod=S.products?.find(p=>p.sku===sku||p.sku===skuBase);
-    const _kg=_prod?.peso_aforado||0;
-    if(_kg>0){
-      const _tr=_tabPeso.find(t=>_kg<=t.hasta_kg);
-      feeLogis=((_tr?_tr.monto:_tabPeso[_tabPeso.length-1]?.monto)||0)*unidades;
+  // 3. Fee logístico por peso aforado
+  let feeLogis=M.fee_logistico_fijo||0;
+  const tabPeso=venta<35000&&M.fee_logistico_peso_menor35k?M.fee_logistico_peso_menor35k:M.fee_logistico_peso;
+  if(tabPeso&&tabPeso.length){
+    const prodFJ=S.products?S.products.find(function(p){return p.sku===sku||p.sku===skuBase;}):null;
+    const kg=prodFJ?prodFJ.peso_aforado||0:0;
+    if(kg>0){
+      const tr=tabPeso.find(function(t){return kg<=t.hasta_kg;});
+      feeLogis=((tr?tr.monto:tabPeso[tabPeso.length-1].monto)||0)*uds;
     }
   }
 
-  // 4. Publicidad / gastos extras
-  const gastoExtra=venta*((mktCfg.publicidad||0)/100)+(mktCfg.gastos_extra||0);
+  // 4. Publicidad
+  const gastoExtra=venta*((M.publicidad||0)/100)+(M.gastos_extra||0);
 
   // 5. Fee Fulljaus — 0.75%
-  const feeFulljaus=venta*((global.fee_fulljaus||0.75)/100);
+  const feeFulljaus=venta*((G.fee_fulljaus||0.75)/100);
 
   // 6. IVA sobre comisión — REMOVIDO
   const ivaComision=0;
 
   // 7. IIBB
-  const iibb=venta*((global.iibb||4)/100);
+  const iibb=venta*((G.iibb||4)/100);
 
   // 8. Retenciones
-  const retIVA=venta*((global.ret_iva||0)/100);
-  const retGan=venta*((global.ret_gan||0)/100);
+  const retIVA=venta*((G.ret_iva||0)/100);
+  const retGan=venta*((G.ret_gan||0)/100);
 
   // Costo del producto desde S.products
-  const skuBase2=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
-  const prodObj=S.products?.find(p=>p.sku===sku||p.sku===skuBase2);
-  const costoProd=Math.round((prodObj?.ars||0)*unidades);
+  const prodCosto=S.products?S.products.find(function(p){return p.sku===sku||p.sku===skuBase;}):null;
+  const costoProd=Math.round((prodCosto?prodCosto.ars||0:0)*uds);
 
   const total=comision+gastoCuotas+feeLogis+gastoExtra+feeFulljaus+iibb+retIVA+retGan;
 
@@ -11851,9 +11839,9 @@ function fjCalcularCostos(orden){
     iibb:        Math.round(iibb),
     retIVA:      Math.round(retIVA),
     retGan:      Math.round(retGan),
-    costoProd,
+    costoProd:   costoProd,
     total:       Math.round(total),
-    pctTotal:    venta>0?(total/venta*100).toFixed(1)+'%':'—'
+    pctTotal:    venta>0?(total/venta*100).toFixed(1)+'%':'---'
   };
 }
 
@@ -12086,7 +12074,7 @@ window.fjRenderLiquidacion = function(){
         <tr><td>IVA sobre comisión</td><td class="mono" style="color:var(--red)">${fS(Math.round(totIVACom))}</td><td style="color:var(--red)">${totV>0?(totIVACom/totV*100).toFixed(1)+'%':'—'}</td></tr>
         <tr><td>Gastos por cuotas</td><td class="mono" style="color:var(--red)">${fS(Math.round(totCuotas))}</td><td style="color:var(--red)">${totV>0?(totCuotas/totV*100).toFixed(1)+'%':'—'}</td></tr>
         <tr><td>Fee logístico</td><td class="mono" style="color:var(--red)">${fS(Math.round(totFeeLog))}</td><td style="color:var(--red)">${totV>0?(totFeeLog/totV*100).toFixed(1)+'%':'—'}</td></tr>
-        <tr><td>Fee Fulljaus (0.75%)</td><td class="mono" style="color:var(--red)">${fS(Math.round(totFJ))}</td><td style="color:var(--red)">${totV>0?(totFJ/totV*100).toFixed(1)+'%':'—'}</td></tr>
+        <tr><td>Fee Fulljaus (1%)</td><td class="mono" style="color:var(--red)">${fS(Math.round(totFJ))}</td><td style="color:var(--red)">${totV>0?(totFJ/totV*100).toFixed(1)+'%':'—'}</td></tr>
         <tr><td>IIBB</td><td class="mono" style="color:var(--red)">${fS(Math.round(totIIBB))}</td><td style="color:var(--red)">${totV>0?(totIIBB/totV*100).toFixed(1)+'%':'—'}</td></tr>
         <tr><td>Retenciones</td><td class="mono" style="color:var(--red)">${fS(Math.round(totRet))}</td><td style="color:var(--red)">${totV>0?(totRet/totV*100).toFixed(1)+'%':'—'}</td></tr>
         <tr><td>Publicidad / extras</td><td class="mono" style="color:var(--red)">${fS(Math.round(totExtra))}</td><td style="color:var(--red)">${totV>0?(totExtra/totV*100).toFixed(1)+'%':'—'}</td></tr>
@@ -12435,7 +12423,7 @@ window.renderCanalesIntegrados = async function(){
   const perEl=document.getElementById('ov_canales_periodo');
   if(!el) return;
 
-  const{from:_f,to:_t}=getRange();const _df=_f.split("T")[0],_dt=_t.split("T")[0];const _ba=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);const ordsML=_ba.filter(o=>o.fecha&&o.fecha>=_df&&o.fecha<=_dt&&o.estado!=="cancelled");
+  const ordsML=getOrders(); // órdenes ML filtradas por período activo
 
   // ── ML ──
   const ml={
@@ -12468,7 +12456,7 @@ window.renderCanalesIntegrados = async function(){
   // ── FULLJAUS — leer _fjOrdenes si están disponibles ──
   let fj={nombre:'Fulljaus',color:'#FF8A4D',icono:'🛒',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
   try{
-    const fjOrds=typeof _fjOrdenes!=='undefined'?_fjOrdenes.filter(o=>!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&o.fecha&&o.fecha>=_df&&o.fecha<=_dt):[];
+    var fjOrds=typeof _fjOrdenes!=='undefined'?_fjOrdenes.filter(function(o){return ['DEVTOT','ANUL','NOAPRO'].indexOf(o.estado)===-1&&o.fecha&&o.fecha>=_df&&o.fecha<=_dt;}):[];
     fjOrds.forEach(o=>{
       fj.ventas   +=(o.venta||0);
       fj.ganancia +=(o._ganancia||0);
@@ -12600,7 +12588,7 @@ window.renderCanalesIntegrados = async function(){
         <td>${r.unidades.toLocaleString()}</td>
       </tr>`;
     });
-    let _rd=document.getElementById('ov_canales_rubros');if(!_rd){_rd=document.createElement('div');_rd.id='ov_canales_rubros';el.parentElement.appendChild(_rd);}_rd.innerHTML=rh+'</tbody></table></div>';
+    var _rd=document.getElementById('ov_canales_rubros');if(!_rd){_rd=document.createElement('div');_rd.id='ov_canales_rubros';el.parentElement.appendChild(_rd);}_rd.innerHTML=rh+'</tbody></table></div>';
   }
 };
 
@@ -12715,11 +12703,10 @@ window.impHistAgregar=function(){
     '<div style="margin-bottom:12px"><label class="lbl">Notas</label>'+
     '<textarea class="inp" id="ihf_notas" rows="2" style="resize:vertical"></textarea></div>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-    '<button class="btn-g" id="imp_hist_cancel_btn">Cancelar</button>'+
+    '<button class="btn-g" onclick="document.getElementById("imp_hist_modal").remove();window._impHistGuardarOverride=null;">Cancelar</button>'+
     '<button class="btn" onclick="window._impHistGuardarOverride?window._impHistGuardarOverride():impHistGuardar()">💾 Guardar</button>'+
     '</div></div></div>';
   document.body.insertAdjacentHTML('beforeend',modal);
-  (function(){var b=document.getElementById('imp_hist_cancel_btn');if(b)b.onclick=function(){var m=document.getElementById('imp_hist_modal');if(m)m.remove();window._impHistGuardarOverride=null;};})();
 };
 
 window.impHistGuardar=async function(){
@@ -12879,132 +12866,192 @@ window.impEstimarRecalcular=function(){
 };
 
 
-window.loginConGoogle=async function(){
-  const btn=document.getElementById('btnGoogle'),err=document.getElementById('loginErr');
+// ─── AUTH ──────────────────────────────────────────────────────────────────
+window.loginConGoogle=function(){
+  var btn=document.getElementById('btnGoogle');
+  var err=document.getElementById('loginErr');
   if(btn){btn.disabled=true;btn.textContent='Conectando...';}
   err.style.display='none';
-  try{
-    const prov=new GoogleAuthProvider();prov.setCustomParameters({prompt:'select_account'});
-    const res=await signInWithPopup(auth,prov);
-    if(!EMAILS_OK.includes(res.user.email)){
-      await signOut(auth);err.textContent='❌ '+res.user.email+' no tiene acceso.';err.style.display='block';
-      if(btn){btn.disabled=false;btn.textContent='Continuar con Google';}
+  var prov=new GoogleAuthProvider();
+  prov.setCustomParameters({prompt:'select_account'});
+  signInWithPopup(auth,prov).then(function(res){
+    if(EMAILS_OK.indexOf(res.user.email)===-1){
+      return signOut(auth).then(function(){
+        err.textContent='No autorizado: '+res.user.email;
+        err.style.display='block';
+        if(btn){btn.disabled=false;btn.textContent='Continuar con Google';}
+      });
     }
-  }catch(e){if(e.code!=='auth/popup-closed-by-user'){err.textContent='Error: '+e.message;err.style.display='block';}if(btn){btn.disabled=false;btn.textContent='Continuar con Google';}}
+  }).catch(function(e){
+    if(e.code!=='auth/popup-closed-by-user'){err.textContent='Error: '+e.message;err.style.display='block';}
+    if(btn){btn.disabled=false;btn.textContent='Continuar con Google';}
+  });
 };
-window.cerrarSesion=async function(){if(confirm('¿Cerrar sesión?'))await signOut(auth);};
-onAuthStateChanged(auth,async(user)=>{
-  if(user&&EMAILS_OK.includes(user.email)){
+window.cerrarSesion=function(){
+  if(confirm('Cerrar sesion?'))signOut(auth);
+};
+onAuthStateChanged(auth,function(user){
+  if(user&&EMAILS_OK.indexOf(user.email)!==-1){
     document.getElementById('loginScreen').style.display='none';
-    const aw=document.getElementById('appWrap');if(aw)aw.style.display='block';
-    const su=document.getElementById('sb_user_info');if(su)su.textContent=user.displayName||user.email;
-    if(!_authReady){_authReady=true;if(typeof init==='function')await init();}
+    var aw=document.getElementById('appWrap');if(aw)aw.style.display='block';
+    var su=document.getElementById('sb_user_info');if(su)su.textContent=user.displayName||user.email;
+    if(!_authReady){_authReady=true;if(typeof init==='function')init();}
   }else{
     document.getElementById('loginScreen').style.display='flex';
-    const aw=document.getElementById('appWrap');if(aw)aw.style.display='none';_authReady=false;
+    var aw=document.getElementById('appWrap');if(aw)aw.style.display='none';
+    _authReady=false;
   }
 });
 
-// ── PESO AFORADO inline — guarda al cambiar ──
+// ─── PESO AFORADO INLINE ───────────────────────────────────────────────────
 window.paSet=function(input){
-  const sku=input.dataset.sku,kg=parseFloat(input.value)||0;
-  const p=S.products.find(x=>x.sku===sku);if(!p)return;
+  var sku=input.dataset.sku;
+  var kg=parseFloat(input.value)||0;
+  var p=S.products?S.products.find(function(x){return x.sku===sku;}):null;
+  if(!p)return;
   p.peso_aforado=kg;
-  guardarRubroEnFirebase([sku]).then(()=>{
-    input.style.outline='2px solid var(--grn)';setTimeout(()=>input.style.outline='',1200);
-  }).catch(()=>{input.style.outline='2px solid var(--red)';});
-};
-window.prodAplicarPesoAforado=async function(){
-  const kg=parseFloat(document.getElementById('bulk_peso_aforado')?.value)||0;
-  if(!kg){toast('Ingresá el peso aforado en kg','err');return;}
-  let t=[];
-  if(window._prodSeleccionados?.size)t=[...window._prodSeleccionados];
-  else{const r=document.getElementById('prodFiltroRubro')?.value;if(r&&r!=='__sin_asignar__')t=S.products.filter(p=>(p.rubro||p.rubroAuto)===r).map(p=>p.sku);}
-  if(!t.length){toast('Seleccioná productos o filtrá por rubro','err');return;}
-  t.forEach(s=>{const p=S.products.find(x=>x.sku===s);if(p)p.peso_aforado=kg;});
-  await guardarRubroEnFirebase(t);
-  toast('✓ '+t.length+' productos · '+kg+'kg','ok');renderProds();
+  guardarRubroEnFirebase([sku]).then(function(){
+    input.style.outline='2px solid var(--grn)';
+    setTimeout(function(){input.style.outline='';},1200);
+  }).catch(function(){
+    input.style.outline='2px solid var(--red)';
+  });
 };
 
-// ── DETALLE DE ORDEN FULLJAUS ──
+window.prodAplicarPesoAforado=function(){
+  var kg=parseFloat(document.getElementById('bulk_peso_aforado')?document.getElementById('bulk_peso_aforado').value:0)||0;
+  if(!kg){toast('Ingresa el peso aforado en kg','err');return;}
+  var t=[];
+  if(window._prodSeleccionados&&window._prodSeleccionados.size)t=Array.from(window._prodSeleccionados);
+  else{var r=document.getElementById('prodFiltroRubro')?document.getElementById('prodFiltroRubro').value:'';if(r&&r!=='__sin_asignar__')t=S.products.filter(function(p){return (p.rubro||p.rubroAuto)===r;}).map(function(p){return p.sku;});}
+  if(!t.length){toast('Selecciona productos o filtra por rubro','err');return;}
+  t.forEach(function(s){var p=S.products.find(function(x){return x.sku===s;});if(p)p.peso_aforado=kg;});
+  guardarRubroEnFirebase(t).then(function(){toast(t.length+' productos - peso '+kg+'kg','ok');renderProds();});
+};
+
+// ─── MODAL DETALLE ORDEN FULLJAUS — DOM puro ──────────────────────────────
 window.fjVerOrden=function(ordId){
-  const o=(window._fjOrdenes||[]).find(x=>String(x.id)===String(ordId));
+  var o=(window._fjOrdenes||[]).find(function(x){return String(x.id)===String(ordId);});
   if(!o){toast('Orden no encontrada','err');return;}
-  const costos=o._costos||fjCalcularCostos(o);
-  const venta=o.venta||0;
-  const costoProd=o._costo_prod||costos.costoProd||0;
-  const ganancia=o._ganancia||(venta-costoProd-costos.total);
-  const mg=venta>0?(ganancia/venta*100):0;
-  const nombre=window.FJ_CONFIG_DEFAULTS?.[o.marketplace]?.nombre||o.marketplaceNombre||o.marketplace||'—';
-  const cuotasLabel=o.cuotas>1?(o.cuotas+' cuotas'):'1 cuota (sin costo financiero)';
+  var costos=o._costos||fjCalcularCostos(o);
+  var venta=o.venta||0;
+  var costoProd=o._costo_prod||costos.costoProd||0;
+  var ganancia=o._ganancia!==undefined?o._ganancia:(venta-costoProd-costos.total);
+  var mg=venta>0?(ganancia/venta*100):0;
+  var nombre=(window.FJ_CONFIG_DEFAULTS&&window.FJ_CONFIG_DEFAULTS[o.marketplace]&&window.FJ_CONFIG_DEFAULTS[o.marketplace].nombre)||o.marketplaceNombre||o.marketplace||'---';
+  var cuotasLabel=o.cuotas>1?(o.cuotas+' cuotas'):'1 cuota (sin costo para vos)';
+  var pct=function(n){return venta>0&&n>0?(n/venta*100).toFixed(1)+'%':'---';};
+  var fS2=function(n){return typeof fS==='function'?fS(n):'$'+n;};
 
-  // Filas de desglose
-  const rows=[
-    ['Costo de producto', costoProd, costoProd>0?'var(--t2)':'var(--t3)'],
-    ['Comisión marketplace ('+(costos.comision&&venta>0?(costos.comision/venta*100).toFixed(1):0)+'%)', costos.comision, 'var(--red)'],
-    ['Financiación '+cuotasLabel, costos.gastoCuotas, o.cuotas>1?'var(--red)':'var(--t3)'],
-    ['Fee logístico', costos.feeLogis, 'var(--red)'],
-    ['Fee Fulljaus (0.75%)', costos.feeFulljaus, 'var(--red)'],
-    ['IIBB', costos.iibb, 'var(--red)'],
-    ['Retenciones', (costos.retIVA||0)+(costos.retGan||0), 'var(--red)'],
-    ['Publicidad / extras', costos.gastoExtra, 'var(--red)'],
-  ].filter(r=>r[1]>0);
-
-  const pct=n=>venta>0&&n>0?(n/venta*100).toFixed(1)+'%':'—';
-
-  // Build using DOM — no string concatenation needed
-  const overlay=document.createElement('div');
+  var overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center';
-  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
 
-  const box=document.createElement('div');
-  box.style.cssText='background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:24px;width:500px;max-width:94vw;max-height:88vh;overflow-y:auto';
+  var box=document.createElement('div');
+  box.style.cssText='background:var(--bg);border:1px solid var(--b1);border-radius:16px;padding:24px;width:500px;max-width:94vw;max-height:88vh;overflow-y:auto;position:relative';
 
-  box.innerHTML=[
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">',
-      '<div>',
-        '<span style="font-size:15px;font-weight:800;color:var(--org)">'+esc(nombre)+'</span>',
-        '<span style="font-size:11px;color:var(--t3);margin-left:8px">#'+esc(o.referencia||String(o.id||''))+'</span>',
-      '</div>',
-      '<button id="fj_modal_close" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:20px;line-height:1">&#x2715;</button>',
-    '</div>',
-    '<div style="background:var(--s2);border-radius:var(--r);padding:10px;margin-bottom:12px;font-size:12px">',
-      '<span class="sku">'+esc(o.sku||'—')+'</span> '+esc(o.desc||'')+'<br>',
-      '<span style="color:var(--t3)">'+(o.unidades||1)+' u. · '+(o.fecha||'—')+' · '+cuotasLabel+' · '+esc(o.estado)+'</span>',
-    '</div>',
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">',
-      '<div style="background:var(--s2);border-radius:var(--r);padding:10px;text-align:center"><div style="font-size:10px;color:var(--t3)">Venta bruta</div><div style="font-size:16px;font-weight:700">'+fS(Math.round(venta))+'</div></div>',
-      '<div style="background:var(--s2);border-radius:var(--r);padding:10px;text-align:center;border-top:2px solid var(--red)"><div style="font-size:10px;color:var(--t3)">Total costos</div><div style="font-size:16px;font-weight:700;color:var(--red)">'+fS(Math.round(costos.total+costoProd))+'</div></div>',
-      '<div style="background:var(--s2);border-radius:var(--r);padding:10px;text-align:center;border-top:2px solid '+(ganancia>=0?'var(--grn)':'var(--red)')+'"><div style="font-size:10px;color:var(--t3)">Ganancia</div><div style="font-size:16px;font-weight:700;color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">'+fS(Math.round(ganancia))+'</div></div>',
-    '</div>',
-    '<table class="tbl" style="font-size:11px"><thead><tr><th>Concepto</th><th>Monto</th><th>% venta</th></tr></thead><tbody>',
-    rows.map(function(r){return '<tr><td>'+r[0]+'</td><td class="mono" style="color:'+r[2]+'">'+fS(Math.round(r[1]))+'</td><td style="color:'+r[2]+'">'+pct(r[1])+'</td></tr>';}).join(''),
-    '<tr style="font-weight:700;border-top:2px solid var(--b1)"><td style="color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">Ganancia neta ('+mg.toFixed(1)+'%)</td><td class="mono" style="color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">'+fS(Math.round(ganancia))+'</td><td style="color:'+(ganancia>=0?'var(--grn)':'var(--red)')+'">'+mg.toFixed(1)+'%</td></tr>',
-    '</tbody></table>',
-  ].join('');
+  // Header
+  var hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:14px';
+  var hdrL=document.createElement('div');
+  var span1=document.createElement('span');
+  span1.style.cssText='font-size:15px;font-weight:800;color:var(--org)';
+  span1.textContent=nombre;
+  var span2=document.createElement('span');
+  span2.style.cssText='font-size:11px;color:var(--t3);margin-left:8px';
+  span2.textContent='#'+(o.referencia||String(o.id||''));
+  hdrL.appendChild(span1);hdrL.appendChild(span2);
+  var closeBtn=document.createElement('button');
+  closeBtn.textContent='x';
+  closeBtn.style.cssText='background:none;border:none;cursor:pointer;color:var(--t3);font-size:20px;font-weight:700;line-height:1';
+  closeBtn.onclick=function(){overlay.remove();};
+  hdr.appendChild(hdrL);hdr.appendChild(closeBtn);
+  box.appendChild(hdr);
+
+  // Producto info
+  var info=document.createElement('div');
+  info.style.cssText='background:var(--s2);border-radius:var(--r);padding:10px;margin-bottom:12px;font-size:12px';
+  var skuSpan=document.createElement('span');skuSpan.className='sku';skuSpan.textContent=o.sku||'---';
+  var descSpan=document.createElement('span');descSpan.textContent=' '+(o.desc||'');
+  var br=document.createElement('br');
+  var meta=document.createElement('span');meta.style.color='var(--t3)';
+  meta.textContent=(o.unidades||1)+' u. | '+(o.fecha||'---')+' | '+cuotasLabel+' | '+o.estado;
+  info.appendChild(skuSpan);info.appendChild(descSpan);info.appendChild(br);info.appendChild(meta);
+  box.appendChild(info);
+
+  // KPIs
+  var kpiRow=document.createElement('div');
+  kpiRow.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px';
+  [[fS2(Math.round(venta)),'Venta bruta',''],
+   [fS2(Math.round(costos.total+costoProd)),'Total costos','var(--red)'],
+   [fS2(Math.round(ganancia)),'Ganancia',ganancia>=0?'var(--grn)':'var(--red)']
+  ].forEach(function(kpi){
+    var d=document.createElement('div');
+    d.style.cssText='background:var(--s2);border-radius:var(--r);padding:10px;text-align:center'+(kpi[2]?';border-top:2px solid '+kpi[2]:'');
+    var label=document.createElement('div');label.style.cssText='font-size:10px;color:var(--t3)';label.textContent=kpi[1];
+    var val=document.createElement('div');val.style.cssText='font-size:16px;font-weight:700'+(kpi[2]?';color:'+kpi[2]:'');val.textContent=kpi[0];
+    d.appendChild(label);d.appendChild(val);kpiRow.appendChild(d);
+  });
+  box.appendChild(kpiRow);
+
+  // Table
+  var tbl=document.createElement('table');
+  tbl.className='tbl';tbl.style.fontSize='11px';
+  var thead=document.createElement('thead');
+  thead.innerHTML='<tr><th>Concepto</th><th>Monto</th><th>% venta</th></tr>';
+  tbl.appendChild(thead);
+  var tbody=document.createElement('tbody');
+
+  var rows=[
+    ['Costo de producto',costoProd,'var(--t2)'],
+    ['Comision ('+pct(costos.comision)+')',costos.comision,'var(--red)'],
+    ['Cuotas '+cuotasLabel,costos.gastoCuotas,o.cuotas>1?'var(--red)':'var(--t3)'],
+    ['Fee logistico',costos.feeLogis,'var(--red)'],
+    ['Fee Fulljaus (0.75%)',costos.feeFulljaus,'var(--red)'],
+    ['IIBB',costos.iibb,'var(--red)'],
+    ['Retenciones',(costos.retIVA||0)+(costos.retGan||0),'var(--red)'],
+    ['Publicidad',costos.gastoExtra,'var(--red)'],
+  ];
+  rows.forEach(function(r){
+    if(!r[1]&&r[1]!==0)return;
+    var tr=document.createElement('tr');
+    var td1=document.createElement('td');td1.textContent=r[0];
+    var td2=document.createElement('td');td2.className='mono';td2.style.color=r[2];td2.textContent=r[1]>0?fS2(Math.round(r[1])):'-';
+    var td3=document.createElement('td');td3.style.color=r[2];td3.textContent=r[1]>0?pct(r[1]):'---';
+    tr.appendChild(td1);tr.appendChild(td2);tr.appendChild(td3);tbody.appendChild(tr);
+  });
+  // Ganancia total row
+  var trG=document.createElement('tr');
+  trG.style.cssText='font-weight:700;border-top:2px solid var(--b1)';
+  var gc=ganancia>=0?'var(--grn)':'var(--red)';
+  var tdG1=document.createElement('td');tdG1.style.color=gc;tdG1.textContent='Ganancia neta ('+mg.toFixed(1)+'%)';
+  var tdG2=document.createElement('td');tdG2.className='mono';tdG2.style.color=gc;tdG2.textContent=fS2(Math.round(ganancia));
+  var tdG3=document.createElement('td');tdG3.style.color=gc;tdG3.textContent=mg.toFixed(1)+'%';
+  trG.appendChild(tdG1);trG.appendChild(tdG2);trG.appendChild(tdG3);tbody.appendChild(trG);
+  tbl.appendChild(tbody);
+  box.appendChild(tbl);
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
-  document.getElementById('fj_modal_close').onclick=function(){overlay.remove();};
 };
 
-// ── REFRESH también sincroniza Fulljaus ──
-const _origRefresh=window.doRefresh;
-window.doRefresh=async function(...args){
-  const ret=await _origRefresh?.apply(this,args);
-  if(window._fjOrdenes?.length>0){
+// ─── REFRESH SINCRONIZA FJ ────────────────────────────────────────────────
+var _origDoRefresh=window.doRefresh;
+window.doRefresh=async function(){
+  var ret=_origDoRefresh?await _origDoRefresh.apply(this,arguments):undefined;
+  if(window._fjOrdenes&&window._fjOrdenes.length>0){
     try{
-      const fjI=document.getElementById('fj_desde')?.value||new Date(Date.now()-90*864e5).toISOString().split('T')[0]+'T00:00:00-03:00';
-      const fjF=document.getElementById('fj_hasta')?.value||new Date().toISOString().split('T')[0]+'T23:59:59-03:00';
-      const fjM=document.getElementById('fj_marketplace')?.value||'';
-      const url=PROXY+'/fulljaus/sync?inicio='+encodeURIComponent(fjI)+'&fin='+encodeURIComponent(fjF)+(fjM?'&marketplace='+fjM:'');
-      const r=await fetch(url).catch(()=>null);
-      if(r?.ok){const d=await r.json();if(d.orders?.length){window._fjOrdenes=d.orders;console.log('[FJ] '+d.orders.length+' órdenes actualizadas');}}
+      var fjI=document.getElementById('fj_desde')?document.getElementById('fj_desde').value:(new Date(Date.now()-90*864e5).toISOString().split('T')[0]+'T00:00:00-03:00');
+      var fjF=document.getElementById('fj_hasta')?document.getElementById('fj_hasta').value:(new Date().toISOString().split('T')[0]+'T23:59:59-03:00');
+      var fjM=document.getElementById('fj_marketplace')?document.getElementById('fj_marketplace').value:'';
+      var url=PROXY+'/fulljaus/sync?inicio='+encodeURIComponent(fjI)+'&fin='+encodeURIComponent(fjF)+(fjM?'&marketplace='+fjM:'');
+      var r=await fetch(url).catch(function(){return null;});
+      if(r&&r.ok){var d=await r.json();if(d.orders&&d.orders.length){window._fjOrdenes=d.orders;console.log('[FJ] '+d.orders.length+' ordenes actualizadas');}}
     }catch(e){console.warn('[FJ refresh]',e);}
   }
   return ret;
 };
 
-// ── SIDEBAR USER + DETALLE ORDEN click en tabla ──
+// User sidebar
 
 </script>
