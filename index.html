@@ -248,7 +248,8 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <span class="ct">Todos los canales</span>
           <span id="ov_canales_periodo" style="font-size:10px;color:var(--t3)"></span>
         </div>
-        <div id="ov_canales_kpis" class="g4" style="margin-bottom:12px"></div>
+        <div id="ov_canales_kpis" class="g4" style="margin-bottom:12px">
+        <div id="ov_canal_cards"></div></div>
         <div id="ov_canales_tabla" style="font-size:11px"></div>
       </div>
 
@@ -3417,6 +3418,7 @@ function renderOverview(){
   document.getElementById("topProds").innerHTML=tH||'<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">Sin datos — apretá ↺ para cargar ventas</td></tr>';
   renderAlertPanel();
   renderCanalesIntegrados();
+  renderOverviewCanalesCards();
 }
 function drawDonut(accts,fO){
   const ordsFD=fO||S.orders;
@@ -13084,6 +13086,26 @@ window.fjVerOrden=function(ordId){
   var _orig=window.doRefresh;
   window.doRefresh=async function(){
     var ret=_orig?await _orig.apply(this,arguments):undefined;
+    // Auto-fetch Fulljaus on first refresh if no orders loaded yet
+    if(!window._fjOrdenes||window._fjOrdenes.length===0){
+      try{
+        var rng=typeof getRange==="function"?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
+        var fi=rng.from.split("T")[0]+"T00:00:00-03:00";
+        var ff=rng.to.split("T")[0]+"T23:59:59-03:00";
+        var url=PROXY+"/fulljaus/sync?inicio="+encodeURIComponent(fi)+"&fin="+encodeURIComponent(ff);
+        console.log("[FJ auto-init] fetching orders...");
+        var r=await fetch(url).catch(function(){return null;});
+        if(r&&r.ok){
+          var d=await r.json();
+          if(d.orders&&d.orders.length){
+            window._fjOrdenes=d.orders;
+            if(typeof fjActualizarKPIs==="function")fjActualizarKPIs();
+            if(typeof renderCanalesIntegrados==="function")renderCanalesIntegrados();
+            console.log("[FJ auto-init] "+d.orders.length+" ordenes cargadas");
+          }
+        }
+      }catch(e){console.warn("[FJ auto-init]",e);}
+    }
     if(window._fjOrdenes&&window._fjOrdenes.length>0){
       try{
         var i=document.getElementById('fj_desde')?document.getElementById('fj_desde').value:(new Date(Date.now()-90*864e5).toISOString().split('T')[0]+'T00:00:00-03:00');
@@ -13091,7 +13113,25 @@ window.fjVerOrden=function(ordId){
         var m=document.getElementById('fj_marketplace')?document.getElementById('fj_marketplace').value:'';
         var url=PROXY+'/fulljaus/sync?inicio='+encodeURIComponent(i)+'&fin='+encodeURIComponent(f)+(m?'&marketplace='+m:'');
         var r=await fetch(url).catch(function(){return null;});
-        if(r&&r.ok){var d=await r.json();if(d.orders&&d.orders.length){window._fjOrdenes=d.orders;console.log('[FJ] '+d.orders.length+' ordenes actualizadas');if(typeof fjActualizarKPIs==='function')fjActualizarKPIs();}}
+        if(r&&r.ok){
+      var d=await r.json();
+      if(d.orders&&d.orders.length){
+        // Enriquecer con costos y SKU match
+        var _fpR=function(sku){if(!sku)return null;var p=S.products?S.products.find(function(x){return x.sku===sku;}):null;if(p)return p;var b=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,"").replace(/-X[0-9]+$/i,"");if(b!==sku)p=S.products?S.products.find(function(x){return x.sku===b;}):null;return p||(S.products?S.products.find(function(x){return sku.startsWith(x.sku)||x.sku.startsWith(sku);}):null)||null;};
+        window._fjOrdenes=d.orders.map(function(o){
+          var items=(o.items||[]).map(function(it){var p=_fpR(it.sku);return Object.assign({},it,{_prod:p||null,_costoARS:p?p.ars||0:0});});
+          var pd=_fpR(o.sku);
+          var costoTotal=items.length>0?items.reduce(function(s,it){return s+(it._costoARS*(it.qty||1));},0):(pd?pd.ars||0:0)*(o.unidades||1);
+          var costosFJ=fjCalcularCostos(o);
+          var cpF=costosFJ.costoProd>0?costosFJ.costoProd:costoTotal;
+          return Object.assign({},o,{items:items,_costos:costosFJ,_costo_prod:cpF,_ganancia:o.venta-cpF-costosFJ.total,_sinCosto:costosFJ.sinCosto});
+        });
+        console.log("[FJ] "+window._fjOrdenes.length+" ordenes actualizadas y enriquecidas");
+        if(typeof fjActualizarKPIs==="function")fjActualizarKPIs();
+        if(typeof renderOverview==="function")renderOverview();
+        if(typeof renderCanalesIntegrados==="function")renderCanalesIntegrados();
+      }
+    }
       }catch(e){console.warn('[FJ refresh]',e);}
     }
     return ret;
@@ -13145,6 +13185,91 @@ window.paSaveAll=async function(){
     toast('✓ Peso aforado guardado en '+skus.length+' productos','ok');
   }catch(e){toast('Error: '+e.message,'err');}
   if(btn){btn.disabled=false;btn.textContent='Guardar cambios';}
+};
+
+
+// ── OVERVIEW: Cards detalladas por canal ─────────────────────────────────
+window.renderOverviewCanalesCards=async function(){
+  var el=document.getElementById('ov_canal_cards');
+  if(!el) return;
+
+  var rng=getRange();
+  var _df=rng.from.split('T')[0],_dt=rng.to.split('T')[0];
+
+  // ML
+  var ba=S.acct==="ALL"?S.orders:S.orders.filter(function(o){return o.acct===S.acct;});
+  var ml=ba.filter(function(o){return o.fecha&&o.fecha>=_df&&o.fecha<=_dt&&o.estado!=="cancelled";});
+  var mlV=ml.reduce(function(s,o){return s+(o.venta||0);},0);
+  var mlG=ml.reduce(function(s,o){return s+(o.ganancia||0);},0);
+  var mlMg=mlV>0?(mlG/mlV*100):0;
+
+  // Mayorista
+  var allP=(typeof _mayPedidos!=="undefined"&&_mayPedidos&&_mayPedidos.length)?_mayPedidos:(window._mayPedidosCache||[]);
+  var peds=allP.filter(function(p){return !p.fecha||(p.fecha>=_df&&p.fecha<=_dt);});
+  var mayV=peds.reduce(function(s,p){return s+(p.venta_siva||p.total_siva||0);},0);
+  var mayG=peds.reduce(function(s,p){return s+(p.ganancia||0);},0);
+  var mayMg=mayV>0?(mayG/mayV*100):0;
+  var mayCosto=peds.reduce(function(s,p){return s+((p.items||[]).reduce(function(ss,i){return ss+(i.costo||0)*(i.qty||1);},0));},0);
+
+  // Fulljaus
+  var fjo=(window._fjOrdenes||[]).filter(function(o){
+    return ['DEVTOT','ANUL','NOAPRO'].indexOf(o.estado)===-1&&(!_df||!o.fecha||(o.fecha>=_df&&o.fecha<=_dt));
+  });
+  var fjV=fjo.reduce(function(s,o){return s+(o.venta||0);},0);
+  var fjG=fjo.reduce(function(s,o){return s+(o._ganancia||0);},0);
+  var fjMg=fjV>0?(fjG/fjV*100):0;
+  var fjCosto=fjo.reduce(function(s,o){return s+(o._costo_prod||0);},0);
+
+  var fmt=function(n){return typeof fS==="function"?fS(Math.round(n)):("$"+Math.round(n).toLocaleString("es-AR"));};
+  var pct=function(n){return n.toFixed(1)+"%";};
+  var mgColor=function(mg){return mg>=20?"var(--grn)":mg>=10?"var(--org)":"var(--red)";};
+
+  el.innerHTML=(
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px">'
+
+    // ML Card
+    +'<div class="card" style="padding:14px;border-left:3px solid var(--acc)">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<span style="font-size:18px">📦</span>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase">MercadoLibre</div>'
+    +'<div style="font-size:9px;color:var(--t3)">'+ml.length+' ordenes</div></div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
+    +'<div><div class="kl">Facturación</div><div class="kv" style="font-size:16px">'+fmt(mlV)+'</div></div>'
+    +'<div><div class="kl">Ganancia</div><div class="kv" style="font-size:16px;color:'+mgColor(mlMg)+'">'+fmt(mlG)+'</div></div>'
+    +'<div><div class="kl">Mg s/venta</div><div style="font-size:14px;font-weight:700;color:'+mgColor(mlMg)+'">'+pct(mlMg)+'</div></div>'
+    +'<div><div class="kl">Mg s/costo</div><div style="font-size:14px;font-weight:700">'+(mlV-mlG>0?pct(mlG/(mlV-mlG)*100):"—")+'</div></div>'
+    +'</div></div>'
+
+    // Mayorista Card
+    +'<div class="card" style="padding:14px;border-left:3px solid var(--blu)">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<span style="font-size:18px">🏪</span>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase">Mayorista</div>'
+    +'<div style="font-size:9px;color:var(--t3)">'+peds.length+' pedidos</div></div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
+    +'<div><div class="kl">Facturación</div><div class="kv" style="font-size:16px">'+fmt(mayV)+'</div></div>'
+    +'<div><div class="kl">Ganancia</div><div class="kv" style="font-size:16px;color:'+mgColor(mayMg)+'">'+fmt(mayG)+'</div></div>'
+    +'<div><div class="kl">Mg s/venta</div><div style="font-size:14px;font-weight:700;color:'+mgColor(mayMg)+'">'+pct(mayMg)+'</div></div>'
+    +'<div><div class="kl">Costo merch.</div><div style="font-size:14px;font-weight:700;">'+fmt(mayCosto)+'</div></div>'
+    +'</div></div>'
+
+    // Fulljaus Card
+    +'<div class="card" style="padding:14px;border-left:3px solid var(--org)">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<span style="font-size:18px">🛒</span>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase">Fulljaus</div>'
+    +'<div style="font-size:9px;color:var(--t3)">'+fjo.length+' ordenes</div></div></div>'
+    +(fjo.length===0?'<div style="font-size:11px;color:var(--t3);padding:8px 0">Sin ordenes en el periodo. Presiona Actualizar para cargar datos de Fulljaus.</div>'
+    :'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
+    +'<div><div class="kl">Facturación</div><div class="kv" style="font-size:16px">'+fmt(fjV)+'</div></div>'
+    +'<div><div class="kl">Ganancia</div><div class="kv" style="font-size:16px;color:'+mgColor(fjMg)+'">'+fmt(fjG)+'</div></div>'
+    +'<div><div class="kl">Mg s/venta</div><div style="font-size:14px;font-weight:700;color:'+mgColor(fjMg)+'">'+pct(fjMg)+'</div></div>'
+    +'<div><div class="kl">Costo prod.</div><div style="font-size:14px;font-weight:700;">'+fmt(fjCosto)+'</div></div>'
+    +'</div>')
+    +'</div>'
+
+    +'</div>'
+  );
 };
 
 </script>
