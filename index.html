@@ -1295,6 +1295,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <div class="card" style="padding:12px;margin-bottom:10px">
             <div class="ch" style="margin-bottom:6px"><span class="ct">Configuración de costos por marketplace</span></div>
             <p style="font-size:11px;color:var(--t3);margin-bottom:14px">Todos los valores se guardan automáticamente en Firebase y se aplican a los cálculos de rentabilidad.</p>
+            <button class="btn-g btn-sm" onclick="fjResetConfigDefaults()" style="font-size:11px;color:var(--org);border-color:var(--org);margin-bottom:10px">↺ Cargar valores reales de Fravega/Megatone</button>
             <div id="fj_config_grid" style="display:flex;flex-direction:column;gap:10px"></div>
           </div>
           <div class="card" style="padding:12px">
@@ -11747,7 +11748,35 @@ window.renderFulljaus = async function(){
   try{
     const cfg = await fb.get('fulljaus_config').catch(()=>null);
     if(cfg) window.FJ_CONFIG={...window.FJ_CONFIG,...cfg};
-    if(window.FJ_CONFIG_DEFAULTS)Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([k,v])=>{if(!window.FJ_CONFIG.markets[k]||!Object.keys(window.FJ_CONFIG.markets[k]).length)window.FJ_CONFIG.markets[k]=v;});
+    // Merge defaults: apply per-field, preserving Firebase values for scalars
+    // but using defaults for fee_logistico_peso if Firebase has empty/zeroed tramos
+    if(window.FJ_CONFIG_DEFAULTS){
+      Object.entries(window.FJ_CONFIG_DEFAULTS).forEach(([k,v])=>{
+        if(!window.FJ_CONFIG.markets[k]){
+          // Market not in Firebase at all — use full default
+          window.FJ_CONFIG.markets[k]=JSON.parse(JSON.stringify(v));
+        } else {
+          const mkt=window.FJ_CONFIG.markets[k];
+          // Always use defaults for fee_logistico_peso if Firebase has empty/zero tramos
+          const fbPeso=mkt.fee_logistico_peso||[];
+          const hasRealData=fbPeso.some(t=>t.monto>0);
+          if(!hasRealData && v.fee_logistico_peso){
+            mkt.fee_logistico_peso=JSON.parse(JSON.stringify(v.fee_logistico_peso));
+          }
+          if(!mkt.fee_logistico_peso_menor35k && v.fee_logistico_peso_menor35k){
+            mkt.fee_logistico_peso_menor35k=JSON.parse(JSON.stringify(v.fee_logistico_peso_menor35k));
+          }
+          // Use default comision if Firebase has 0 or wrong value
+          if((!mkt.comision||mkt.comision===0) && v.comision){
+            mkt.comision=v.comision;
+          }
+          // Use default cuotas_tabla if Firebase has empty one
+          if((!mkt.cuotas_tabla||Object.keys(mkt.cuotas_tabla).length<=1) && v.cuotas_tabla){
+            mkt.cuotas_tabla=JSON.parse(JSON.stringify(v.cuotas_tabla));
+          }
+        }
+      });
+    }
   }catch(e){}
 
   // Inicializar fechas
@@ -13360,6 +13389,27 @@ window.renderOverviewCanalesCards=async function(){
       ?'<div class="card" style="padding:14px;border-left:3px solid var(--org);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px"><span style="font-size:24px">🛒</span><div style="font-size:11px;font-weight:700;text-transform:uppercase">Fulljaus</div><div style="font-size:11px;color:var(--t3);text-align:center">Sin datos. Presiona<br>Actualizar para cargar.</div></div>'
       :makeCard('🛒','Fulljaus',fjo.length,'ordenes',fjV,fjG,fjMg,fjMgC,'var(--org)',{label:'Ticket prom.',value:fjTicket}))
     +'</div>';
+};
+
+
+// ── RESET config costos a defaults reales ────────────────────────────────────
+window.fjResetConfigDefaults = async function(){
+  if(!confirm('¿Cargar los valores reales de Frávega y Megatone? Esto reemplaza la configuración guardada en Firebase.')) return;
+  if(!window.FJ_CONFIG_DEFAULTS){ toast('No hay defaults definidos','err'); return; }
+
+  // Apply defaults to FJ_CONFIG.markets
+  window.FJ_CONFIG.markets = JSON.parse(JSON.stringify(window.FJ_CONFIG_DEFAULTS));
+
+  // Save to Firebase
+  try{
+    await fb.set('fulljaus_config', window.FJ_CONFIG);
+    toast('✓ Valores reales de Frávega y Megatone cargados y guardados','ok');
+  }catch(e){
+    toast('Aplicado localmente (no se guardó en Firebase: '+e.message+')','err');
+  }
+
+  // Re-render config UI
+  fjRenderConfig();
 };
 
 </script>
