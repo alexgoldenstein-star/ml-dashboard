@@ -11734,11 +11734,16 @@ window.fjCargar = async function(){
   const mktSel=document.getElementById('fj_mkt_sel');
   const hdrEl=document.getElementById('fj_status_hdr');
 
+  // Auto-fill dates if empty — use active period
+  if(fromEl&&!fromEl.value){
+    var rng=typeof getRange==="function"?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
+    fromEl.value=rng.from.split("T")[0];
+    if(toEl) toEl.value=rng.to.split("T")[0];
+  }
   const from=fromEl?.value;
   const to=toEl?.value;
   const mkt=mktSel?.value||'';
-
-  if(!from||!to){ return; }
+  if(!from||!to){ toast("Seleccioná un rango de fechas en Fulljaus","err"); return; }
   if(hdrEl) hdrEl.textContent='⏳ Cargando órdenes...';
 
   try{
@@ -11771,6 +11776,11 @@ window.fjCargar = async function(){
     fjRenderOrdenes();
     fjRenderRentabilidad();
     fjRenderLiquidacion();
+    if(typeof renderOverviewCanalesCards==="function") renderOverviewCanalesCards();
+    if(typeof renderCanalesIntegrados==="function") renderCanalesIntegrados();
+    // Update Overview canal cards
+    if(typeof renderOverviewCanalesCards==="function") renderOverviewCanalesCards();
+    if(typeof renderCanalesIntegrados==="function") renderCanalesIntegrados();
 
   }catch(e){
     if(hdrEl) hdrEl.textContent=`⚠ ${e.message}`;
@@ -12250,8 +12260,9 @@ window.fjGuardarConfig = async function(){
   if(window._fjOrdenes.length){
     window._fjOrdenes=window._fjOrdenes.map(o=>{
       const costosFJ=fjCalcularCostos(o);
-      const ganancia=o.venta-(o._costo_prod||0)-costosFJ.total;
-      return {...o,_costos:costosFJ,_ganancia:ganancia};
+      const cpFix=costosFJ.costoProd>0?costosFJ.costoProd:(o._costo_prod||0);
+      const ganancia=o.venta-cpFix-costosFJ.total;
+      return {...o,_costos:costosFJ,_costo_prod:cpFix,_ganancia:ganancia,_sinCosto:costosFJ.sinCosto};
     });
     fjActualizarKPIs();
     fjRenderResumen();
@@ -13095,7 +13106,19 @@ window.fjVerOrden=function(ordId){
   var _orig=window.doRefresh;
   window.doRefresh=async function(){
     var ret=_orig?await _orig.apply(this,arguments):undefined;
-    // Auto-fetch + re-enrich Fulljaus
+    // Auto-sync Fulljaus with current period
+    try{
+      // Pre-fill the FJ date inputs with current range so fjCargar works
+      var rng2=typeof getRange==='function'?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
+      var fromEl2=document.getElementById('fj_date_from');
+      var toEl2=document.getElementById('fj_date_to');
+      if(fromEl2) fromEl2.value=rng2.from.split('T')[0];
+      if(toEl2) toEl2.value=rng2.to.split('T')[0];
+      // Now call fjCargar which handles fetch + enrichment + UI update
+      if(typeof window.fjCargar==='function') await window.fjCargar();
+      return ret;
+    }catch(e){console.warn('[FJ auto-refresh]',e);}
+    // (dead code below kept for fallback)
     try{
       var rng=typeof getRange==='function'?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
       var fi=rng.from.split('T')[0]+'T00:00:00-03:00';
