@@ -352,7 +352,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
 
         <div class="tbl-wrap"><table class="tbl"><thead><tr>
           <th style="width:24px"><input type="checkbox" id="prod_check_all" onchange="prodToggleAll(this.checked)"></th>
-          <th>SKU</th><th>Descripción</th><th>Rubro</th><th>USD</th><th>ARS</th><th>IVA</th><th>Peso Aforado</th><th>Pub.</th><th>Ventas</th><th>Ganancia</th><th>%</th><th></th>
+          <th>SKU</th><th>Descripción</th><th>Rubro</th><th>USD</th><th>ARS</th><th>IVA</th><th>Pub.</th><th>Ventas</th><th>Peso Aforado (kg)</th><th>Ganancia</th><th>%</th><th></th>
         </tr></thead><tbody id="prodBody"></tbody></table></div>
       </div>
     </div>
@@ -11683,6 +11683,20 @@ window.renderFulljaus = async function(){
   fjDiagnostico();
   fjRenderConfig();
   fjTab('resumen');
+
+  // Auto-cargar órdenes si no hay datos o si el período cambió
+  if(!window._fjOrdenes||window._fjOrdenes.length===0){
+    // Primera carga — usar el período activo del dashboard
+    const rng=typeof getRange==='function'?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
+    if(fromEl) fromEl.value=rng.from.split('T')[0];
+    if(toEl) toEl.value=rng.to.split('T')[0];
+    setTimeout(function(){if(typeof fjCargar==='function')fjCargar();},300);
+  }else{
+    // Ya hay datos — re-renderizar con los datos existentes
+    fjActualizarKPIs();
+    fjRenderResumen();
+    fjRenderOrdenes();
+  }
 };
 
 // ── DIAGNÓSTICO ──────────────────────────────────────────────────────────────
@@ -11877,7 +11891,7 @@ function fjActualizarKPIs(){
 
   const sk=(id,v,c)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(c)el.style.color=c;}};
   sk('fjk_ventas', fS(Math.round(totV)));
-  sk('fjk_ventas_s').textContent=ords.length+' órdenes';
+  sk('fjk_ventas_s', ords.length+' órdenes');
   sk('fjk_gan', fS(Math.round(totG)), totG>=0?'var(--grn)':'var(--red)');
   sk('fjk_gan_s', 'excl. anuladas/dev.');
   sk('fjk_mg', mg.toFixed(1)+'%', mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)');
