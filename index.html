@@ -248,8 +248,8 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <span class="ct">Todos los canales</span>
           <span id="ov_canales_periodo" style="font-size:10px;color:var(--t3)"></span>
         </div>
-        <div id="ov_canales_kpis" class="g4" style="margin-bottom:12px">
-        <div id="ov_canal_cards"></div></div>
+        <div id="ov_canales_kpis" class="g4" style="margin-bottom:12px"></div>
+        <div id="ov_canal_cards" style="margin-bottom:12px"></div>
         <div id="ov_canales_tabla" style="font-size:11px"></div>
       </div>
 
@@ -12607,7 +12607,8 @@ window.renderCanalesIntegrados = async function(){
     let _rd=document.getElementById('ov_canales_rubros');
   if(!_rd){_rd=document.createElement('div');_rd.id='ov_canales_rubros';el.parentElement.appendChild(_rd);}
   _rd.innerHTML=rh+'</tbody></table></div>';
-  }
+  }  if(typeof renderOverviewCanalesCards==="function")renderOverviewCanalesCards();
+
 };
 
 
@@ -13132,57 +13133,95 @@ window.fjVerOrden=function(ordId){
   };
 })();
 
-// ── CANAL CARDS en Overview ────────────────────────────────────────────────
+// ── CANAL CARDS en Overview ─────────────────────────────────────────────────
 window.renderOverviewCanalesCards=async function(){
-  var el=document.getElementById('ov_canal_cards');if(!el)return;
-  var rng=getRange();
+  // Get or create the container
+  var el=document.getElementById('ov_canal_cards');
+  if(!el){
+    // Create it after ov_canales_kpis if missing
+    var kpis=document.getElementById('ov_canales_kpis');
+    if(!kpis)return;
+    el=document.createElement('div');
+    el.id='ov_canal_cards';
+    el.style.marginBottom='12px';
+    kpis.parentNode.insertBefore(el,kpis.nextSibling);
+  }
+
+  var rng=typeof getRange==='function'?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
   var df=rng.from.split('T')[0],dt=rng.to.split('T')[0];
+
+  // ML data
   var ba=S.acct==="ALL"?S.orders:S.orders.filter(function(o){return o.acct===S.acct;});
   var ml=ba.filter(function(o){return o.fecha&&o.fecha>=df&&o.fecha<=dt&&o.estado!=="cancelled";});
   var mlV=ml.reduce(function(s,o){return s+(o.venta||0);},0);
   var mlG=ml.reduce(function(s,o){return s+(o.ganancia||0);},0);
   var mlMg=mlV>0?(mlG/mlV*100):0;
+  var mlMgC=mlV>mlG&&(mlV-mlG)>0?(mlG/(mlV-mlG)*100):0;
+
+  // Mayorista data
   var allP=(typeof _mayPedidos!=="undefined"&&_mayPedidos&&_mayPedidos.length)?_mayPedidos:(window._mayPedidosCache||[]);
   var peds=allP.filter(function(p){return !p.fecha||(p.fecha>=df&&p.fecha<=dt);});
   var mayV=peds.reduce(function(s,p){return s+(p.venta_siva||p.total_siva||0);},0);
   var mayG=peds.reduce(function(s,p){return s+(p.ganancia||0);},0);
   var mayMg=mayV>0?(mayG/mayV*100):0;
-  var fjo=(window._fjOrdenes||[]).filter(function(o){return ['DEVTOT','ANUL','NOAPRO'].indexOf(o.estado)===-1&&(!df||!o.fecha||(o.fecha>=df&&o.fecha<=dt));});
+  var mayMgC=mayV>mayG&&(mayV-mayG)>0?(mayG/(mayV-mayG)*100):0;
+
+  // Fulljaus data
+  var fjo=(window._fjOrdenes||[]).filter(function(o){
+    return ['DEVTOT','ANUL','NOAPRO'].indexOf(o.estado)===-1&&(!df||!o.fecha||(o.fecha>=df&&o.fecha<=dt));
+  });
   var fjV=fjo.reduce(function(s,o){return s+(o.venta||0);},0);
   var fjG=fjo.reduce(function(s,o){return s+(o._ganancia||0);},0);
   var fjMg=fjV>0?(fjG/fjV*100):0;
-  var fmt=function(n){return typeof fS==="function"?fS(Math.round(n)):("$"+Math.round(n).toLocaleString("es-AR"));};
-  var pct=function(n){return n.toFixed(1)+"%";};
-  var gc=function(mg){return mg>=20?"var(--grn)":mg>=10?"var(--org)":"var(--red)";};
-  el.innerHTML=(
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">'
-    +'<div class="card" style="padding:12px;border-left:3px solid var(--acc)">'
-    +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">&#128246; MercadoLibre <span style="font-weight:400">('+ml.length+' ord)</span></div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'
-    +'<div><div class="kl">Facturacion</div><div style="font-size:14px;font-weight:700">'+fmt(mlV)+'</div></div>'
-    +'<div><div class="kl">Ganancia</div><div style="font-size:14px;font-weight:700;color:'+gc(mlMg)+'">'+fmt(mlG)+'</div></div>'
-    +'<div><div class="kl">Mg s/venta</div><div style="font-size:13px;font-weight:700;color:'+gc(mlMg)+'">'+pct(mlMg)+'</div></div>'
-    +'<div><div class="kl">Mg s/costo</div><div style="font-size:13px;font-weight:700">'+(mlV-mlG>0?pct(mlG/(mlV-mlG)*100):"—")+'</div></div>'
-    +'</div></div>'
-    +'<div class="card" style="padding:12px;border-left:3px solid var(--blu)">'
-    +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">&#127978; Mayorista <span style="font-weight:400">('+peds.length+' ped)</span></div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'
-    +'<div><div class="kl">Facturacion</div><div style="font-size:14px;font-weight:700">'+fmt(mayV)+'</div></div>'
-    +'<div><div class="kl">Ganancia</div><div style="font-size:14px;font-weight:700;color:'+gc(mayMg)+'">'+fmt(mayG)+'</div></div>'
-    +'<div><div class="kl">Mg s/venta</div><div style="font-size:13px;font-weight:700;color:'+gc(mayMg)+'">'+pct(mayMg)+'</div></div>'
-    +'<div><div class="kl">Mg s/costo</div><div style="font-size:13px;font-weight:700">'+(mayV-mayG>0?pct(mayG/(mayV-mayG)*100):"—")+'</div></div>'
-    +'</div></div>'
-    +'<div class="card" style="padding:12px;border-left:3px solid var(--org)">'
-    +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">&#128722; Fulljaus <span style="font-weight:400">('+fjo.length+' ord)</span></div>'
-    +(fjo.length===0?'<div style="font-size:11px;color:var(--t3);padding:4px 0">Presiona Actualizar para cargar datos de Fulljaus.</div>'
-    :'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'
-    +'<div><div class="kl">Facturacion</div><div style="font-size:14px;font-weight:700">'+fmt(fjV)+'</div></div>'
-    +'<div><div class="kl">Ganancia</div><div style="font-size:14px;font-weight:700;color:'+gc(fjMg)+'">'+fmt(fjG)+'</div></div>'
-    +'<div><div class="kl">Mg s/venta</div><div style="font-size:13px;font-weight:700;color:'+gc(fjMg)+'">'+pct(fjMg)+'</div></div>'
-    +'<div><div class="kl">Fee + costos</div><div style="font-size:13px;font-weight:700">'+(fjV>0?pct((fjV-fjG)/fjV*100):"—")+'</div></div>'
-    +'</div>')
-    +'</div></div>'
-  );
+  var fjMgC=fjV>fjG&&(fjV-fjG)>0?(fjG/(fjV-fjG)*100):0;
+
+  var fmt=function(n){return typeof fS==='function'?fS(Math.round(n)):('$'+Math.round(n).toLocaleString('es-AR'));};
+  var pct=function(n){return n.toFixed(1)+'%';};
+  var gc=function(mg){return mg>=20?'var(--grn)':mg>=10?'var(--org)':'var(--red)';};
+
+  function makeCard(icon,nombre,count,countLabel,ventas,ganancia,mg,mgC,accentColor,extraInfo){
+    return '<div class="card" style="padding:14px;border-left:3px solid '+accentColor+'">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<span style="font-size:20px">'+icon+'</span>'
+      +'<div><div style="font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase">'+nombre+'</div>'
+      +'<div style="font-size:10px;color:var(--t3)">'+count+' '+countLabel+'</div></div>'
+      +'</div>'
+      +'<div style="text-align:right"><div style="font-size:18px;font-weight:800;color:'+gc(mg)+'">'+pct(mg)+'</div>'
+      +'<div style="font-size:9px;color:var(--t3)">mg s/venta</div></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      +'<div style="background:var(--s2);border-radius:8px;padding:8px">'
+      +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;margin-bottom:2px">Facturacion</div>'
+      +'<div style="font-size:15px;font-weight:700">'+fmt(ventas)+'</div>'
+      +'</div>'
+      +'<div style="background:var(--s2);border-radius:8px;padding:8px">'
+      +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;margin-bottom:2px">Ganancia</div>'
+      +'<div style="font-size:15px;font-weight:700;color:'+gc(mg)+'">'+fmt(ganancia)+'</div>'
+      +'</div>'
+      +'<div style="background:var(--s2);border-radius:8px;padding:8px">'
+      +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;margin-bottom:2px">Mg s/costo</div>'
+      +'<div style="font-size:15px;font-weight:700">'+pct(mgC)+'</div>'
+      +'</div>'
+      +'<div style="background:var(--s2);border-radius:8px;padding:8px">'
+      +'<div style="font-size:9px;color:var(--t3);text-transform:uppercase;margin-bottom:2px">'+extraInfo.label+'</div>'
+      +'<div style="font-size:15px;font-weight:700">'+extraInfo.value+'</div>'
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }
+
+  var mlTicket=ml.length>0?fmt(mlV/ml.length):'—';
+  var mayTicket=peds.length>0?fmt(mayV/peds.length):'—';
+  var fjTicket=fjo.length>0?fmt(fjV/fjo.length):'—';
+
+  el.innerHTML='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">'
+    +makeCard('📦','MercadoLibre',ml.length,'ordenes',mlV,mlG,mlMg,mlMgC,'var(--acc)',{label:'Ticket prom.',value:mlTicket})
+    +makeCard('🏪','Mayorista',peds.length,'pedidos',mayV,mayG,mayMg,mayMgC,'var(--blu)',{label:'Ticket prom.',value:mayTicket})
+    +(fjo.length===0
+      ?'<div class="card" style="padding:14px;border-left:3px solid var(--org);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px"><span style="font-size:24px">🛒</span><div style="font-size:11px;font-weight:700;text-transform:uppercase">Fulljaus</div><div style="font-size:11px;color:var(--t3);text-align:center">Sin datos. Presiona<br>Actualizar para cargar.</div></div>'
+      :makeCard('🛒','Fulljaus',fjo.length,'ordenes',fjV,fjG,fjMg,fjMgC,'var(--org)',{label:'Ticket prom.',value:fjTicket}))
+    +'</div>';
 };
 
 </script>
