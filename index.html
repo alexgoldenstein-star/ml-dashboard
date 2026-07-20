@@ -321,6 +321,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
       <div class="card">
         <div class="ch"><span class="ct">Base de costos (<span id="prodCount">0</span> SKUs)</span>
           <div style="display:flex;gap:6px">
+            <button class="btn-g btn-sm" onclick="(function(){var p=document.getElementById('panelPesoAforado');var v=p.style.display==='none'||'';p.style.display=v?''  :'none';if(!v)renderPesoTable();})()" style="font-size:12px">Peso Aforado</button>
             <button class="btn btn-sm" onclick="openModal('mProd')">+ Agregar</button>
             <button class="btn-g btn-sm" onclick="exportProds()">CSV</button>
           </div>
@@ -13096,5 +13097,54 @@ window.fjVerOrden=function(ordId){
     return ret;
   };
 })();
+
+
+// ── TABLA MASIVA PESO AFORADO ─────────────────────────────────────────────
+window.renderPesoTable=function(){
+  var el=document.getElementById('peso_aforado_table_body');
+  if(!el)return;
+  if(!window._paDirty)window._paDirty=new Set();
+  var filtro=(document.getElementById('paFiltro')?document.getElementById('paFiltro').value||'':'').toLowerCase();
+  var prods=S.products.filter(function(p){
+    if(!filtro)return true;
+    return (p.sku||'').toLowerCase().includes(filtro)||(p.desc||'').toLowerCase().includes(filtro);
+  });
+  el.innerHTML=prods.map(function(p){
+    var rNom=(window.RUBROS_NIVIKO||[]).find(function(r){return r.id===(p.rubro||p.rubroAuto);})||{};
+    return '<tr>'
+      +'<td><span class="sku">'+esc(p.sku||'')+'</span></td>'
+      +'<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.desc||'—')+'</td>'
+      +'<td>'+esc(rNom.label||p.rubro||p.rubroAuto||'—')+'</td>'
+      +'<td class="mono">'+(p.ars?fS(Math.round(p.ars)):'—')+'</td>'
+      +'<td><input type="number" step="0.1" min="0" value="'+(p.peso_aforado||'')+'" placeholder="kg"'
+      +' data-sku="'+esc(p.sku)+'" data-bulk="1"'
+      +' class="inp" style="width:80px;padding:3px 8px;font-size:12px"'
+      +' onchange="paMark(this)">'
+      +'</td></tr>';
+  }).join('');
+};
+window.paMark=function(input){
+  var sku=input.dataset.sku;
+  var kg=parseFloat(input.value)||0;
+  var p=S.products?S.products.find(function(x){return x.sku===sku;}):null;
+  if(p)p.peso_aforado=kg;
+  if(!window._paDirty)window._paDirty=new Set();
+  window._paDirty.add(sku);
+  input.style.background='rgba(232,255,71,.1)';
+};
+window.paSaveAll=async function(){
+  if(!window._paDirty||!window._paDirty.size){toast('Sin cambios para guardar','ok');return;}
+  var skus=Array.from(window._paDirty);
+  var btn=document.getElementById('paSaveAllBtn');
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+  try{
+    await guardarRubroEnFirebase(skus);
+    window._paDirty=new Set();
+    // Clear yellow highlights
+    document.querySelectorAll('[data-bulk="1"]').forEach(function(inp){inp.style.background='';});
+    toast('✓ Peso aforado guardado en '+skus.length+' productos','ok');
+  }catch(e){toast('Error: '+e.message,'err');}
+  if(btn){btn.disabled=false;btn.textContent='Guardar cambios';}
+};
 
 </script>
