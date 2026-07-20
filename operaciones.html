@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NIVIKO — Operaciones</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0E0E12;--s1:#16161C;--s2:#1E1E26;--b1:rgba(255,255,255,.07);--t1:#F0F0F5;--t2:#A0A0B0;--t3:#606070;--acc:#C8FF00;--grn:#47E87F;--red:#FF4D4D;--org:#FF8A4D;--r:10px}
+body{background:var(--bg);color:var(--t1);font-family:Arial,sans-serif;font-size:14px;min-height:100vh}
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:16px}
+.kpi{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:12px}
+.kl{font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:4px}
+.kv{font-size:22px;font-weight:800}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.btn{background:var(--acc);color:#000;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:13px}
+.btn-g{background:transparent;color:var(--t1);border:1px solid var(--b1);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px}
+.pb{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--t2);cursor:pointer;padding:8px 16px;font-size:13px;font-weight:600}
+.pb.on{color:var(--acc);border-bottom-color:var(--acc)}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;color:var(--t3);text-transform:uppercase;padding:8px;text-align:left;border-bottom:1px solid var(--b1)}
+td{padding:9px 8px;border-bottom:1px solid var(--b1);font-size:12px;vertical-align:middle}
+tr:hover td{background:var(--s2)}
+.sku{font-family:monospace;font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px}
+.inp{background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);padding:8px 12px;font-size:13px;width:100%}
+#loginBox{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:999}
+#appBox{display:none}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginBox">
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:32px;width:340px;text-align:center">
+    <div style="font-weight:900;font-size:22px;color:var(--acc);margin-bottom:4px">NIVIKO</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:24px">Portal de Operaciones</div>
+    <input class="inp" id="loginEmail" type="email" placeholder="Email" style="margin-bottom:10px">
+    <input class="inp" id="loginPass" type="password" placeholder="Contraseña" style="margin-bottom:16px">
+    <button class="btn" style="width:100%" onclick="doLogin()">Entrar</button>
+    <div id="loginErr" style="margin-top:12px;font-size:12px;color:var(--red);display:none"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appBox">
+  <!-- Header -->
+  <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-weight:900;color:var(--acc);font-size:16px">NIVIKO</span>
+      <span style="font-size:11px;color:var(--t3)">Portal de Operaciones</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span id="userLabel" style="font-size:11px;color:var(--t3)"></span>
+      <button class="btn-g" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="background:var(--s1);border-bottom:1px solid var(--b1);padding:0 20px;display:flex;gap:4px">
+    <button class="pb on" id="tab-despacho" onclick="switchTab('despacho')">📦 Despachos</button>
+    <button class="pb" id="tab-reclamos" onclick="switchTab('reclamos')">⚠ Reclamos</button>
+    <button class="pb" id="tab-devoluciones" onclick="switchTab('devoluciones')">↩ Devoluciones</button>
+  </div>
+
+  <!-- Content -->
+  <div style="padding:20px;max-width:1200px;margin:0 auto">
+
+    <!-- DESPACHOS -->
+    <div id="panel-despacho">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div><div style="font-size:16px;font-weight:700">Órdenes sin despachar</div><div style="font-size:11px;color:var(--t3)">Pagadas sin número de seguimiento</div></div>
+        <button class="btn" onclick="loadDespachos()">↻ Actualizar</button>
+      </div>
+      <div id="kpi-despacho" class="g4" style="margin-bottom:14px"></div>
+      <div class="card" style="padding:0;overflow-x:auto">
+        <table><thead><tr><th>Referencia</th><th>Cuenta</th><th>Fecha pago</th><th>SKU</th><th>Descripción</th><th>Comprador</th><th>Días sin despachar</th><th>Estado</th><th>Ver en ML</th></tr></thead>
+        <tbody id="body-despacho"><tr><td colspan="9" style="text-align:center;color:var(--t3);padding:24px">Presioná Actualizar para cargar</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- RECLAMOS -->
+    <div id="panel-reclamos" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div><div style="font-size:16px;font-weight:700">Reclamos activos</div><div style="font-size:11px;color:var(--t3)">Actualizados por el dashboard principal</div></div>
+        <button class="btn" onclick="loadReclamos()">↻ Actualizar</button>
+      </div>
+      <div id="kpi-reclamos" class="g4" style="margin-bottom:14px"></div>
+      <div class="card" style="padding:0;overflow-x:auto">
+        <table><thead><tr><th>ID Reclamo</th><th>Cuenta</th><th>Fecha</th><th>Orden</th><th>Motivo</th><th>Estado</th><th>Días abierto</th><th>Gestionar</th></tr></thead>
+        <tbody id="body-reclamos"><tr><td colspan="8" style="text-align:center;color:var(--t3);padding:24px">Cargando...</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- DEVOLUCIONES -->
+    <div id="panel-devoluciones" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div><div style="font-size:16px;font-weight:700">Devoluciones — últimos 60 días</div><div style="font-size:11px;color:var(--t3)">Marcá como "Recibida" cuando llegue la mercadería</div></div>
+        <button class="btn" onclick="loadDevoluciones()">↻ Actualizar</button>
+      </div>
+      <div id="kpi-devoluciones" class="g4" style="margin-bottom:14px"></div>
+      <div class="card" style="padding:0;overflow-x:auto">
+        <table><thead><tr><th>Referencia</th><th>Cuenta</th><th>Fecha</th><th>SKU</th><th>Motivo</th><th>Seguimiento</th><th>Recibida</th><th>Ver</th></tr></thead>
+        <tbody id="body-devoluciones"><tr><td colspan="8" style="text-align:center;color:var(--t3);padding:24px">Presioná Actualizar</td></tr></tbody></table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import{getFirestore,doc,getDoc,setDoc}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const FBCFG={apiKey:"AIzaSyD6ajsts8KXEJeMpwkF_ReVAm2utxVJsN4",authDomain:"niviko-app.firebaseapp.com",projectId:"niviko-app"};
+const PROXY="https://niviko-proxy-weld.vercel.app";
+
+// Emails autorizados para operaciones (podés agregar más)
+const OPS_EMAILS=["alexgoldenstein3@gmail.com","goldensteinbrian@gmail.com"];
+
+const app=initializeApp(FBCFG);
+const auth=getAuth(app);
+const db=getFirestore(app);
+
+// Firebase helpers
+const fb={
+  get:async(key)=>{const d=await getDoc(doc(db,'niviko_dashboard',key));return d.exists()?d.data():null;},
+  set:async(key,val)=>setDoc(doc(db,'niviko_dashboard',key),val)
+};
+
+window.doLogin=async function(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginErr');
+  err.style.display='none';
+  if(!OPS_EMAILS.includes(email)){err.textContent='Email no autorizado';err.style.display='block';return;}
+  try{
+    await signInWithEmailAndPassword(auth,email,pass);
+  }catch(e){
+    err.textContent=e.code==='auth/wrong-password'?'Contraseña incorrecta':e.code==='auth/user-not-found'?'Email no encontrado':'Error: '+e.message;
+    err.style.display='block';
+  }
+};
+
+window.doLogout=async function(){await signOut(auth);};
+
+onAuthStateChanged(auth,function(user){
+  if(user&&OPS_EMAILS.includes(user.email)){
+    document.getElementById('loginBox').style.display='none';
+    document.getElementById('appBox').style.display='block';
+    document.getElementById('userLabel').textContent=user.email;
+    loadDespachos();
+    loadReclamos();
+  }else{
+    document.getElementById('loginBox').style.display='flex';
+    document.getElementById('appBox').style.display='none';
+  }
+});
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+window.switchTab=function(t){
+  ['despacho','reclamos','devoluciones'].forEach(function(x){
+    document.getElementById('panel-'+x).style.display=x===t?'':'none';
+    document.getElementById('tab-'+x).classList.toggle('on',x===t);
+  });
+};
+
+// ── DESPACHOS — lee de Firebase (sincronizado por dashboard principal) ──
+window.loadDespachos=async function(){
+  const tb=document.getElementById('body-despacho');
+  const kp=document.getElementById('kpi-despacho');
+  tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:24px">Cargando...</td></tr>';
+  try{
+    // Lee órdenes cacheadas de Firebase (guardadas por doRefresh)
+    const cache=await fb.get('orders_cache').catch(()=>null);
+    const orders=Object.values(cache||{}).flat().filter(o=>o.estado==='ready_to_ship'||o.estado==='paid');
+    const hoy=new Date();
+    const pend=orders.map(o=>{
+      const d=o.fecha?Math.floor((hoy-new Date(o.fecha))/864e5):0;
+      return {...o,_dias:d};
+    }).sort((a,b)=>b._dias-a._dias);
+    const crit=pend.filter(o=>o._dias>=2).length;
+    const urg=pend.filter(o=>o._dias===1).length;
+    kp.innerHTML=
+      '<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">CRÍTICOS +2d</div><div class="kv" style="color:var(--red)">'+crit+'</div></div>'+
+      '<div class="kpi" style="border-left:3px solid var(--org)"><div class="kl">URGENTES 1d</div><div class="kv" style="color:var(--org)">'+urg+'</div></div>'+
+      '<div class="kpi"><div class="kl">TOTAL</div><div class="kv">'+pend.length+'</div></div>'+
+      '<div class="kpi"><div class="kl">ACTUALIZADO</div><div class="kv" style="font-size:12px">'+new Date().toLocaleTimeString('es-AR')+'</div></div>';
+    if(!pend.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--grn);padding:24px">✓ Sin pendientes</td></tr>';return;}
+    tb.innerHTML=pend.slice(0,100).map(o=>{
+      const c2=o._dias>=2?'var(--red)':o._dias>=1?'var(--org)':'var(--grn)';
+      const lbl=o._dias>=2?'⚠ CRÍTICO':o._dias>=1?'⚡ URGENTE':'OK';
+      return `<tr>
+        <td class="mono">${esc(o.id||'—')}</td>
+        <td><span style="font-size:9px;padding:1px 5px;border-radius:6px;background:rgba(200,255,0,.1);color:var(--acc)">${esc(o.acct||'—')}</span></td>
+        <td>${esc(o.fecha||'—')}</td>
+        <td><span class="sku">${esc(o.sku||'—')}</span></td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.desc||'—')}</td>
+        <td>${esc(o.buyer_nickname||'—')}</td>
+        <td style="font-weight:700;color:${c2}">${o._dias}d — ${lbl}</td>
+        <td><span style="font-size:9px;padding:2px 5px;border-radius:6px;background:${c2}22;color:${c2}">${esc(o.estado||'—')}</span></td>
+        <td><a href="https://www.mercadolibre.com.ar/ventas/${esc(o.id||'')}/" target="_blank" style="color:var(--acc);font-size:11px">Ver →</a></td>
+      </tr>`;
+    }).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="9" style="color:var(--red);padding:20px">Error: '+e.message+'</td></tr>';}
+};
+
+// ── RECLAMOS — lee lo que guardó el dashboard en Firebase ──
+window.loadReclamos=async function(){
+  const tb=document.getElementById('body-reclamos');
+  const kp=document.getElementById('kpi-reclamos');
+  try{
+    const saved=await fb.get('ctrl_reclamos').catch(()=>null);
+    const all=(saved&&saved.data)||[];
+    const top=Object.entries(all.reduce((m,r)=>{const k=r.reason_id||'otro';m[k]=(m[k]||0)+1;return m;},{})).sort((a,b)=>b[1]-a[1])[0];
+    kp.innerHTML=
+      '<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">RECLAMOS</div><div class="kv" style="color:var(--red)">'+all.length+'</div></div>'+
+      '<div class="kpi"><div class="kl">MÁS FRECUENTE</div><div class="kv" style="font-size:11px">'+(top?top[0]+' ('+top[1]+')':'—')+'</div></div>'+
+      '<div class="kpi"><div class="kl">SIN RESPONDER</div><div class="kv" style="color:var(--org)">'+all.filter(r=>r.status==='opened').length+'</div></div>'+
+      '<div class="kpi"><div class="kl">ÚLTIMA SYNC</div><div class="kv" style="font-size:11px">'+(saved&&saved.updated?saved.updated.split('T')[0]:'—')+'</div></div>';
+    if(!all.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--grn);padding:24px">Sin reclamos activos</td></tr>';return;}
+    const ML={'ITEM_NOT_AS_DESCRIBED':'No corresponde','BUYER_CANCEL':'Comp. canceló','SELLER_CANCEL':'Vend. canceló','DELAYED_SHIPPING':'Envío demorado','ITEM_NOT_RECEIVED':'No recibido','DAMAGED_PRODUCT':'Dañado'};
+    const st={'opened':'Abierto','closed':'Cerrado','in_progress':'En proceso'};
+    tb.innerHTML=all.map(r=>{
+      const c2=r._dias>=5?'var(--red)':r._dias>=2?'var(--org)':'var(--t2)';
+      return `<tr>
+        <td class="mono">${esc(String(r.id||'—'))}</td>
+        <td><span style="font-size:9px;padding:1px 5px;border-radius:6px;background:rgba(200,255,0,.1);color:var(--acc)">${esc(r._acct||'—')}</span></td>
+        <td>${r.date_created?r.date_created.split('T')[0]:'—'}</td>
+        <td class="mono">${r.order_id||'—'}</td>
+        <td>${esc(ML[r.reason_id]||r.reason_id||'—')}</td>
+        <td><span style="font-size:9px;padding:2px 5px;border-radius:6px;background:var(--s2)">${st[r.status]||r.status||'—'}</span></td>
+        <td style="font-weight:700;color:${c2}">${r._dias||0}d</td>
+        <td><a href="https://www.mercadolibre.com.ar/mi-cuenta/reclamos/${esc(String(r.id||''))}/" target="_blank" style="color:var(--acc);font-size:11px">Gestionar →</a></td>
+      </tr>`;
+    }).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="8" style="color:var(--red);padding:20px">Error: '+e.message+'</td></tr>';}
+};
+
+// ── DEVOLUCIONES — lee de Firebase, permite marcar como recibida ──
+window.loadDevoluciones=async function(){
+  const tb=document.getElementById('body-devoluciones');
+  const kp=document.getElementById('kpi-devoluciones');
+  tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:24px">Cargando...</td></tr>';
+  try{
+    const saved=await fb.get('ctrl_dev_lista').catch(()=>null);
+    const devs=(saved&&saved.data)||[];
+    const lg=await fb.get('ctrl_devoluciones').catch(()=>null)||{};
+    const recib=Object.values(lg).filter(x=>x.recibida).length;
+    kp.innerHTML=
+      '<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">DEVOLUCIONES</div><div class="kv" style="color:var(--red)">'+devs.length+'</div></div>'+
+      '<div class="kpi" style="border-left:3px solid var(--grn)"><div class="kl">RECIBIDAS</div><div class="kv" style="color:var(--grn)">'+recib+'</div></div>'+
+      '<div class="kpi" style="border-left:3px solid var(--org)"><div class="kl">PENDIENTES</div><div class="kv" style="color:var(--org)">'+(devs.length-recib)+'</div></div>'+
+      '<div class="kpi"><div class="kl">ACTUALIZADO</div><div class="kv" style="font-size:11px">'+(saved&&saved.updated?saved.updated.split('T')[0]:'—')+'</div></div>';
+    if(!devs.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--grn);padding:24px">Sin devoluciones</td></tr>';return;}
+    tb.innerHTML=devs.map(o=>{
+      const lgo=lg[o.id]||{};const rec=lgo.recibida||false;
+      return `<tr>
+        <td class="mono">${esc(o.id||'—')}</td>
+        <td><span style="font-size:9px;padding:1px 5px;border-radius:6px;background:rgba(200,255,0,.1);color:var(--acc)">${esc(o.acct||'—')}</span></td>
+        <td>${esc(o.fecha||'—')}</td>
+        <td><span class="sku">${esc(o.sku||'—')}</span></td>
+        <td>${esc(o.estado||'—')}</td>
+        <td style="font-size:11px">${lgo.tracking||'—'}</td>
+        <td><button onclick="toggleRecibida('${esc(o.id||'')}',this)" style="background:${rec?'rgba(71,232,127,.15)':'rgba(255,77,77,.1)'};border:1px solid ${rec?'var(--grn)':'var(--red)'};border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;color:${rec?'var(--grn)':'var(--red)'}">${rec?'✓ Recibida':'✗ Pendiente'}</button></td>
+        <td><a href="https://www.mercadolibre.com.ar/ventas/${esc(o.id||'')}/" target="_blank" style="color:var(--acc);font-size:11px">Ver →</a></td>
+      </tr>`;
+    }).join('');
+  }catch(e){tb.innerHTML='<tr><td colspan="8" style="color:var(--red);padding:20px">Error: '+e.message+'</td></tr>';}
+};
+
+window.toggleRecibida=async function(id,btn){
+  const sv=await fb.get('ctrl_devoluciones').catch(()=>({}))||{};
+  const cur=sv[id]||{};cur.recibida=!cur.recibida;cur.updated=new Date().toISOString();sv[id]=cur;
+  await fb.set('ctrl_devoluciones',sv);
+  btn.textContent=cur.recibida?'✓ Recibida':'✗ Pendiente';
+  btn.style.background=cur.recibida?'rgba(71,232,127,.15)':'rgba(255,77,77,.1)';
+  btn.style.borderColor=cur.recibida?'var(--grn)':'var(--red)';
+  btn.style.color=cur.recibida?'var(--grn)':'var(--red)';
+};
+</script>
+</body>
+</html>
