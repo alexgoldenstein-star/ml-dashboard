@@ -11963,7 +11963,7 @@ window.fjRenderOrdenes = function(){
     const mg=o.venta>0?(o._ganancia/o.venta*100):0;
     const mgC=mg>=15?'var(--grn)':mg>=8?'var(--org)':'var(--red)';
     const color=FJ_MARKETS_CFG[o.marketplace]?.color||'var(--t3)';
-    h+=`<tr>
+    h+=`<tr style="cursor:pointer" onclick="fjVerOrden('${o.id}')" title="Ver detalle de la orden">
       <td class="mono" style="font-size:10px">${esc(o.referencia)}</td>
       <td><span style="font-size:9px;padding:1px 6px;border-radius:8px;background:${color}22;color:${color}">${esc(o.marketplaceNombre||o.marketplace)}</span></td>
       <td style="font-size:10px">${o.fecha||'—'}</td>
@@ -12897,26 +12897,53 @@ window.impEstimarRecalcular=function(){
 
 
 // ── AUTH ────────────────────────────────────────────────────────────────────
-window.loginConGoogle=function(){
+window.loginConGoogle=async function(){
   var btn=document.getElementById('btnGoogle');
   var err=document.getElementById('loginErr');
   if(btn){btn.disabled=true;btn.textContent='Conectando...';}
   err.style.display='none';
   var prov=new GoogleAuthProvider();
   prov.setCustomParameters({prompt:'select_account'});
-  signInWithPopup(auth,prov).then(function(res){
+  try{
+    var res=await signInWithPopup(auth,prov);
     if(EMAILS_OK.indexOf(res.user.email)===-1){
-      signOut(auth);
+      await signOut(auth);
       err.textContent='No autorizado: '+res.user.email;
       err.style.display='block';
       if(btn){btn.disabled=false;btn.textContent='Continuar con Google';}
     }
-  }).catch(function(e){
-    if(e.code!=='auth/popup-closed-by-user'){err.textContent='Error: '+e.message;err.style.display='block';}
+  }catch(e){
+    // If popup blocked or unauthorized domain, try redirect
+    if(e.code==='auth/popup-blocked'||e.code==='auth/unauthorized-domain'||e.code==='auth/operation-not-allowed'){
+      try{
+        var{signInWithRedirect}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+        await signInWithRedirect(auth,prov);
+        return; // page will reload after redirect
+      }catch(e2){
+        err.textContent='Error de autorizacion Firebase. Agregá el dominio en Firebase Console → Authentication → Authorized domains: alexgoldenstein-star.github.io';
+        err.style.display='block';
+      }
+    }else if(e.code!=='auth/popup-closed-by-user'){
+      err.textContent='Error: '+e.message;
+      err.style.display='block';
+    }
     if(btn){btn.disabled=false;btn.textContent='Continuar con Google';}
-  });
+  }
 };
 window.cerrarSesion=function(){if(confirm('Cerrar sesion?'))signOut(auth);};
+
+// Handle redirect result (for unauthorized domain popup fallback)
+(async function(){
+  try{
+    var{getRedirectResult}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    var result=await getRedirectResult(auth);
+    if(result&&result.user){
+      if(EMAILS_OK.indexOf(result.user.email)===-1){
+        await signOut(auth);
+      }
+    }
+  }catch(e){console.warn('redirect result:',e);}
+})();
 onAuthStateChanged(auth,function(user){
   if(user&&EMAILS_OK.indexOf(user.email)!==-1){
     document.getElementById('loginScreen').style.display='none';
