@@ -13496,9 +13496,17 @@ window.ctrlCargarReclamos=async function(){
     var ac=S.accounts[i];
     if(!ac.token||!ac.userId)continue;
     try{
-      var res=await fetch(PROXY+'/ml/claims?seller_id='+encodeURIComponent(ac.userId)+'&token='+encodeURIComponent(ac.token)).catch(function(){return null;});
-      if(res&&res.ok){var d=await res.json();(d.data||d.results||[]).forEach(function(r){r._acct=ac.id;r._dias=r.date_created?Math.floor((new Date()-new Date(r.date_created))/864e5):0;all.push(r);});}
-    }catch(e){console.warn('claims',ac.id,e);}
+      var url=PROXY+'/plataforma/reclamos?seller_id='+encodeURIComponent(ac.userId)+'&status=opened&limit=50';
+      var res=await fetch(url,{headers:{'x-ml-token':ac.token}}).catch(function(){return null;});
+      if(res&&res.ok){
+        var d=await res.json();
+        (d.claims||d.data||d.results||[]).forEach(function(r){
+          r._acct=ac.id;
+          r._dias=r.date_created?Math.floor((new Date()-new Date(r.date_created))/864e5):0;
+          all.push(r);
+        });
+      }
+    }catch(e){console.warn('reclamos',ac.id,e);}
   }
   all.sort(function(a,b){return b._dias-a._dias;});
   var motivos={};all.forEach(function(r){var m=r.reason_id||'otro';motivos[m]=(motivos[m]||0)+1;});
@@ -13528,9 +13536,27 @@ window.ctrlCargarReclamos=async function(){
 window.ctrlCargarDevoluciones=async function(){
   var tb=document.getElementById('ctrl-dev-body');
   var kp=document.getElementById('ctrl-dev-kpis');
-  if(tb)tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">Cargando...</td></tr>';
+  if(tb)tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">Cargando cancelaciones desde ML...</td></tr>';
+  var devs=[];
   var hace60=new Date(Date.now()-60*864e5).toISOString().split('T')[0];
-  var devs=S.orders.filter(function(o){return (o.estado==='cancelled'||o.estado==='returned'||o.estado==='refunded')&&o.fecha>=hace60;});
+  var hoy=new Date().toISOString().split('T')[0];
+  for(var i=0;i<S.accounts.length;i++){
+    var ac=S.accounts[i];
+    if(!ac.token||!ac.userId)continue;
+    try{
+      var url=PROXY+'/plataforma/canceladas?seller_id='+encodeURIComponent(ac.userId)+'&date_from='+hace60+'&date_to='+hoy+'&limit=100';
+      var res=await fetch(url,{headers:{'x-ml-token':ac.token}}).catch(function(){return null;});
+      if(res&&res.ok){
+        var d=await res.json();
+        (d.orders||[]).forEach(function(o){
+          // Enrich with first item SKU
+          var sku=(o.items&&o.items[0]&&(o.items[0].sku||o.items[0].id))||'—';
+          o._acct=ac.id;o._sku=sku;
+          devs.push(o);
+        });
+      }
+    }catch(e){console.warn('canceladas',ac.id,e);}
+  }
   devs.sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
   var lg={};try{var sv=await fb.get('ctrl_devoluciones').catch(function(){return null;});if(sv)lg=sv;}catch(e){}
   var recib=Object.values(lg).filter(function(x){return x.recibida;}).length;
