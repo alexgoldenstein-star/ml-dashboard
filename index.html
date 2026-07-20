@@ -11654,6 +11654,83 @@ window.FJ_MARKETS_CFG = {
   bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
 };
 
+// ── TABLAS DE COSTOS FULLJAUS (actualizadas julio 2026) ──────────────────────
+// Frávega: fee logístico por peso aforado (tabla nacional, sin IVA)
+// Imagen: fee SIN IVA - dos columnas: normal y órdenes < $35.000
+// Megatone: fee AMBA sin IVA
+window.FJ_CONFIG_DEFAULTS = {
+  fravegasc: {
+    nombre: 'Frávega',
+    comision: 16,          // 16% sobre venta bruta
+    publicidad: 0,
+    gastos_extra: 0,
+    fee_logistico_fijo: 0,
+
+    // Fee logístico por peso aforado — órdenes >= $35.000 (tabla nacional, sin IVA)
+    fee_logistico_peso: [
+      {hasta_kg: 1.5,  monto: 4309},
+      {hasta_kg: 5,    monto: 5509},
+      {hasta_kg: 10,   monto: 6779},
+      {hasta_kg: 15,   monto: 6779},
+      {hasta_kg: 20,   monto: 9219},
+      {hasta_kg: 25,   monto: 13209},
+      {hasta_kg: 35,   monto: 14639},
+      {hasta_kg: 50,   monto: 19809},
+      {hasta_kg: 81,   monto: 23109},
+      {hasta_kg: 100,  monto: 33009},
+      {hasta_kg: 250,  monto: 38509},
+      {hasta_kg: 5000, monto: 71509},
+    ],
+
+    // Fee logístico — órdenes MENORES a $35.000 (tarifa reducida, sin IVA)
+    fee_logistico_peso_menor35k: [
+      {hasta_kg: 1.5,  monto: 1016},
+      {hasta_kg: 5,    monto: 2755},
+      {hasta_kg: 10,   monto: 3390},
+      {hasta_kg: 15,   monto: 3390},
+      {hasta_kg: 20,   monto: 4610},
+      {hasta_kg: 25,   monto: 6605},
+      {hasta_kg: 35,   monto: 7320},
+      {hasta_kg: 50,   monto: 9905},
+      {hasta_kg: 81,   monto: 11555},
+      {hasta_kg: 100,  monto: 16505},
+      {hasta_kg: 250,  monto: 19255},
+      {hasta_kg: 5000, monto: 35755},
+    ],
+
+    // Cuotas sin interés — costo para el vendedor (la plataforma absorbe el interés del cliente)
+    cuotas_tabla: {1: 0, 3: 6.8, 6: 10.6, 9: 13.7, 12: 16.6},
+  },
+
+  megatone: {
+    nombre: 'Megatone',
+    comision: 14,          // 14% sobre venta bruta
+    publicidad: 0,
+    gastos_extra: 0,
+    fee_logistico_fijo: 0,
+
+    // Fee logístico por peso aforado — AMBA (sin IVA)
+    fee_logistico_peso: [
+      {hasta_kg: 2,    monto: 3960},
+      {hasta_kg: 10,   monto: 5649},
+      {hasta_kg: 30,   monto: 11365},
+      {hasta_kg: 75,   monto: 17530},
+      {hasta_kg: 200,  monto: 32248},
+      {hasta_kg: 500,  monto: 59591},
+      {hasta_kg: 9999, monto: 87370},
+    ],
+
+    // Cuotas sin interés
+    cuotas_tabla: {1: 0, 3: 6.8, 6: 10.6, 9: 13.7, 12: 16.6},
+  },
+
+  // Otros marketplaces — sin datos propios, usar estructura vacía
+  cetrogar:  {nombre:'Cetrogar',  comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
+  oncity:    {nombre:'Oncity',    comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
+  pardo:     {nombre:'Pardo',     comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
+  carrefour: {nombre:'Carrefour', comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
+};
+
 // Config de costos por defecto (se pisa con lo guardado en Firebase)
 window.FJ_CONFIG = {
   global: {iva_com:21, fee_fulljaus:0.75, ret_iva:0, ret_gan:0, iibb:4, tc:1000},
@@ -12146,12 +12223,10 @@ function fjRenderConfig(){
     const cfg=window.FJ_CONFIG.markets?.[cod]||{};
     const color=info.color||'var(--acc)';
     // Fee logístico por tramos de peso
-    const feePeso=cfg.fee_logistico_peso||[
-      {hasta_kg:1, monto:0},
-      {hasta_kg:5, monto:0},
-      {hasta_kg:10, monto:0},
-      {hasta_kg:20, monto:0},
-      {hasta_kg:999, monto:0},
+    const feePeso=cfg.fee_logistico_peso||(window.FJ_CONFIG_DEFAULTS?.[cod]?.fee_logistico_peso)||[
+      {hasta_kg:1.5, monto:0},{hasta_kg:5, monto:0},{hasta_kg:10, monto:0},
+      {hasta_kg:20, monto:0},{hasta_kg:30, monto:0},{hasta_kg:75, monto:0},
+      {hasta_kg:200, monto:0},{hasta_kg:5000, monto:0},
     ];
     const feePesoHtml=feePeso.map((t,ti)=>`
       <div style="display:flex;align-items:center;gap:4px">
@@ -12231,7 +12306,7 @@ window.fjGuardarConfigMkt = function(cod){
     if(el) cuotasTabla[q]=parseFloat(el.value||0);
   });
   // Fee por tramos de peso
-  const tramosDefault=[{hasta_kg:1},{hasta_kg:5},{hasta_kg:10},{hasta_kg:20},{hasta_kg:999}];
+  const tramosDefault=(window.FJ_CONFIG_DEFAULTS?.[cod]?.fee_logistico_peso)||[{hasta_kg:1.5},{hasta_kg:5},{hasta_kg:10},{hasta_kg:20},{hasta_kg:30},{hasta_kg:75},{hasta_kg:200},{hasta_kg:5000}];
   const fee_logistico_peso=tramosDefault.map((t,ti)=>{
     const el=document.getElementById(`fjm_${cod}_feekg_${ti}`);
     return {hasta_kg:t.hasta_kg, monto:parseFloat(el?.value||0)};
