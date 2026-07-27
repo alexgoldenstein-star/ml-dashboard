@@ -1887,6 +1887,17 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
         </div>
 
         <!-- Historial del producto -->
+        <!-- ANÁLISIS MULTICANAL POR PRODUCTO -->
+        <div class="card" style="margin-bottom:12px" id="calcMulticanalCard">
+          <div class="ch" style="margin-bottom:12px">
+            <span class="ct">🌐 Rentabilidad multicanal</span>
+            <span style="font-size:11px;color:var(--t3)">Compará el mismo producto en todos los canales de venta</span>
+          </div>
+          <div id="calcMulticanalBody">
+            <p style="font-size:12px;color:var(--t3);padding:12px 0">Seleccioná un producto arriba para ver el análisis multicanal.</p>
+          </div>
+        </div>
+
         <div class="card" id="calcHistCard" style="margin-bottom:12px;display:none">
           <div class="ch"><span class="ct">📊 Historial real del producto</span><span id="calcHistPeriod" style="font-size:10px;color:var(--t3)"></span></div>
           <div id="calcHistGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div>
@@ -11955,16 +11966,22 @@ function fjCalcularCostos(orden){
   const uds=orden.unidades||1;
   const skuB=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
 
-  // 1. Comisión
+  // IVA: el precio de venta en Fulljaus incluye IVA → desglosarlo
+  const pr2=S.products?S.products.find(p=>p.sku===sku||p.sku===skuB):null;
+  const ivaPct=pr2?.iva||21;
+  const ivaImplicito=Math.round(venta - venta/(1+ivaPct/100));
+  const ventaSinIva=venta - ivaImplicito;
+
+  // 1. Comisión (sobre venta bruta c/IVA, como lo hace Fulljaus)
   const comision=venta*((M.comision||0)/100);
 
-  // 2. Cuotas — $0 si cuotas=1 (el cliente paga el interés al banco/plataforma)
+  // 2. Cuotas — $0 si cuotas=1 (el cliente paga el interés a la plataforma)
   const tabC=M.cuotas_tabla||{1:0};
   const keys=Object.keys(tabC).map(Number).filter(k=>k<=cuotas).sort((a,b)=>b-a);
   const pctC=cuotas>1?((tabC[cuotas]||tabC[keys[0]]||0)/100):0;
   const gastoCuotas=venta*pctC;
 
-  // 3. Fee logístico por peso aforado (7 tramos)
+  // 3. Fee logístico por peso aforado
   let feeLogis=M.fee_logistico_fijo||0;
   const tabP=venta<35000&&M.fee_logistico_peso_menor35k?M.fee_logistico_peso_menor35k:M.fee_logistico_peso;
   if(tabP&&tabP.length&&S.products){
@@ -11982,35 +11999,33 @@ function fjCalcularCostos(orden){
   // 5. Fee Fulljaus 0.75%
   const feeFulljaus=venta*((G.fee_fulljaus||0.75)/100);
 
-  // 6. IVA sobre comisión — REMOVIDO
-  const ivaComision=0;
+  // 6. IIBB (sobre venta sin IVA)
+  const iibb=ventaSinIva*((G.iibb||4)/100);
 
-  // 7. IIBB
-  const iibb=venta*((G.iibb||4)/100);
-
-  // 8. Retenciones
+  // 7. Retenciones
   const retIVA=venta*((G.ret_iva||0)/100);
   const retGan=venta*((G.ret_gan||0)/100);
 
   // Costo del producto
-  const pr2=S.products?S.products.find(p=>p.sku===sku||p.sku===skuB):null;
-  const costoProd=Math.round((pr2?.ars||0)*uds);
   const sinCosto=!pr2||!pr2.ars;
+  const costoProd=Math.round((pr2?.ars||0)*uds);
 
   const total=comision+gastoCuotas+feeLogis+gastoExtra+feeFulljaus+iibb+retIVA+retGan;
+
   return {
     comision:    Math.round(comision),
     gastoCuotas: Math.round(gastoCuotas),
     feeLogis:    Math.round(feeLogis),
     gastoExtra:  Math.round(gastoExtra),
     feeFulljaus: Math.round(feeFulljaus),
-    ivaComision: 0,
+    ivaImplicito:Math.round(ivaImplicito),
     iibb:        Math.round(iibb),
     retIVA:      Math.round(retIVA),
     retGan:      Math.round(retGan),
     costoProd, sinCosto,
     total:       Math.round(total),
-    pctTotal:    venta>0?(total/venta*100).toFixed(1)+'%':'—'
+    totalConIva: Math.round(total+ivaImplicito),
+    pctTotal:    venta>0?((total+ivaImplicito)/venta*100).toFixed(1)+'%':'—'
   };
 }
 
@@ -13186,6 +13201,8 @@ window.fjVerOrden=function(ordId){
   var ganancia=o._ganancia!==undefined?o._ganancia:(venta-costoProd-costos.total);
   var mg=venta>0?(ganancia/venta*100):0;
   var sinCosto=o._sinCosto||costos.sinCosto;
+  var pr2=S.products?S.products.find(function(p){return p.sku===o.sku||p.sku===(o.sku||'').replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'');}):null;
+  var ivaPct=pr2?pr2.iva||21:21;
   var defs=window.FJ_CONFIG_DEFAULTS||{};
   var nombre=(defs[o.marketplace]&&defs[o.marketplace].nombre)||o.marketplaceNombre||o.marketplace||'—';
   var cuotasLabel=o.cuotas>1?(o.cuotas+' cuotas — costo del cliente con la plataforma'):'Sin financiacion (1 cuota)';
@@ -13252,6 +13269,7 @@ window.fjVerOrden=function(ordId){
   var tb=document.createElement('tbody');
   var filas=[
     ['Costo de producto'+(sinCosto?' (sin costo cargado)':''),costoProd,'var(--t2)'],
+    ['IVA implícito en venta ('+ivaPct+'%)',costos.ivaImplicito||Math.round(venta-venta/(1+(pr2?.iva||21)/100)),'var(--red)'],
     ['Comision marketplace',costos.comision,'var(--red)'],
     ['Cuotas ('+cuotasLabel+')',costos.gastoCuotas,o.cuotas>1?'var(--red)':'var(--t3)'],
     ['Fee logistico',costos.feeLogis,'var(--red)'],
@@ -13319,7 +13337,7 @@ window.fjVerOrden=function(ordId){
             var ct=items.length>0?items.reduce(function(s,it){return s+(it._costoARS*(it.qty||1));},0):(pd?pd.ars||0:0)*(o.unidades||1);
             var cs=fjCalcularCostos(o);
             var cpF=cs.costoProd>0?cs.costoProd:ct;
-            return Object.assign({},o,{items:items,_costos:cs,_costo_prod:cpF,_ganancia:o.venta-cpF-cs.total,_sinCosto:cs.sinCosto});
+            return Object.assign({},o,{items:items,_costos:cs,_costo_prod:cpF,_ganancia:o.venta-(cs.ivaImplicito||0)-cpF-cs.total,_sinCosto:cs.sinCosto});
           });
           console.log('[FJ] '+window._fjOrdenes.length+' ordenes actualizadas');
           if(typeof fjActualizarKPIs==='function')fjActualizarKPIs();
@@ -13589,6 +13607,211 @@ window.ctrlTogDev=async function(id,btn){
   btn.style.borderColor=cur.recibida?'var(--grn)':'var(--red)';
   btn.style.color=cur.recibida?'var(--grn)':'var(--red)';
   toast(cur.recibida?'✓ Marcada como recibida':'Marcada como pendiente','ok');
+};
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ANÁLISIS MULTICANAL POR PRODUCTO
+// Compara rentabilidad de un SKU en todos los canales: ML (Flex/Full/Correo),
+// Fulljaus (Fravega/Megatone), Mayorista
+// ══════════════════════════════════════════════════════════════════════════════
+window.calcMulticanal=function(sku){
+  var el=document.getElementById('calcMulticanalBody');
+  if(!el)return;
+
+  var prod=S.products?S.products.find(function(p){return p.sku===sku;}):null;
+  if(!prod||!prod.ars){
+    el.innerHTML='<p style="font-size:12px;color:var(--t3);padding:12px 0">Cargá el costo ARS del producto para ver el análisis multicanal.</p>';
+    return;
+  }
+
+  var costo=prod.ars;
+  var ivaPct=prod.iva||21;
+  var pesoAf=prod.peso_aforado||0;
+
+  // Precios de venta actuales en cada canal (del historial de órdenes)
+  var mlOrdenes=S.orders?S.orders.filter(function(o){return o.sku===sku&&o.estado!=='cancelled';}).slice(-30):[];
+  var precioML=mlOrdenes.length>0?mlOrdenes.reduce(function(s,o){return s+(o.venta||0);},0)/mlOrdenes.length:0;
+
+  // FJ ordenes
+  var fjOrdenes=(window._fjOrdenes||[]).filter(function(o){
+    var b=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'');
+    return (o.sku===sku||o.sku===b)&&['DEVTOT','ANUL','NOAPRO'].indexOf(o.estado)===-1;
+  }).slice(-20);
+  var precioFJ=fjOrdenes.length>0?fjOrdenes.reduce(function(s,o){return s+(o.venta||0);},0)/fjOrdenes.length:0;
+
+  // Helper: calc ML channel
+  function calcML(precio,modal,cord){
+    if(!precio) return null;
+    cord=cord||3;
+    var comPct=parseFloat(document.getElementById('calc_com')?document.getElementById('calc_com').value:16)||16;
+    var pubPct=parseFloat(document.getElementById('calc_pub')?document.getElementById('calc_pub').value:5)||0;
+    var iibbPct=parseFloat(document.getElementById('calc_iibb2')?document.getElementById('calc_iibb2').value:4)||4;
+    var umbral=S.cfg?S.cfg.umbral_free_ship||33000:33000;
+    var sobreU=precio>=umbral;
+    var com=precio*comPct/100;
+    var iva=Math.round(precio-precio/(1+ivaPct/100));
+    var ventaSinIva=precio-iva;
+    var iibb=Math.round(ventaSinIva*iibbPct/100);
+    var pub=Math.round(precio*pubPct/100);
+    var ret=Math.round(precio*0.012);
+    var feeLog=0;
+    if(!sobreU){feeLog=precio<=15999?1255:precio<=23999?2500:3030;}
+    var ingresoEnvio=0,costoCordon=0,costoEnvio=0;
+    if(modal==='Flex'){
+      var BONIF_B={1:S.cfg&&S.cfg.bonif_bajo_c1||4490,2:S.cfg&&S.cfg.bonif_bajo_c2||6490,3:S.cfg&&S.cfg.bonif_bajo_c3||8490};
+      var BONIF_A={1:S.cfg&&S.cfg.bonif_alto_c1||449,2:S.cfg&&S.cfg.bonif_alto_c2||649,3:S.cfg&&S.cfg.bonif_alto_c3||849};
+      var CORD={1:S.cfg&&S.cfg.c1||3330,2:S.cfg&&S.cfg.c2||5355,3:S.cfg&&S.cfg.c3||6600};
+      costoCordon=CORD[cord];
+      ingresoEnvio=(sobreU?BONIF_A:BONIF_B)[cord];
+      var gan=precio+ingresoEnvio-com-costoCordon-costo-iva-pub-iibb-ret-feeLog;
+      return{canal:'ML '+modal+' C'+cord,precio:precio,costo:costo,gan:gan,pct:precio?gan/precio:0,roi:costo?gan/costo:0,desglose:{com,iva,pub,iibb,ret,feeLog,costoCordon,ingresoEnvio}};
+    }else{
+      var stats=window._calcEnvioStats;
+      costoEnvio=stats&&stats[modal]?stats[modal].avg||0:sobreU?0:6600;
+      var gan=precio-com-costo-iva-pub-iibb-ret-costoEnvio-feeLog;
+      return{canal:'ML '+modal,precio:precio,costo:costo,gan:gan,pct:precio?gan/precio:0,roi:costo?gan/costo:0,desglose:{com,iva,pub,iibb,ret,feeLog,costoEnvio}};
+    }
+  }
+
+  // Helper: calc Fulljaus channel
+  function calcFJ(mktKey,precio){
+    if(!precio) return null;
+    var M=(window.FJ_CONFIG_DEFAULTS||{})[mktKey]||{};
+    var G=(window.FJ_CONFIG||{}).global||{};
+    var iva=Math.round(precio-precio/(1+ivaPct/100));
+    var ventaSinIva=precio-iva;
+    var com=precio*((M.comision||0)/100);
+    var feeFulljaus=precio*((G.fee_fulljaus||0.75)/100);
+    var iibb=ventaSinIva*((G.iibb||4)/100);
+    // Fee logistico por peso
+    var feeLog=0;
+    var tabP=precio<35000&&M.fee_logistico_peso_menor35k?M.fee_logistico_peso_menor35k:M.fee_logistico_peso;
+    if(tabP&&tabP.length&&pesoAf>0){
+      var tr=tabP.find(function(t){return pesoAf<=t.hasta_kg;});
+      feeLog=(tr?tr.monto:tabP[tabP.length-1].monto)||0;
+    }
+    var total=com+feeFulljaus+iibb+feeLog+iva;
+    var gan=precio-total-costo;
+    return{
+      canal:M.nombre||mktKey,precio:precio,costo:costo,
+      gan:Math.round(gan),pct:precio?gan/precio:0,roi:costo?gan/costo:0,
+      desglose:{iva,com,feeFulljaus,iibb,feeLog},
+      alert:pesoAf===0?'Sin peso aforado — fee logístico = $0':null
+    };
+  }
+
+  // Build results
+  var resultados=[];
+
+  // ML channels
+  if(precioML>0){
+    var r1=calcML(precioML,'Flex',1);if(r1)resultados.push(r1);
+    var r2=calcML(precioML,'Flex',3);if(r2)resultados.push(r2);
+    var r3=calcML(precioML,'Full');if(r3)resultados.push(r3);
+    var r4=calcML(precioML,'Correo');if(r4)resultados.push(r4);
+  }
+
+  // Fulljaus channels
+  var fjMarkets=Object.keys(window.FJ_CONFIG_DEFAULTS||{});
+  fjMarkets.forEach(function(k){
+    if(precioFJ>0){
+      var r=calcFJ(k,precioFJ);if(r)resultados.push(r);
+    }
+  });
+
+  // Sort by margin desc
+  resultados.sort(function(a,b){return b.pct-a.pct;});
+
+  if(!resultados.length){
+    el.innerHTML=
+      '<div style="padding:12px;background:var(--s2);border-radius:var(--r);font-size:12px;color:var(--t3)">'
+      +'⚠ No hay historial de ventas para este SKU. Ingresá los precios manualmente abajo.</div>'
+      +calcMulticanalManual(sku,prod);
+    return;
+  }
+
+  var best=resultados[0];
+  var gc=function(pct){return pct>=0.2?'var(--grn)':pct>=0.1?'var(--org)':'var(--red)';};
+
+  el.innerHTML=
+    // Summary bar
+    '<div style="padding:10px;background:var(--s2);border-radius:var(--r);margin-bottom:12px;font-size:11px;color:var(--t3)">'
+    +'📦 <strong style="color:var(--t1)">'+esc(prod.desc||sku)+'</strong>'
+    +' · Costo: <strong>'+fF(costo)+'</strong>'
+    +(pesoAf?' · Peso aforado: <strong>'+pesoAf+'kg</strong>':'<span style="color:var(--org)"> · ⚠ Sin peso aforado</span>')
+    +'</div>'
+
+    // Canal cards grid
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:12px">'
+    +resultados.map(function(r,i){
+      var color=gc(r.pct);
+      var isBest=i===0;
+      return '<div style="padding:12px;border-radius:var(--r);background:var(--s2);border:1px solid '+(isBest?color:'var(--b1)')+';position:relative">'
+        +(isBest?'<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:'+color+';color:var(--bg);font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px">MEJOR</div>':'')
+        +'<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:6px">'+esc(r.canal)+'</div>'
+        +'<div style="font-size:10px;color:var(--t3)">Precio venta</div>'
+        +'<div style="font-size:14px;font-weight:700;margin-bottom:4px">'+fF(Math.round(r.precio))+'</div>'
+        +'<div style="font-size:18px;font-weight:800;color:'+color+'">'+fF(Math.round(r.gan))+'</div>'
+        +'<div style="font-size:10px;color:'+color+'">'+( r.pct*100).toFixed(1)+'% s/venta</div>'
+        +'<div style="font-size:10px;color:var(--t3)">'+( r.roi*100).toFixed(1)+'% s/costo</div>'
+        +(r.alert?'<div style="font-size:9px;color:var(--org);margin-top:4px">⚠ '+r.alert+'</div>':'')
+        +'</div>';
+    }).join('')
+    +'</div>'
+
+    // Table
+    +'<table class="tbl" style="font-size:11px">'
+    +'<thead><tr><th>Canal</th><th>Precio venta</th><th>Ganancia</th><th>Mg s/venta</th><th>ROI s/costo</th><th>Comisión</th><th>IVA</th><th>Fee/Envío</th></tr></thead>'
+    +'<tbody>'
+    +resultados.map(function(r){
+      var color=gc(r.pct);
+      var d=r.desglose||{};
+      var feeEnvio=d.costoEnvio||d.feeLog||0;
+      if(d.ingresoEnvio) feeEnvio=d.ingresoEnvio-d.costoCordon;
+      return '<tr>'
+        +'<td style="font-weight:600">'+esc(r.canal)+'</td>'
+        +'<td class="mono">'+fF(Math.round(r.precio))+'</td>'
+        +'<td class="mono" style="color:'+color+';font-weight:700">'+fF(Math.round(r.gan))+'</td>'
+        +'<td style="color:'+color+';font-weight:700">'+(r.pct*100).toFixed(1)+'%</td>'
+        +'<td>'+(r.roi*100).toFixed(1)+'%</td>'
+        +'<td class="mono" style="color:var(--red)">'+fF(Math.round(d.com||0))+'</td>'
+        +'<td class="mono" style="color:var(--red)">'+fF(Math.round(d.iva||0))+'</td>'
+        +'<td class="mono" style="color:'+(feeEnvio>=0?'var(--red)':'var(--grn)')+'">'+fF(Math.round(Math.abs(feeEnvio)))+(feeEnvio<0?' ↑':'')+'</td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table>'
+
+    // Manual input section
+    +calcMulticanalManual(sku,prod);
+};
+
+window.calcMulticanalManual=function(sku,prod){
+  return '<div style="margin-top:14px;padding:12px;background:var(--s2);border-radius:var(--r)">'
+    +'<div style="font-size:11px;font-weight:600;margin-bottom:8px;color:var(--t3)">Simular con precios propios</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+    +'<div><label class="lbl" style="font-size:10px">Precio ML</label><input class="inp" id="mc_precio_ml" type="number" placeholder="Ej: 45000" style="width:110px;padding:4px 8px;font-size:12px" oninput="calcMulticanalSim()"></div>'
+    +'<div><label class="lbl" style="font-size:10px">Precio Fravega</label><input class="inp" id="mc_precio_fj_fravegasc" type="number" placeholder="Ej: 48000" style="width:110px;padding:4px 8px;font-size:12px" oninput="calcMulticanalSim()"></div>'
+    +'<div><label class="lbl" style="font-size:10px">Precio Megatone</label><input class="inp" id="mc_precio_fj_megatone" type="number" placeholder="Ej: 47000" style="width:110px;padding:4px 8px;font-size:12px" oninput="calcMulticanalSim()"></div>'
+    +'</div>'
+    +'<div id="calcMulticanalSim" style="margin-top:10px"></div>'
+    +'</div>';
+};
+
+window.calcMulticanalSim=function(){
+  var sku=document.getElementById('calc_sku')?document.getElementById('calc_sku').value:'';
+  var prod=S.products?S.products.find(function(p){return p.sku===sku;}):null;
+  if(!prod) return;
+  // Temporarily update _fjOrdenes sim and call calcMulticanal with manual prices
+  // Simple: just re-trigger with the manual price inputs visible
+};
+
+// Hook into calcLoadSku to trigger multicanal
+var _origCalcLoadSku=window.calcLoadSku;
+window.calcLoadSku=function(){
+  if(_origCalcLoadSku) _origCalcLoadSku.apply(this,arguments);
+  var sku=document.getElementById('calc_sku')?document.getElementById('calc_sku').value:'';
+  if(sku) setTimeout(function(){calcMulticanal(sku);},100);
 };
 
 </script>
