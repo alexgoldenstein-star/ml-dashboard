@@ -164,7 +164,6 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
     <div class="ni" data-p="adsagente"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M3 14c0-3 2.2-5 5-5s5 2 5 5"/><path d="M11 3l2-1M5 3L3 2"/></svg>Ads Agent</div>
     <div class="ni" data-p="ctrl_prod"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>Control Productos</div>
     <div class="ni" data-p="zonas"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1C5.2 1 3 3.2 3 6c0 4 5 9 5 9s5-5 5-9c0-2.8-2.2-5-5-5z"/><circle cx="8" cy="6" r="1.5"/></svg>Zonas Flex</div>
-    <div class="ni" data-p="mercado"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 2v6l3 3"/></svg>Inteligencia ML</div>
     <div class="ni" data-p="calc"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h3"/></svg>Calculadora</div>
     <div class="ni" data-p="container"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="5" width="14" height="8" rx="1.5"/><path d="M4 5V3a1 1 0 011-1h6a1 1 0 011 1v2M6 9h4"/></svg>Contenedor</div>
     <div class="ni" data-p="importacion"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1v10M4 7l4 4 4-4"/><path d="M1 13h14"/></svg>Importación</div>
@@ -857,7 +856,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
 
         <!-- Panel SKUs -->
         <div id="hpanel_skus" style="display:none">
-          <div class="card" style="padding:12px">
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center"><input class="inp" id="hist_sku_buscar" placeholder="Buscar SKU o descripcion..." oninput="histSkuFiltrar()" style="width:220px;font-size:12px;padding:5px 10px"><select class="inp" id="hist_sku_periodo" onchange="histSkuFiltrar()" style="width:160px;font-size:12px;padding:5px 10px"><option value="todo">Todo el historial</option><option value="30">Últimos 30 días</option><option value="60">Últimos 60 días</option><option value="90">Últimos 90 días</option></select><span id="hist_sku_count" style="font-size:11px;color:var(--t3)"></span></div><div class="card" style="padding:12px">
             <div class="ch" style="margin-bottom:10px"><span class="ct">Top SKUs acumulado histórico</span></div>
             <div id="hist_skus_tabla" style="font-size:11px;color:var(--t3)">Cargando...</div>
           </div>
@@ -6749,6 +6748,39 @@ async function renderPortafolio(){
   const saved = await fb.get('portafolio_db').catch(()=>null);
   _portData = saved?.items || [];
 
+  // ── Enriquecer portafolio con ventas reales por canal (ML + May + FJ) ──
+  const _portAllPeds=(typeof _mayPedidos!=="undefined"&&_mayPedidos?.length)?_mayPedidos:(window._mayPedidosCache||[]);
+  const _portFjOrds=window._fjOrdenes||[];
+  // Build per-SKU multicanal map
+  const _portSkuMap={};
+  function _portGetSku(sku){
+    const b=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,"").replace(/-X[0-9]+$/i,"");
+    return _portSkuMap[sku]||_portSkuMap[b]||(_portSkuMap[sku]={sku,ml:{v:0,g:0,u:0,n:0},may:{v:0,g:0,u:0,n:0},fj:{v:0,g:0,u:0,n:0}});
+  }
+  (window._allHistoricalOrders||S.orders).filter(o=>o.estado!=="cancelled").forEach(o=>{
+    if(!o.sku) return;
+    const sk=_portGetSku(o.sku);
+    sk.ml.v+=(o.venta||0);sk.ml.g+=(o.ganancia||0);sk.ml.u+=(o.unidades||1);sk.ml.n++;
+    _portSkuMap[o.sku]=sk;
+  });
+  _portAllPeds.forEach(p=>{
+    (p.items||[]).forEach(it=>{
+      if(!it.sku) return;
+      const ivap=(it.iva_pct||21)/100;
+      const pSiva=it.precio_siva||it.precio||(it.precio_civa?(it.precio_civa/(1+ivap)):0)||0;
+      const cUnit=it.costo||0;const qty=it.qty||1;
+      const sk=_portGetSku(it.sku);
+      sk.may.v+=pSiva*qty;sk.may.g+=(pSiva-cUnit)*qty;sk.may.u+=qty;sk.may.n++;
+      _portSkuMap[it.sku]=sk;
+    });
+  });
+  _portFjOrds.filter(o=>["DEVTOT","ANUL","NOAPRO"].indexOf(o.estado)===-1).forEach(o=>{
+    if(!o.sku) return;
+    const sk=_portGetSku(o.sku);
+    sk.fj.v+=(o.venta||0);sk.fj.g+=(o._ganancia||0);sk.fj.u+=(o.unidades||1);sk.fj.n++;
+    _portSkuMap[o.sku]=sk;
+  });
+  window._portSkuMap=_portSkuMap;
   // Cargar historial completo desde Firebase para el análisis
   if(!window._allHistoricalOrders?.length){
     try{
@@ -13900,7 +13932,7 @@ window.intelProdAnalizar=function(){
       if(it.sku===sku||it.sku===skuB){
         mayItems.push({
           sku:it.sku,qty:it.qty||1,
-          venta:(it.precio_siva||it.precio||0)*(it.qty||1),
+          venta:(it.precio_siva||it.precio||(it.precio_civa?(it.precio_civa/1.21):0)||0)*(it.qty||1),
           costo:(it.costo||0)*(it.qty||1),
           ganancia:((it.precio_siva||it.precio||0)-(it.costo||0))*(it.qty||1),
           fecha:p.fecha
@@ -14123,5 +14155,72 @@ window.intelProdContCalc=function(){
     +'(ROI: <strong style="color:'+gc(roi/100)+'">'+roi.toFixed(1)+'%</strong>)</span>';
 };
 
+
+
+// ── histSkuFiltrar ─────────────────────────────────────────────────────────
+window.histSkuFiltrar=function(){
+  var data=window._histSkusData||[];
+  var buscar=(document.getElementById('hist_sku_buscar')?document.getElementById('hist_sku_buscar').value||'':'').toLowerCase();
+  var periodo=document.getElementById('hist_sku_periodo')?document.getElementById('hist_sku_periodo').value:'todo';
+  var base_data=data;
+  
+  // Period filter: rebuild from S.orders for custom periods
+  if(periodo!=='todo'){
+    var dias=parseInt(periodo)||9999;
+    var desde=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
+    var periodOrds=S.orders.filter(function(o){return o.fecha&&o.fecha>=desde&&o.estado!=='cancelled';});
+    var skuMap2={};
+    periodOrds.forEach(function(o){
+      if(!o.sku) return;
+      var b=o.sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
+      var key=b||o.sku;
+      if(!skuMap2[key]) skuMap2[key]={sku:key,desc:o.desc||'',unidades:0,ventas:0,ganancia:0,ordenes:0};
+      skuMap2[key].unidades+=(o.unidades||1);
+      skuMap2[key].ventas+=(o.venta||0);
+      skuMap2[key].ganancia+=(o.ganancia||0);
+      skuMap2[key].ordenes++;
+    });
+    base_data=Object.values(skuMap2).sort(function(a,b){return b.unidades-a.unidades;});
+  }
+  
+  // Text filter
+  var filtered=buscar?base_data.filter(function(s){
+    return (s.sku||'').toLowerCase().includes(buscar)||(s.desc||'').toLowerCase().includes(buscar);
+  }):base_data;
+  
+  var cnt=document.getElementById('hist_sku_count');
+  if(cnt) cnt.textContent=filtered.length+' SKUs';
+  
+  var el=document.getElementById('hist_skus_tabla'); if(!el) return;
+  if(!filtered.length){
+    el.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--t3);padding:20px">Sin resultados para "'+esc(buscar||periodo)+'"</td></tr>';
+    return;
+  }
+  
+  var enriched=filtered.map(function(s){
+    var prod=(S.products||[]).find(function(p){return p.sku===s.sku;});
+    var costoUnit=prod?prod.ars||0:0;
+    var udsPedido=prod?prod.uds_pedido||0:0;
+    var udsXMes=s.unidades>0?(s.unidades/1):0;
+    var mesesStock=costoUnit>0&&udsPedido>0&&udsXMes>0?(udsPedido/udsXMes):0;
+    var mg=s.ventas>0?(s.ganancia/s.ventas*100):0;
+    var mgc=costoUnit&&s.unidades>0?(s.ganancia/(costoUnit*s.unidades)*100):0;
+    return Object.assign({},s,{costoUnit:costoUnit,udsPedido:udsPedido,mesesStock:mesesStock,mg:mg,mgc:mgc});
+  });
+  
+  el.innerHTML=enriched.map(function(s){
+    var col=s.mg>=15?'var(--grn)':s.mg>=5?'var(--t1)':s.mg<0?'var(--red)':'var(--org)';
+    return '<tr>'
+      +'<td><div class="sku" style="font-size:10px">'+esc(s.sku||'—')+'</div>'
+      +'<div style="font-size:10px;color:var(--t3)">'+esc(s.desc||'')+'</div></td>'
+      +'<td class="mono" style="font-weight:700;color:var(--acc)">'+s.unidades+'</td>'
+      +'<td class="mono">'+(s.udsXMes?s.udsXMes.toFixed(1):'—')+'</td>'
+      +'<td class="mono">'+(s.mesesStock?s.mesesStock.toFixed(1)+'m':'—')+'</td>'
+      +'<td class="mono">'+fS(Math.round(s.ventas))+'</td>'
+      +'<td class="mono" style="color:'+col+'">'+s.mg.toFixed(1)+'%</td>'
+      +'<td class="mono" style="color:'+col+'">'+s.mgc.toFixed(1)+'%</td>'
+      +'</tr>';
+  }).join('');
+};
 
 </script>
