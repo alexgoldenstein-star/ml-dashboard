@@ -12075,11 +12075,9 @@ function fjCalcularCostos(orden){
   // 1. Comisión (sobre venta bruta c/IVA, como lo hace Fulljaus)
   const comision=venta*((M.comision||0)/100);
 
-  // 2. Cuotas — $0 si cuotas=1 (el cliente paga el interés a la plataforma)
-  const tabC=M.cuotas_tabla||{1:0};
-  const keys=Object.keys(tabC).map(Number).filter(k=>k<=cuotas).sort((a,b)=>b-a);
-  const pctC=cuotas>1?((tabC[cuotas]||tabC[keys[0]]||0)/100):0;
-  const gastoCuotas=venta*pctC;
+  // 2. Cuotas = $0 SIEMPRE — el cliente paga el interés directamente a la plataforma
+  // No es un costo del vendedor independientemente del número de cuotas
+  const gastoCuotas=0;
 
   // 3. Fee logístico por peso aforado
   let feeLogis=M.fee_logistico_fijo||0;
@@ -12110,7 +12108,7 @@ function fjCalcularCostos(orden){
   const sinCosto=!pr2||!pr2.ars;
   const costoProd=Math.round((pr2?.ars||0)*uds);
 
-  const total=comision+gastoCuotas+feeLogis+gastoExtra+feeFulljaus+iibb+retIVA+retGan;
+  const total=comision+feeLogis+gastoExtra+feeFulljaus+iibb+retIVA+retGan; // gastoCuotas=0
 
   return {
     comision:    Math.round(comision),
@@ -12729,7 +12727,9 @@ window.renderCanalesIntegrados = async function(){
       const mayData=await fb.get('mayorista').catch(()=>null);
       if(mayData?.pedidos?.length) window._mayPedidosCache=mayData.pedidos;
     }
-    const peds=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
+    const _allPedsMay=typeof _mayPedidos!=='undefined'&&_mayPedidos?.length?_mayPedidos:(window._mayPedidosCache||[]);
+    // Filtrar por período activo del dashboard
+    const peds=_allPedsMay.filter(p=>!p.fecha||(p.fecha>=_df&&p.fecha<=_dt));
     peds.forEach(p=>{
       may.ventas   +=(p.venta_siva||p.total_siva||0);
       may.ganancia +=(p.ganancia||0);
