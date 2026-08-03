@@ -1027,6 +1027,16 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
                 </select>
               </div>
               <div>
+                <label class="lbl">Período</label>
+                <select class="inp" id="intel_prod_periodo" onchange="intelProdAnalizar()" style="width:140px">
+                  <option value="todo">Todo el historial</option>
+                  <option value="30" selected>Últimos 30 días</option>
+                  <option value="60">Últimos 60 días</option>
+                  <option value="90">Últimos 90 días</option>
+                  <option value="180">Últimos 6 meses</option>
+                </select>
+              </div>
+              <div>
                 <label class="lbl">IVA del producto</label>
                 <select class="inp" id="intel_prod_iva" onchange="intelProdAnalizar()" style="width:120px">
                   <option value="21">21%</option>
@@ -12040,7 +12050,16 @@ window.fjSync = async function(){
 function fjCalcularCostos(orden){
   const mkt=orden.marketplace||'';
   const G=(window.FJ_CONFIG||{}).global||{};
-  const M=((window.FJ_CONFIG||{}).markets||{})[mkt]||(window.FJ_CONFIG_DEFAULTS||{})[mkt]||{};
+  // M: primero Firebase config, fallback a defaults (garantiza fee logistico)
+  const _cfg=(window.FJ_CONFIG||{}).markets||{};
+  const _def=(window.FJ_CONFIG_DEFAULTS||{});
+  const M=Object.assign({},_def[mkt]||{},_cfg[mkt]||{});
+  // Si Firebase tiene fee_logistico_peso vacío, usar defaults
+  if(!M.fee_logistico_peso||!M.fee_logistico_peso.length||
+     M.fee_logistico_peso.every(t=>!t.monto)){
+    if(_def[mkt]&&_def[mkt].fee_logistico_peso) M.fee_logistico_peso=_def[mkt].fee_logistico_peso;
+    if(_def[mkt]&&_def[mkt].fee_logistico_peso_menor35k) M.fee_logistico_peso_menor35k=_def[mkt].fee_logistico_peso_menor35k;
+  }
   const venta=orden.venta||0;
   const cuotas=orden.cuotas||1;
   const sku=orden.sku||'';
@@ -13905,39 +13924,54 @@ window.intelProdAnalizar=function(){
   if(!el) return;
 
   var sku=document.getElementById('intel_prod_sku')?document.getElementById('intel_prod_sku').value:'';
-  if(!sku){el.innerHTML='<div class="card" style="padding:20px;text-align:center;color:var(--t3)">Seleccioná un producto del listado.</div>';return;}
+  if(!sku){
+    el.innerHTML='<div class="card" style="padding:20px;text-align:center;color:var(--t3)">Seleccioná un producto del listado.</div>';
+    return;
+  }
 
   var prod=S.products?S.products.find(function(p){return p.sku===sku;}):null;
   var costo=prod?prod.ars||0:0;
   var skuB=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
 
-  el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3)">Calculando...</div>';
+  // Período
+  var periodo=document.getElementById('intel_prod_periodo')?document.getElementById('intel_prod_periodo').value:'todo';
+  var desde=periodo==='todo'?'2000-01-01':new Date(Date.now()-parseInt(periodo)*864e5).toISOString().split('T')[0];
+  var hasta=new Date().toISOString().split('T')[0];
 
-  // ── RECOLECTAR VENTAS REALES POR CANAL ──────────────────────────────────────
-
-  // ML: órdenes con ese SKU (base o variante)
+  // ── ML: órdenes con ese SKU en el período ──
   var mlOrds=(S.orders||[]).filter(function(o){
-    return (o.sku===sku||o.sku===skuB)&&o.estado!=='cancelled'&&o.ganancia!==undefined;
+    return (o.sku===sku||o.sku===skuB)
+      &&o.estado!=='cancelled'
+      &&o.ganancia!==undefined
+      &&(!o.fecha||o.fecha>=desde);
   });
   var mlV=mlOrds.reduce(function(s,o){return s+(o.venta||0);},0);
   var mlG=mlOrds.reduce(function(s,o){return s+(o.ganancia||0);},0);
   var mlU=mlOrds.reduce(function(s,o){return s+(o.unidades||1);},0);
   var mlN=mlOrds.length;
 
-  // Mayorista: items dentro de pedidos con ese SKU
+  // ── MAYORISTA: items con ese SKU en el período ──
   var allPeds=(typeof _mayPedidos!=='undefined'&&_mayPedidos&&_mayPedidos.length)?_mayPedidos:(window._mayPedidosCache||[]);
   var mayItems=[];
   allPeds.forEach(function(p){
+    // Date filter
+    if(p.fecha&&p.fecha<desde) return;
     (p.items||[]).forEach(function(it){
-      if(it.sku===sku||it.sku===skuB){
-        mayItems.push({
-          sku:it.sku,qty:it.qty||1,
-          venta:(it.precio_siva||it.precio||(it.precio_civa?(it.precio_civa/1.21):0)||0)*(it.qty||1),
-          costo:(it.costo||0)*(it.qty||1),
-          ganancia:((it.precio_siva||it.precio||0)-(it.costo||0))*(it.qty||1),
-          fecha:p.fecha
-        });
-      }
+      if(it.sku!==sku&&it.sku!==skuB) return;
+      var qty=it.qty||1;
+      // Price: use precio_siva first, then precio, then precio_civa/1.21
+      var pSiva=it.precio_siva||it.precio||0;
+      if(!pSiva&&it.precio_civa) pSiva=it.precio_civa/1.21;
+      var cUnit=it.costo||0;
+      // If no costo on item, use product catalog costo
+      if(!cUnit&&costo) cUnit=costo;
+      mayItems.push({
+        sku:it.sku, qty:qty,
+        venta:pSiva*qty,
+        costo:cUnit*qty,
+        ganancia:(pSiva-cUnit)*qty,
+        fecha:p.fecha
+      });
     });
   });
   var mayV=mayItems.reduce(function(s,i){return s+(i.venta||0);},0);
@@ -13945,16 +13979,18 @@ window.intelProdAnalizar=function(){
   var mayU=mayItems.reduce(function(s,i){return s+(i.qty||1);},0);
   var mayN=mayItems.length;
 
-  // Fulljaus: órdenes con ese SKU
+  // ── FULLJAUS: órdenes con ese SKU en el período ──
   var fjOrds=(window._fjOrdenes||[]).filter(function(o){
-    return (o.sku===sku||o.sku===skuB)&&['DEVTOT','ANUL','NOAPRO'].indexOf(o.estado)===-1;
+    return (o.sku===sku||o.sku===skuB)
+      &&['DEVTOT','ANUL','NOAPRO'].indexOf(o.estado)===-1
+      &&(!o.fecha||o.fecha>=desde);
   });
   var fjV=fjOrds.reduce(function(s,o){return s+(o.venta||0);},0);
   var fjG=fjOrds.reduce(function(s,o){return s+(o._ganancia||0);},0);
   var fjU=fjOrds.reduce(function(s,o){return s+(o.unidades||1);},0);
   var fjN=fjOrds.length;
 
-  // ── TOTALES ──────────────────────────────────────────────────────────────────
+  // ── TOTALES ──
   var totV=mlV+mayV+fjV;
   var totG=mlG+mayG+fjG;
   var totU=mlU+mayU+fjU;
@@ -13962,18 +13998,17 @@ window.intelProdAnalizar=function(){
   var mgGlobal=totV>0?(totG/totV*100):0;
   var roiGlobal=costo&&totU>0?(totG/(costo*totU)*100):0;
 
-  // ── HELPERS ──────────────────────────────────────────────────────────────────
   var fP=function(n){return typeof fF==='function'?fF(Math.round(n)):('$'+Math.round(n).toLocaleString('es-AR'));};
   var gc=function(mg){return mg>=20?'var(--grn)':mg>=10?'var(--org)':'var(--red)';};
 
-  // Canal row builder
+  // Canal helper
   function canalRow(icon,nombre,color,ventas,ganancia,unidades,ordenes){
     var mg=ventas>0?(ganancia/ventas*100):0;
     var roi=costo&&unidades>0?(ganancia/(costo*unidades)*100):0;
     var pctDel=totV>0?(ventas/totV*100):0;
     var tPromedio=ordenes>0?(ventas/ordenes):0;
     var gPorU=unidades>0?(ganancia/unidades):0;
-    return {icon,nombre,color,ventas,ganancia,unidades,ordenes,mg,roi,pctDel,tPromedio,gPorU};
+    return {icon:icon,nombre:nombre,color:color,ventas:ventas,ganancia:ganancia,unidades:unidades,ordenes:ordenes,mg:mg,roi:roi,pctDel:pctDel,tPromedio:tPromedio,gPorU:gPorU};
   }
 
   var canales=[];
@@ -13983,24 +14018,28 @@ window.intelProdAnalizar=function(){
   canales.sort(function(a,b){return b.mg-a.mg;});
 
   var noData=!mlN&&!mayN&&!fjN;
+  var periodoLabel=periodo==='todo'?'Todo el historial':('Últimos '+periodo+' días');
 
-  // ── RENDER ───────────────────────────────────────────────────────────────────
   var html='';
 
-  // Header producto
-  html+='<div style="padding:12px 14px;background:var(--s2);border-radius:var(--r);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center">'
-    +'<div><div style="font-size:13px;font-weight:700">'+esc(prod?prod.desc||sku:sku)+'</div>'
-    +'<div style="font-size:11px;color:var(--t3)"><span class="sku">'+esc(sku)+'</span>'
-    +(costo?' · Costo ARS: <strong>'+fP(costo)+'</strong>':'<span style="color:var(--org)"> · Sin costo cargado</span>')
-    +(prod&&prod.peso_aforado?' · Peso aforado: <strong>'+prod.peso_aforado+'kg</strong>':'')
+  // Header
+  html+='<div style="padding:10px 14px;background:var(--s2);border-radius:var(--r);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">'
+    +'<div>'
+    +(prod?'<div style="font-size:13px;font-weight:700">'+esc(prod.desc||sku)+'</div>':'')
+    +'<div style="font-size:11px;color:var(--t3)">'
+    +'<span class="sku">'+esc(sku)+'</span>'
+    +(costo?' · Costo: <strong style="color:var(--t1)">'+fP(costo)+'</strong>':'<span style="color:var(--org)"> · Sin costo cargado</span>')
+    +(prod&&prod.peso_aforado?' · Peso: <strong>'+prod.peso_aforado+'kg</strong>':'')
     +'</div></div>'
+    +'<div style="font-size:11px;color:var(--acc);font-weight:600">📅 '+periodoLabel+'</div>'
     +'</div>';
 
   if(noData){
     html+='<div class="card" style="padding:24px;text-align:center">'
       +'<div style="font-size:32px;margin-bottom:8px">📭</div>'
-      +'<div style="font-weight:700;margin-bottom:4px">Sin ventas registradas para este SKU</div>'
-      +'<div style="font-size:12px;color:var(--t3)">Verificá que el SKU coincida con el cargado en los pedidos. Puede haber variantes (ej: '+esc(sku)+'-N, '+esc(sku)+'-R).</div>'
+      +'<div style="font-weight:700;margin-bottom:6px">Sin ventas en este período</div>'
+      +'<div style="font-size:12px;color:var(--t3)">Probá con "Todo el historial" o verificá que el SKU coincida.</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:8px">SKU buscado: <span class="sku">'+esc(sku)+'</span> · Variante base: <span class="sku">'+esc(skuB)+'</span></div>'
       +'</div>';
     el.innerHTML=html; return;
   }
@@ -14009,26 +14048,27 @@ window.intelProdAnalizar=function(){
   html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
     +[
       ['Venta total',fP(totV),'','Todos los canales'],
-      ['Ganancia total',fP(totG),gc(mgGlobal),'Mix real'],
-      ['Margen s/venta',(mgGlobal).toFixed(1)+'%',gc(mgGlobal),'Promedio ponderado'],
+      ['Ganancia total',fP(totG),gc(mgGlobal/100),'Mix real'],
+      ['Margen s/venta',mgGlobal.toFixed(1)+'%',gc(mgGlobal/100),'Promedio ponderado'],
       ['Unidades vendidas',totU.toLocaleString('es-AR'),'',totN+' operaciones'],
-    ].map(function(k){return '<div class="kpi" style="border-left:3px solid '+(k[2]||'var(--b1)')+'"><div class="kl">'+k[0]+'</div><div class="kv" style="'+(k[2]?'color:'+k[2]:'')+'">'+(k[1])+'</div><div style="font-size:10px;color:var(--t3)">'+k[3]+'</div></div>';}).join('')
+    ].map(function(k){
+      return '<div class="kpi" style="border-left:3px solid '+(k[2]||'var(--b1)')+'"><div class="kl">'+k[0]+'</div><div class="kv" style="'+(k[2]?'color:'+k[2]:'')+'">'+(k[1])+'</div><div style="font-size:10px;color:var(--t3)">'+k[3]+'</div></div>';
+    }).join('')
     +'</div>';
 
-  // ROI por unidad (si hay costo)
+  // G/U y ROI
   if(costo&&totU>0){
     var ganPorU=totG/totU;
-    var ganPorCont=ganPorU; // se calcula después si pone unidades
     html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">'
       +'<div class="kpi" style="border-left:3px solid var(--acc)">'
-      +'<div class="kl">Ganancia por unidad vendida</div>'
-      +'<div class="kv" style="color:'+gc(ganPorU/costo>0.1?0.15:0.05)+'">'+fP(ganPorU)+'</div>'
-      +'<div style="font-size:10px;color:var(--t3)">Costo: '+fP(costo)+' · ROI: '+(costo?((ganPorU/costo)*100).toFixed(1):'—')+'%</div>'
+      +'<div class="kl">Ganancia por unidad</div>'
+      +'<div class="kv" style="color:'+gc(ganPorU>0?0.15:0)+'">'+fP(ganPorU)+'</div>'
+      +'<div style="font-size:10px;color:var(--t3)">Costo: '+fP(costo)+'</div>'
       +'</div>'
       +'<div class="kpi" style="border-left:3px solid var(--grn)">'
-      +'<div class="kl">ROI real s/costo (mix canales)</div>'
+      +'<div class="kl">ROI real s/costo (mix)</div>'
       +'<div class="kv" style="color:'+gc(roiGlobal/100)+'">'+roiGlobal.toFixed(1)+'%</div>'
-      +'<div style="font-size:10px;color:var(--t3)">Ganancia ÷ costo total invertido</div>'
+      +'<div style="font-size:10px;color:var(--t3)">Ganancia ÷ inversión total</div>'
       +'</div>'
       +'<div class="kpi" style="border-left:3px solid var(--org)">'
       +'<div class="kl">Ticket promedio global</div>'
@@ -14036,22 +14076,21 @@ window.intelProdAnalizar=function(){
       +'<div style="font-size:10px;color:var(--t3)">Por operación</div>'
       +'</div>'
       +'</div>';
+    window._intelProdGanPorU=ganPorU;
+    window._intelProdCosto=costo;
   }
 
-  // Simulador por contenedor
+  // Simulador lote
   if(costo){
     html+='<div class="card" style="padding:12px;margin-bottom:14px;background:var(--s2)">'
-      +'<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">📦 Simulación por lote / contenedor</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">📦 Simulación por lote</div>'
       +'<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">'
       +'<div><label class="lbl" style="font-size:10px">Unidades del lote</label>'
-      +'<input class="inp" id="ip_cont_uds" type="number" placeholder="Ej: 100" style="width:100px;padding:4px 8px;font-size:12px" oninput="intelProdContCalc()">'
+      +'<input class="inp" id="ip_cont_uds" type="number" placeholder="Ej: 100" style="width:110px;padding:4px 8px;font-size:12px" oninput="intelProdContCalc()">'
       +'</div>'
       +'<div id="ip_cont_resultado" style="font-size:12px;color:var(--t3);padding:6px 0">Ingresá las unidades del lote</div>'
       +'</div>'
       +'</div>';
-    // Store for calc
-    window._intelProdGanPorU=totU>0?totG/totU:0;
-    window._intelProdCosto=costo;
   }
 
   // Canal cards
@@ -14059,27 +14098,28 @@ window.intelProdAnalizar=function(){
     html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:14px">'
       +canales.map(function(r,i){
         var col=gc(r.mg/100);
-        return '<div style="padding:14px;border-radius:var(--r);background:var(--s1);border:1px solid '+(i===0?col:'var(--b1)')+'">'
-          +(i===0?'<div style="font-size:9px;font-weight:700;color:'+col+';text-transform:uppercase;margin-bottom:4px">🏆 Más rentable</div>':'')
+        var isBest=i===0;
+        return '<div style="padding:14px;border-radius:var(--r);background:var(--s1);border:1px solid '+(isBest?col:'var(--b1)')+'">'
+          +(isBest?'<div style="font-size:9px;font-weight:700;color:'+col+';text-transform:uppercase;margin-bottom:4px">🏆 Más rentable</div>':'')
           +'<div style="font-size:13px;font-weight:700;margin-bottom:10px">'+r.icon+' '+r.nombre+'</div>'
           +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
-          +'<div><div style="font-size:9px;color:var(--t3)">VENTA TOTAL</div><div style="font-size:15px;font-weight:700">'+fP(r.ventas)+'</div></div>'
-          +'<div><div style="font-size:9px;color:var(--t3)">GANANCIA</div><div style="font-size:15px;font-weight:700;color:'+col+'">'+fP(r.ganancia)+'</div></div>'
-          +'<div><div style="font-size:9px;color:var(--t3)">MARGEN S/VENTA</div><div style="font-size:15px;font-weight:700;color:'+col+'">'+r.mg.toFixed(1)+'%</div></div>'
-          +'<div><div style="font-size:9px;color:var(--t3)">UNIDADES</div><div style="font-size:15px;font-weight:700">'+r.unidades+'</div></div>'
-          +'<div><div style="font-size:9px;color:var(--t3)">OPERACIONES</div><div style="font-size:13px">'+r.ordenes+'</div></div>'
-          +'<div><div style="font-size:9px;color:var(--t3)">TICKET PROM.</div><div style="font-size:13px">'+fP(r.tPromedio)+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">VENTA TOTAL</div><div style="font-size:14px;font-weight:700">'+fP(r.ventas)+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">GANANCIA</div><div style="font-size:14px;font-weight:700;color:'+col+'">'+fP(r.ganancia)+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">MARGEN S/VENTA</div><div style="font-size:14px;font-weight:700;color:'+col+'">'+r.mg.toFixed(1)+'%</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">UNIDADES</div><div style="font-size:14px;font-weight:700">'+r.unidades+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">OPERACIONES</div><div style="font-size:12px">'+r.ordenes+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">TICKET PROM.</div><div style="font-size:12px">'+fP(r.tPromedio)+'</div></div>'
           +(r.gPorU&&costo?'<div style="grid-column:1/-1"><div style="font-size:9px;color:var(--t3)">GANANCIA POR UNIDAD</div><div style="font-size:14px;font-weight:700;color:'+col+'">'+fP(r.gPorU)+'</div></div>':'')
           +'</div></div>';
       }).join('')
       +'</div>';
   }
 
-  // Tabla resumen multicanal
+  // Tabla comparativa
   html+='<div class="card" style="padding:12px;margin-bottom:14px">'
-    +'<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Resumen comparativo de canales</div>'
+    +'<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Resumen comparativo</div>'
     +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px">'
-    +'<thead><tr><th>Canal</th><th>Unidades</th><th>Operaciones</th><th>Venta total</th><th>% del mix</th><th>Ganancia</th><th>Mg s/venta</th><th>G por unidad</th><th>Ticket prom.</th></tr></thead>'
+    +'<thead><tr><th>Canal</th><th>Unidades</th><th>Operaciones</th><th>Venta total</th><th>% mix</th><th>Ganancia</th><th>Mg s/venta</th><th>G por unidad</th><th>Ticket prom.</th></tr></thead>'
     +'<tbody>'
     +canales.map(function(r){
       var col=gc(r.mg/100);
@@ -14088,24 +14128,24 @@ window.intelProdAnalizar=function(){
         +'<td class="mono">'+r.unidades+'</td>'
         +'<td class="mono">'+r.ordenes+'</td>'
         +'<td class="mono">'+fP(r.ventas)+'</td>'
-        +'<td><div style="display:flex;align-items:center;gap:4px"><div style="width:'+(r.pctDel).toFixed(0)+'px;max-width:80px;height:4px;background:'+r.color+';border-radius:2px"></div><span>'+r.pctDel.toFixed(1)+'%</span></div></td>'
-        +'<td class="mono" style="color:'+col+';font-weight:700">'+fP(r.ganancia)+'</td>'
-        +'<td style="color:'+col+';font-weight:700">'+r.mg.toFixed(1)+'%</td>'
+        +'<td><div style="display:flex;align-items:center;gap:4px"><div style="width:'+Math.min(r.pctDel,80).toFixed(0)+'px;height:4px;background:'+r.color+';border-radius:2px"></div><span>'+r.pctDel.toFixed(1)+'%</span></div></td>'
+        +'<td class="mono" style="font-weight:700;color:'+col+'">'+fP(r.ganancia)+'</td>'
+        +'<td style="font-weight:700;color:'+col+'">'+r.mg.toFixed(1)+'%</td>'
         +'<td class="mono">'+(r.gPorU?fP(r.gPorU):'—')+'</td>'
         +'<td class="mono">'+fP(r.tPromedio)+'</td>'
         +'</tr>';
     }).join('')
-    +'<tr style="font-weight:700;border-top:2px solid var(--b1);background:var(--s2)">'
+    +'<tr style="font-weight:700;border-top:2px solid var(--b1)">'
     +'<td>TOTAL MIX</td><td class="mono">'+totU+'</td><td class="mono">'+totN+'</td>'
     +'<td class="mono">'+fP(totV)+'</td><td>100%</td>'
-    +'<td class="mono" style="color:'+gc(mgGlobal/100)+';font-weight:900">'+fP(totG)+'</td>'
-    +'<td style="color:'+gc(mgGlobal/100)+';font-weight:900">'+mgGlobal.toFixed(1)+'%</td>'
+    +'<td class="mono" style="font-weight:900;color:'+gc(mgGlobal/100)+'">'+fP(totG)+'</td>'
+    +'<td style="font-weight:900;color:'+gc(mgGlobal/100)+'">'+mgGlobal.toFixed(1)+'%</td>'
     +'<td class="mono">'+(totU?fP(totG/totU):'—')+'</td>'
     +'<td class="mono">'+fP(totN?totV/totN:0)+'</td>'
     +'</tr>'
     +'</tbody></table></div></div>';
 
-  // Evolución temporal (últimas ventas)
+  // Timeline
   var timeline=[];
   mlOrds.forEach(function(o){if(o.fecha)timeline.push({fecha:o.fecha,canal:'ML',gan:o.ganancia||0,venta:o.venta||0,uds:o.unidades||1});});
   mayItems.forEach(function(i){if(i.fecha)timeline.push({fecha:i.fecha,canal:'May',gan:i.ganancia||0,venta:i.venta||0,uds:i.qty||1});});
@@ -14114,17 +14154,17 @@ window.intelProdAnalizar=function(){
 
   if(timeline.length>0){
     html+='<div class="card" style="padding:12px">'
-      +'<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Últimas 20 ventas (todos los canales)</div>'
+      +'<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Últimas ventas (todos los canales)</div>'
       +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px">'
       +'<thead><tr><th>Fecha</th><th>Canal</th><th>Uds</th><th>Venta</th><th>Ganancia</th><th>Mg</th></tr></thead>'
       +'<tbody>'
       +timeline.slice(0,20).map(function(t){
         var mg=t.venta>0?(t.gan/t.venta*100):0;
         var col=gc(mg/100);
-        var cName={'ML':'var(--acc)','May':'var(--blu)','FJ':'var(--org)'};
+        var cMap={'ML':'var(--acc)','May':'var(--blu)','FJ':'var(--org)'};
         return '<tr>'
           +'<td>'+esc(t.fecha)+'</td>'
-          +'<td><span style="font-size:9px;padding:1px 6px;border-radius:6px;background:'+cName[t.canal]+'22;color:'+cName[t.canal]+'">'+t.canal+'</span></td>'
+          +'<td><span style="font-size:9px;padding:1px 6px;border-radius:6px;background:'+cMap[t.canal]+'22;color:'+cMap[t.canal]+'">'+t.canal+'</span></td>'
           +'<td class="mono">'+t.uds+'</td>'
           +'<td class="mono">'+fP(t.venta)+'</td>'
           +'<td class="mono" style="color:'+col+'">'+fP(t.gan)+'</td>'
