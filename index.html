@@ -14442,11 +14442,10 @@ window.catRenderKpis=function(){
 
 window.catRenderTabla=function(){
   var tb=document.getElementById('cat_tabla_body');if(!tb)return;
-  if(!window._catItems.length){
+  if(!window._catItems||!window._catItems.length){
     tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:24px">No hay productos monitoreados. Agregá un EAN para empezar.</td></tr>';
     return;
   }
-  // Build rows using DOM to avoid quote escaping hell
   tb.innerHTML='';
   window._catItems.forEach(function(item){
     var d=item.data;
@@ -14454,48 +14453,33 @@ window.catRenderTabla=function(){
     var lastCheck=item.ultimo_check?new Date(item.ultimo_check).toLocaleString('es-AR'):'Nunca';
     var tr=document.createElement('tr');
     tr.style.cursor='pointer';
-    tr.dataset.ean=item.ean;
-
     if(!d){
-      tr.innerHTML=(
-        '<td><span class="sku">'+esc(item.ean)+'</span></td>'+
-        '<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'+
-        '<td style="color:var(--t3)">Sin datos — presioná Verificar</td>'+
-        '<td colspan="7" style="color:var(--t3);font-size:11px">'+lastCheck+'</td>'+
-        '<td><button class="btn-g btn-sm" style="color:var(--red)">✕</button></td>'
-      );
-      tr.querySelector('button').addEventListener('click',function(e){
-        e.stopPropagation(); catEliminar(item.ean);
-      });
+      tr.innerHTML='<td><span class="sku">'+esc(item.ean)+'</span></td>'
+        +'<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'
+        +'<td colspan="8" style="color:var(--t3);font-size:11px">Sin datos — presioná Verificar ahora</td>'
+        +'<td><button class="btn-g btn-sm" style="color:var(--red)">✕</button></td>';
+      tr.querySelector('button').onclick=function(e){e.stopPropagation();catEliminar(item.ean);};
       tb.appendChild(tr);
       return;
     }
-
-    var posColor=d.miPosicion===1?'var(--grn)':d.miPosicion&&d.miPosicion<=3?'var(--org)':'var(--red)';
-    var byboxBadge=d.ganoBybox
+    var posC=d.miPosicion===1?'var(--grn)':d.miPosicion&&d.miPosicion<=3?'var(--org)':'var(--red)';
+    var bybox=d.ganoBybox
       ?'<span style="background:rgba(71,232,127,.15);color:var(--grn);padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">✓ GANANDO</span>'
-      :(d.miPosicion?'<span style="background:rgba(255,77,77,.1);color:var(--red);padding:2px 8px;border-radius:6px;font-size:10px">✗ Pos '+d.miPosicion+'</span>':'<span style="font-size:10px;color:var(--t3)">No listado</span>');
-
-    tr.innerHTML=(
-      '<td><span class="sku">'+esc(item.ean)+'</span></td>'+
-      '<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'+
-      '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(d.titulo||prod&&prod.desc||'—')+'</td>'+
-      '<td class="mono" style="text-align:center">'+d.total+'</td>'+
-      '<td style="text-align:center"><span style="font-weight:700;color:'+posColor+'">'+(d.miPosicion?'#'+d.miPosicion:'—')+'</span></td>'+
-      '<td class="mono">'+fS(Math.round(d.precioMin))+'</td>'+
-      '<td class="mono">'+fS(Math.round(d.precioMax))+'</td>'+
-      '<td class="mono">'+(d.miPrecio?fS(Math.round(d.miPrecio)):'<span style="color:var(--t3)">No listado</span>')+'</td>'+
-      '<td style="text-align:center">'+byboxBadge+'</td>'+
-      '<td style="font-size:10px;color:var(--t3)">'+lastCheck+'</td>'+
-      '<td><button class="btn-g btn-sm" style="color:var(--red);font-size:10px">✕</button></td>'
-    );
-    tr.addEventListener('click',function(e){
-      if(e.target.tagName==='BUTTON') return;
-      catVerDetalle(item.ean);
-    });
-    tr.querySelector('button').addEventListener('click',function(e){
-      e.stopPropagation(); catEliminar(item.ean);
-    });
+      :d.miPosicion?'<span style="background:rgba(255,77,77,.1);color:var(--red);padding:2px 8px;border-radius:6px;font-size:10px">✗ Pos '+d.miPosicion+'</span>'
+      :'<span style="font-size:10px;color:var(--t3)">No listado</span>';
+    tr.innerHTML='<td><span class="sku">'+esc(item.ean)+'</span></td>'
+      +'<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'
+      +'<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(d.titulo||prod&&prod.desc||'—')+'</td>'
+      +'<td class="mono" style="text-align:center">'+d.total+'</td>'
+      +'<td style="text-align:center"><span style="font-weight:700;color:'+posC+'">'+(d.miPosicion?'#'+d.miPosicion:'—')+'</span></td>'
+      +'<td class="mono">'+fS(Math.round(d.precioMin))+'</td>'
+      +'<td class="mono">'+fS(Math.round(d.precioMax))+'</td>'
+      +'<td class="mono">'+(d.miPrecio?fS(Math.round(d.miPrecio)):'<span style="color:var(--t3)">—</span>')+'</td>'
+      +'<td style="text-align:center">'+bybox+'</td>'
+      +'<td style="font-size:10px;color:var(--t3)">'+lastCheck+'</td>'
+      +'<td><button class="btn-g btn-sm" style="color:var(--red);font-size:10px">✕</button></td>';
+    tr.onclick=function(e){if(e.target.tagName==='BUTTON')return;catVerDetalle(item.ean);};
+    tr.querySelector('button').onclick=function(e){e.stopPropagation();catEliminar(item.ean);};
     tb.appendChild(tr);
   });
 };
