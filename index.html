@@ -14446,37 +14446,58 @@ window.catRenderTabla=function(){
     tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:24px">No hay productos monitoreados. Agregá un EAN para empezar.</td></tr>';
     return;
   }
-  tb.innerHTML=window._catItems.map(function(item){
+  // Build rows using DOM to avoid quote escaping hell
+  tb.innerHTML='';
+  window._catItems.forEach(function(item){
     var d=item.data;
     var prod=S.products&&item.sku?S.products.find(function(p){return p.sku===item.sku;}):null;
     var lastCheck=item.ultimo_check?new Date(item.ultimo_check).toLocaleString('es-AR'):'Nunca';
-    if(!d) return '<tr>'
-      +'<td class="sku">'+esc(item.ean)+'</td>'
-      +'<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'
-      +'<td style="color:var(--t3)">Sin datos</td>'
-      +'<td colspan="7" style="color:var(--t3);font-size:11px">Presioná "Verificar ahora" para obtener datos de ML</td>'
-      +'<td><button onclick="catEliminar(this.dataset.ean)" data-ean="'+esc(item.ean)+'" class="btn-g btn-sm" style="color:var(--red)">✕</button>'
-      +'</tr>';
+    var tr=document.createElement('tr');
+    tr.style.cursor='pointer';
+    tr.dataset.ean=item.ean;
+
+    if(!d){
+      tr.innerHTML=(
+        '<td><span class="sku">'+esc(item.ean)+'</span></td>'+
+        '<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'+
+        '<td style="color:var(--t3)">Sin datos — presioná Verificar</td>'+
+        '<td colspan="7" style="color:var(--t3);font-size:11px">'+lastCheck+'</td>'+
+        '<td><button class="btn-g btn-sm" style="color:var(--red)">✕</button></td>'
+      );
+      tr.querySelector('button').addEventListener('click',function(e){
+        e.stopPropagation(); catEliminar(item.ean);
+      });
+      tb.appendChild(tr);
+      return;
+    }
 
     var posColor=d.miPosicion===1?'var(--grn)':d.miPosicion&&d.miPosicion<=3?'var(--org)':'var(--red)';
     var byboxBadge=d.ganoBybox
       ?'<span style="background:rgba(71,232,127,.15);color:var(--grn);padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">✓ GANANDO</span>'
       :(d.miPosicion?'<span style="background:rgba(255,77,77,.1);color:var(--red);padding:2px 8px;border-radius:6px;font-size:10px">✗ Pos '+d.miPosicion+'</span>':'<span style="font-size:10px;color:var(--t3)">No listado</span>');
 
-    return '<tr style="cursor:pointer" onclick="catVerDetalle(''+esc(item.ean)+'')">'
-      +'<td class="sku">'+esc(item.ean)+'</td>'
-      +'<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'
-      +'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(d.titulo||prod&&prod.desc||'—')+'</td>'
-      +'<td class="mono" style="text-align:center">'+d.total+'</td>'
-      +'<td style="text-align:center"><span style="font-weight:700;color:'+posColor+'">'+(d.miPosicion?'#'+d.miPosicion:'—')+'</span></td>'
-      +'<td class="mono">'+fS(Math.round(d.precioMin))+'</td>'
-      +'<td class="mono">'+fS(Math.round(d.precioMax))+'</td>'
-      +'<td class="mono">'+(d.miPrecio?fS(Math.round(d.miPrecio)):'<span style="color:var(--t3)">No listado</span>')+'</td>'
-      +'<td style="text-align:center">'+byboxBadge+'</td>'
-      +'<td style="font-size:10px;color:var(--t3)">'+lastCheck+'</td>'
-      +'<td><button onclick="event.stopPropagation();catEliminar(''+esc(item.ean)+'')" class="btn-g btn-sm" style="color:var(--red);font-size:10px">✕</button></td>'
-      +'</tr>';
-  }).join('');
+    tr.innerHTML=(
+      '<td><span class="sku">'+esc(item.ean)+'</span></td>'+
+      '<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'+
+      '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(d.titulo||prod&&prod.desc||'—')+'</td>'+
+      '<td class="mono" style="text-align:center">'+d.total+'</td>'+
+      '<td style="text-align:center"><span style="font-weight:700;color:'+posColor+'">'+(d.miPosicion?'#'+d.miPosicion:'—')+'</span></td>'+
+      '<td class="mono">'+fS(Math.round(d.precioMin))+'</td>'+
+      '<td class="mono">'+fS(Math.round(d.precioMax))+'</td>'+
+      '<td class="mono">'+(d.miPrecio?fS(Math.round(d.miPrecio)):'<span style="color:var(--t3)">No listado</span>')+'</td>'+
+      '<td style="text-align:center">'+byboxBadge+'</td>'+
+      '<td style="font-size:10px;color:var(--t3)">'+lastCheck+'</td>'+
+      '<td><button class="btn-g btn-sm" style="color:var(--red);font-size:10px">✕</button></td>'
+    );
+    tr.addEventListener('click',function(e){
+      if(e.target.tagName==='BUTTON') return;
+      catVerDetalle(item.ean);
+    });
+    tr.querySelector('button').addEventListener('click',function(e){
+      e.stopPropagation(); catEliminar(item.ean);
+    });
+    tb.appendChild(tr);
+  });
 };
 
 window.catVerDetalle=function(ean){
