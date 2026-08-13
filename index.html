@@ -171,6 +171,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
     <div class="ni" data-p="inteligencia"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/><circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/></svg>Inteligencia</div>
     <div class="ni" data-p="rubros"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Por Rubro</div>
     <div class="ni" data-p="portafolio"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Portafolio</div>
+    <div class="ni" data-p="catalogo"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg> Catálogo</div>
     <div class="ni" data-p="fulljaus"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 6h14"/><circle cx="4.5" cy="9.5" r="1"/><path d="M7 9.5h5"/></svg>Fulljaus</div>
     <div class="ni" data-p="control"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5h3M5 11h4"/></svg> Control</div>
     <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
@@ -1260,6 +1261,72 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <div id="ctrl-dev-kpis" class="g4" style="margin-bottom:12px"></div>
           <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Ref.</th><th>Cuenta</th><th>Fecha</th><th>SKU</th><th>Motivo</th><th>Seguimiento</th><th>Recibida</th><th>Ver</th></tr></thead><tbody id="ctrl-dev-body"><tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">Presioná Actualizar</td></tr></tbody></table></div>
         </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-catalogo">
+      <div style="max-width:1100px;margin:0 auto">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div>
+            <div class="ct">Monitor de Catálogo / Buybox</div>
+            <div style="font-size:11px;color:var(--t3)">Seguimiento diario de posición en catálogo ML por EAN</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="catActualizar()">↻ Verificar ahora</button>
+            <button class="btn-g btn-sm" onclick="catAgregar()">+ Agregar EAN</button>
+          </div>
+        </div>
+
+        <!-- Agregar EAN panel -->
+        <div id="cat_add_panel" class="card" style="display:none;margin-bottom:12px;padding:14px">
+          <div class="ct" style="margin-bottom:10px">Agregar producto al monitoreo</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+            <div>
+              <label class="lbl">EAN / Código de barras</label>
+              <input class="inp" id="cat_ean_input" type="text" placeholder="Ej: 7798287930015">
+            </div>
+            <div>
+              <label class="lbl">SKU interno (opcional)</label>
+              <input class="inp" id="cat_sku_input" type="text" placeholder="Ej: NVK-3068-N">
+            </div>
+            <button class="btn" onclick="catGuardarEan()">Guardar</button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div id="cat_kpis" class="g4" style="margin-bottom:14px"></div>
+
+        <!-- Tabla de productos monitoreados -->
+        <div class="card" style="padding:0;overflow-x:auto">
+          <table class="tbl" style="font-size:12px">
+            <thead>
+              <tr>
+                <th>EAN</th>
+                <th>SKU</th>
+                <th>Producto</th>
+                <th>Vendedores</th>
+                <th>Tu posición</th>
+                <th>Precio mín</th>
+                <th>Precio máx</th>
+                <th>Tu precio</th>
+                <th>Ganando buybox</th>
+                <th>Última check</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cat_tabla_body">
+              <tr><td colspan="11" style="text-align:center;color:var(--t3);padding:24px">
+                No hay productos monitoreados. Agregá un EAN para empezar.
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Detalle expandido -->
+        <div id="cat_detalle" style="margin-top:12px"></div>
+
       </div>
     </div>
 
@@ -2510,7 +2577,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,fulljaus:renderFulljaus,control:renderControl};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,catalogo:renderCatalogo,fulljaus:renderFulljaus,control:renderControl};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -13958,18 +14025,14 @@ window.intelProdAnalizar=function(){
     if(p.fecha&&p.fecha<desde) return;
     (p.items||[]).forEach(function(it){
       if(it.sku!==sku&&it.sku!==skuB) return;
-      var qty=it.qty||1;
-      // Price: use precio_siva first, then precio, then precio_civa/1.21
-      var pSiva=it.precio_siva||it.precio||0;
-      if(!pSiva&&it.precio_civa) pSiva=it.precio_civa/1.21;
-      var cUnit=it.costo||0;
-      // If no costo on item, use product catalog costo
-      if(!cUnit&&costo) cUnit=costo;
+      // mayCalcItem calcula precio_siva real con lista y descuentos
+      // (precio_siva no se guarda en el item, solo lista+descuentos%)
+      var calc=typeof mayCalcItem==='function'?mayCalcItem(it):null;
       mayItems.push({
-        sku:it.sku, qty:qty,
-        venta:pSiva*qty,
-        costo:cUnit*qty,
-        ganancia:(pSiva-cUnit)*qty,
+        sku:it.sku,
+        qty:calc?it.qty||1:it.qty||1,
+        venta:calc?calc.total_siva:((it.lista||0)*(it.qty||1)),
+        ganancia:calc?calc.ganancia:0,
         fecha:p.fecha
       });
     });
@@ -14119,7 +14182,7 @@ window.intelProdAnalizar=function(){
   html+='<div class="card" style="padding:12px;margin-bottom:14px">'
     +'<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Resumen comparativo</div>'
     +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px">'
-    +'<thead><tr><th>Canal</th><th>Unidades</th><th>Operaciones</th><th>Venta total</th><th>% mix</th><th>Ganancia</th><th>Mg s/venta</th><th>G por unidad</th><th>Ticket prom.</th></tr></thead>'
+    +'<thead><tr><th>Canal</th><th>Unidades</th><th>Operaciones</th><th>Venta total</th><th>% mix</th><th>Ganancia</th><th>Mg s/venta</th><th>Mg s/costo</th><th>G por unidad</th><th>Ticket prom.</th></tr></thead>'
     +'<tbody>'
     +canales.map(function(r){
       var col=gc(r.mg/100);
@@ -14261,6 +14324,186 @@ window.histSkuFiltrar=function(){
       +'<td class="mono" style="color:'+col+'">'+s.mgc.toFixed(1)+'%</td>'
       +'</tr>';
   }).join('');
+};
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MÓDULO CATÁLOGO / BUYBOX MONITOR
+// Monitorea la posición en catálogo ML por EAN y competencia de precios
+// ══════════════════════════════════════════════════════════════════════════════
+window._catItems=[];
+
+window.renderCatalogo=async function(){
+  // Load saved EANs from Firebase
+  try{
+    var saved=await fb.get('catalogo_monitor').catch(function(){return null;});
+    if(saved&&saved.items) window._catItems=saved.items;
+  }catch(e){}
+  catRenderTabla();
+  catRenderKpis();
+};
+
+window.catAgregar=function(){
+  var p=document.getElementById('cat_add_panel');
+  if(p) p.style.display=p.style.display==='none'?'':'none';
+};
+
+window.catGuardarEan=async function(){
+  var ean=(document.getElementById('cat_ean_input')?document.getElementById('cat_ean_input').value||'':'').trim();
+  var sku=(document.getElementById('cat_sku_input')?document.getElementById('cat_sku_input').value||'':'').trim();
+  if(!ean){toast('Ingresá un EAN válido','err');return;}
+  if(window._catItems.find(function(i){return i.ean===ean;})){toast('Ya existe ese EAN','err');return;}
+  window._catItems.push({ean:ean,sku:sku||'',ultimo_check:null,data:null});
+  await fb.set('catalogo_monitor',{items:window._catItems,updated:new Date().toISOString()});
+  document.getElementById('cat_add_panel').style.display='none';
+  document.getElementById('cat_ean_input').value='';
+  document.getElementById('cat_sku_input').value='';
+  toast('EAN agregado. Presioná Verificar para buscar datos.','ok');
+  catRenderTabla();
+};
+
+window.catEliminar=async function(ean){
+  if(!confirm('Eliminar '+ean+' del monitoreo?')) return;
+  window._catItems=window._catItems.filter(function(i){return i.ean!==ean;});
+  await fb.set('catalogo_monitor',{items:window._catItems,updated:new Date().toISOString()});
+  catRenderTabla();
+  catRenderKpis();
+};
+
+window.catActualizar=async function(){
+  if(!window._catItems.length){toast('Agregá EANs primero','err');return;}
+  toast('Verificando catálogo ML...','ok');
+  var updated=0;
+  // Use first account token
+  var acct=S.accounts&&S.accounts.find(function(a){return a.token;});
+  if(!acct){toast('Necesitás tener una cuenta ML conectada','err');return;}
+
+  for(var i=0;i<window._catItems.length;i++){
+    var item=window._catItems[i];
+    try{
+      // Search ML catalog by EAN
+      var url=PROXY+'/ml/search?q='+encodeURIComponent(item.ean)+'&token='+encodeURIComponent(acct.token)+'&seller_id='+encodeURIComponent(acct.userId||'');
+      var r=await fetch(url).catch(function(){return null;});
+      if(r&&r.ok){
+        var d=await r.json();
+        var results=d.results||[];
+        // Find catalog item
+        var sellers=results.map(function(p){
+          return {
+            seller_id:p.seller&&p.seller.id,
+            seller:p.seller&&p.seller.nickname||'—',
+            precio:p.price||0,
+            qty:p.available_quantity||0,
+            titulo:p.title||'',
+            url:p.permalink||'',
+            es_mio:(p.seller&&p.seller.id&&S.accounts.some(function(a){return String(a.userId)===String(p.seller.id);}))
+          };
+        }).filter(function(s){return s.precio>0;});
+
+        sellers.sort(function(a,b){return a.precio-b.precio;});
+        var precioMin=sellers.length?sellers[0].precio:0;
+        var precioMax=sellers.length?sellers[sellers.length-1].precio:0;
+        var miPosicion=sellers.findIndex(function(s){return s.es_mio;})+1||null;
+        var ganoBybox=miPosicion===1;
+        var miPrecio=sellers.find(function(s){return s.es_mio;})?sellers.find(function(s){return s.es_mio;}).precio:null;
+        var titulo=results[0]?results[0].title:'';
+
+        item.data={
+          sellers:sellers,
+          precioMin:precioMin,precioMax:precioMax,
+          miPosicion:miPosicion,ganoBybox:ganoBybox,
+          miPrecio:miPrecio,titulo:titulo,
+          total:sellers.length
+        };
+        item.ultimo_check=new Date().toISOString();
+        updated++;
+      }
+    }catch(e){console.warn('[cat]',item.ean,e);}
+  }
+
+  await fb.set('catalogo_monitor',{items:window._catItems,updated:new Date().toISOString()});
+  catRenderTabla();
+  catRenderKpis();
+  toast('✓ '+updated+' EANs verificados','ok');
+};
+
+window.catRenderKpis=function(){
+  var el=document.getElementById('cat_kpis');if(!el)return;
+  var total=window._catItems.length;
+  var verificados=window._catItems.filter(function(i){return i.data;}).length;
+  var ganando=window._catItems.filter(function(i){return i.data&&i.data.ganoBybox;}).length;
+  var sinData=total-verificados;
+  el.innerHTML=
+    '<div class="kpi" style="border-left:3px solid var(--acc)"><div class="kl">PRODUCTOS MONITOREADOS</div><div class="kv">'+total+'</div></div>'+
+    '<div class="kpi" style="border-left:3px solid var(--grn)"><div class="kl">GANANDO BUYBOX</div><div class="kv" style="color:var(--grn)">'+ganando+'</div></div>'+
+    '<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">SIN BUYBOX</div><div class="kv" style="color:var(--red)">'+(verificados-ganando)+'</div></div>'+
+    '<div class="kpi"><div class="kl">SIN VERIFICAR</div><div class="kv" style="color:var(--t3)">'+sinData+'</div></div>';
+};
+
+window.catRenderTabla=function(){
+  var tb=document.getElementById('cat_tabla_body');if(!tb)return;
+  if(!window._catItems.length){
+    tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:24px">No hay productos monitoreados. Agregá un EAN para empezar.</td></tr>';
+    return;
+  }
+  tb.innerHTML=window._catItems.map(function(item){
+    var d=item.data;
+    var prod=S.products&&item.sku?S.products.find(function(p){return p.sku===item.sku;}):null;
+    var lastCheck=item.ultimo_check?new Date(item.ultimo_check).toLocaleString('es-AR'):'Nunca';
+    if(!d) return '<tr>'
+      +'<td class="sku">'+esc(item.ean)+'</td>'
+      +'<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'
+      +'<td style="color:var(--t3)">Sin datos</td>'
+      +'<td colspan="7" style="color:var(--t3);font-size:11px">Presioná "Verificar ahora" para obtener datos de ML</td>'
+      +'<td><button onclick="catEliminar(''+esc(item.ean)+'')" class="btn-g btn-sm" style="color:var(--red)">✕</button></td>'
+      +'</tr>';
+
+    var posColor=d.miPosicion===1?'var(--grn)':d.miPosicion&&d.miPosicion<=3?'var(--org)':'var(--red)';
+    var byboxBadge=d.ganoBybox
+      ?'<span style="background:rgba(71,232,127,.15);color:var(--grn);padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">✓ GANANDO</span>'
+      :(d.miPosicion?'<span style="background:rgba(255,77,77,.1);color:var(--red);padding:2px 8px;border-radius:6px;font-size:10px">✗ Pos '+d.miPosicion+'</span>':'<span style="font-size:10px;color:var(--t3)">No listado</span>');
+
+    return '<tr style="cursor:pointer" onclick="catVerDetalle(''+esc(item.ean)+'')">'
+      +'<td class="sku">'+esc(item.ean)+'</td>'
+      +'<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'
+      +'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(d.titulo||prod&&prod.desc||'—')+'</td>'
+      +'<td class="mono" style="text-align:center">'+d.total+'</td>'
+      +'<td style="text-align:center"><span style="font-weight:700;color:'+posColor+'">'+(d.miPosicion?'#'+d.miPosicion:'—')+'</span></td>'
+      +'<td class="mono">'+fS(Math.round(d.precioMin))+'</td>'
+      +'<td class="mono">'+fS(Math.round(d.precioMax))+'</td>'
+      +'<td class="mono">'+(d.miPrecio?fS(Math.round(d.miPrecio)):'<span style="color:var(--t3)">No listado</span>')+'</td>'
+      +'<td style="text-align:center">'+byboxBadge+'</td>'
+      +'<td style="font-size:10px;color:var(--t3)">'+lastCheck+'</td>'
+      +'<td><button onclick="event.stopPropagation();catEliminar(''+esc(item.ean)+'')" class="btn-g btn-sm" style="color:var(--red);font-size:10px">✕</button></td>'
+      +'</tr>';
+  }).join('');
+};
+
+window.catVerDetalle=function(ean){
+  var item=window._catItems.find(function(i){return i.ean===ean;});
+  var el=document.getElementById('cat_detalle');
+  if(!el||!item||!item.data) return;
+  var d=item.data;
+  el.innerHTML='<div class="card" style="padding:14px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+    +'<div><div style="font-weight:700;font-size:13px">'+esc(d.titulo||ean)+'</div>'
+    +'<div style="font-size:11px;color:var(--t3)">EAN: '+esc(ean)+' · '+d.total+' vendedores en catálogo</div></div>'
+    +'<button onclick="document.getElementById('cat_detalle').innerHTML=''" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:18px">✕</button>'
+    +'</div>'
+    +'<table class="tbl" style="font-size:11px">'
+    +'<thead><tr><th>Posición</th><th>Vendedor</th><th>Precio</th><th>Stock</th><th>Acción</th></tr></thead>'
+    +'<tbody>'
+    +d.sellers.map(function(s,i){
+      var esMio=s.es_mio;
+      return '<tr style="background:'+(esMio?'rgba(200,255,0,.05)':'')+';">'
+        +'<td style="font-weight:700;color:'+(i===0?'var(--grn)':i<=2?'var(--org)':'var(--t2)')+'">#'+(i+1)+'</td>'
+        +'<td style="font-weight:'+(esMio?'700':'400')+';color:'+(esMio?'var(--acc)':'var(--t1)')+'">'+esc(s.seller)+(esMio?' ← vos':'')+'</td>'
+        +'<td class="mono">'+fS(Math.round(s.precio))+'</td>'
+        +'<td class="mono">'+s.qty+'</td>'
+        +'<td>'+(s.url?'<a href="'+esc(s.url)+'" target="_blank" style="color:var(--acc);font-size:10px">Ver →</a>':'—')+'</td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table></div>';
 };
 
 </script>
