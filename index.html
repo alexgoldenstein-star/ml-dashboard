@@ -14455,7 +14455,7 @@ window.catRenderTabla=function(){
       +'<td><span class="sku">'+esc(item.sku||'—')+'</span></td>'
       +'<td style="color:var(--t3)">Sin datos</td>'
       +'<td colspan="7" style="color:var(--t3);font-size:11px">Presioná "Verificar ahora" para obtener datos de ML</td>'
-      +'<td><button onclick="catEliminar(''+esc(item.ean)+'')" class="btn-g btn-sm" style="color:var(--red)">✕</button></td>'
+      +'<td><button onclick="catEliminar(this.dataset.ean)" data-ean="'+esc(item.ean)+'" class="btn-g btn-sm" style="color:var(--red)">✕</button>'
       +'</tr>';
 
     var posColor=d.miPosicion===1?'var(--grn)':d.miPosicion&&d.miPosicion<=3?'var(--org)':'var(--red)';
