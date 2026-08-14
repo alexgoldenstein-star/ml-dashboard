@@ -1018,34 +1018,100 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <!-- SKU selector -->
           <div class="card" style="margin-bottom:10px;padding:14px">
             <div class="ch" style="margin-bottom:12px">
-              <span class="ct">🔍 Análisis de rentabilidad por producto — todos los canales</span>
+              <span class="ct">🔍 Análisis de rentabilidad — todos los canales</span>
             </div>
-            <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:end;margin-bottom:4px">
-              <div>
-                <label class="lbl">Seleccioná el producto</label>
-                <select class="inp" id="intel_prod_sku" onchange="intelProdAnalizar()">
-                  <option value="">— Seleccioná un SKU —</option>
-                </select>
+
+            <!-- Modo selector -->
+            <div style="display:flex;gap:6px;margin-bottom:12px">
+              <button id="ip_mode_single" class="btn" onclick="ipSetMode('single')" style="font-size:11px;padding:5px 12px">SKU individual</button>
+              <button id="ip_mode_variant" class="btn-g" onclick="ipSetMode('variant')" style="font-size:11px;padding:5px 12px">Variantes del mismo producto</button>
+              <button id="ip_mode_multi" class="btn-g" onclick="ipSetMode('multi')" style="font-size:11px;padding:5px 12px">Paquete / múltiples SKUs</button>
+            </div>
+
+            <!-- Modo: SKU individual -->
+            <div id="ip_panel_single">
+              <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:end">
+                <div>
+                  <label class="lbl">Producto</label>
+                  <select class="inp" id="intel_prod_sku" onchange="intelProdAnalizar()">
+                    <option value="">— Seleccioná un SKU —</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="lbl">Período</label>
+                  <select class="inp" id="intel_prod_periodo" onchange="intelProdAnalizar()" style="width:140px">
+                    <option value="todo">Todo el historial</option>
+                    <option value="30" selected>Últimos 30 días</option>
+                    <option value="60">Últimos 60 días</option>
+                    <option value="90">Últimos 90 días</option>
+                    <option value="180">Últimos 6 meses</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="lbl">IVA</label>
+                  <select class="inp" id="intel_prod_iva" onchange="intelProdAnalizar()" style="width:100px">
+                    <option value="21">21%</option>
+                    <option value="10.5">10.5%</option>
+                    <option value="0">0%</option>
+                  </select>
+                </div>
+                <button class="btn" onclick="intelProdAnalizar()">Analizar</button>
               </div>
-              <div>
-                <label class="lbl">Período</label>
-                <select class="inp" id="intel_prod_periodo" onchange="intelProdAnalizar()" style="width:140px">
-                  <option value="todo">Todo el historial</option>
-                  <option value="30" selected>Últimos 30 días</option>
-                  <option value="60">Últimos 60 días</option>
-                  <option value="90">Últimos 90 días</option>
-                  <option value="180">Últimos 6 meses</option>
-                </select>
+            </div>
+
+            <!-- Modo: Variantes -->
+            <div id="ip_panel_variant" style="display:none">
+              <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:end">
+                <div>
+                  <label class="lbl">SKU base (sin sufijo de color/talle)</label>
+                  <select class="inp" id="ip_variant_base" onchange="ipVariantPreview()">
+                    <option value="">— Seleccioná el producto base —</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="lbl">Período</label>
+                  <select class="inp" id="ip_variant_periodo" style="width:140px">
+                    <option value="todo">Todo el historial</option>
+                    <option value="30" selected>Últimos 30 días</option>
+                    <option value="60">Últimos 60 días</option>
+                    <option value="90">Últimos 90 días</option>
+                    <option value="180">Últimos 6 meses</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="lbl">IVA</label>
+                  <select class="inp" id="ip_variant_iva" style="width:100px">
+                    <option value="21">21%</option>
+                    <option value="10.5">10.5%</option>
+                    <option value="0">0%</option>
+                  </select>
+                </div>
+                <button class="btn" onclick="intelVariantAnalizar()">Analizar variantes</button>
               </div>
-              <div>
-                <label class="lbl">IVA del producto</label>
-                <select class="inp" id="intel_prod_iva" onchange="intelProdAnalizar()" style="width:120px">
-                  <option value="21">21%</option>
-                  <option value="10.5">10.5%</option>
-                  <option value="0">0%</option>
-                </select>
+              <div id="ip_variant_preview" style="margin-top:8px;font-size:11px;color:var(--t3)"></div>
+            </div>
+
+            <!-- Modo: Múltiples SKUs -->
+            <div id="ip_panel_multi" style="display:none">
+              <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;margin-bottom:8px">
+                <div>
+                  <label class="lbl">Buscá y seleccioná los productos del paquete</label>
+                  <input class="inp" id="ip_multi_buscar" placeholder="Buscar SKU o descripción..." oninput="ipMultiBuscar()" style="margin-bottom:6px">
+                  <div id="ip_multi_lista" style="max-height:180px;overflow-y:auto;background:var(--s2);border-radius:var(--r);border:1px solid var(--b1)"></div>
+                </div>
+                <div>
+                  <label class="lbl">Período</label>
+                  <select class="inp" id="ip_multi_periodo" style="width:140px;margin-bottom:6px">
+                    <option value="todo">Todo el historial</option>
+                    <option value="30" selected>Últimos 30 días</option>
+                    <option value="60">Últimos 60 días</option>
+                    <option value="90">Últimos 90 días</option>
+                    <option value="180">Últimos 6 meses</option>
+                  </select>
+                  <button class="btn" onclick="intelMultiAnalizar()" style="width:140px">Analizar paquete</button>
+                </div>
               </div>
-              <button class="btn" onclick="intelProdAnalizar()">Analizar</button>
+              <div id="ip_multi_seleccion" style="font-size:11px;color:var(--t3)">Ningún producto seleccionado</div>
             </div>
             <!-- Precio manual inputs -->
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px" id="intel_prod_precios">
@@ -10458,11 +10524,34 @@ async function renderInteligencia(){
   // Populate SKU selector for product analysis
   var sel=document.getElementById('intel_prod_sku');
   if(sel&&S.products&&S.products.length){
-    sel.innerHTML='<option value="">— Seleccioná un SKU —</option>'+
-      S.products.filter(function(p){return p.sku&&p.ars>0;})
-        .sort(function(a,b){return (a.sku||'').localeCompare(b.sku||'');})
-        .map(function(p){return '<option value="'+esc(p.sku)+'">'+esc(p.sku)+(p.desc?' — '+p.desc.substring(0,40):'')+'</option>';})
-        .join('');
+    // Populate all SKU selectors
+    var allProds=S.products.filter(function(p){return p.sku&&p.ars>0;})
+      .sort(function(a,b){return (a.sku||'').localeCompare(b.sku||'');});
+    var opts=allProds.map(function(p){
+      return '<option value="'+esc(p.sku)+'">'+esc(p.sku)+(p.desc?' — '+p.desc.substring(0,40):'')+'</option>';
+    }).join('');
+    sel.innerHTML='<option value="">— Seleccioná un SKU —</option>'+opts;
+    // Variant base selector — unique base SKUs
+    var vSel=document.getElementById('ip_variant_base');
+    if(vSel){
+      var bases={};
+      allProds.forEach(function(p){
+        var b=p.sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
+        if(!bases[b]) bases[b]={base:b,skus:[],desc:p.desc};
+        bases[b].skus.push(p.sku);
+      });
+      window._ipVariantBases=bases;
+      vSel.innerHTML='<option value="">— Seleccioná producto base —</option>'+
+        Object.values(bases).filter(function(b){return b.skus.length>=1;})
+        .sort(function(a,b2){return a.base.localeCompare(b2.base);})
+        .map(function(b){
+          return '<option value="'+esc(b.base)+'">'+esc(b.base)+
+            (b.skus.length>1?' ('+b.skus.length+' variantes)':'')+
+            (b.desc?' — '+b.desc.substring(0,30):'')+'</option>';
+        }).join('');
+    }
+    window._ipAllProds=allProds;
+    ipMultiBuscar();
   }
   await intelCargar();
 }
@@ -14529,6 +14618,254 @@ window.catVerDetalle=function(ean){
   });
   tbl.appendChild(tbody);card.appendChild(tbl);
   el.appendChild(card);
+};
+
+
+// ── MODO SELECTOR ────────────────────────────────────────────────────────────
+window._ipMode='single';
+window._ipMultiSelected=new Set();
+
+window.ipSetMode=function(mode){
+  window._ipMode=mode;
+  ['single','variant','multi'].forEach(function(m){
+    var panel=document.getElementById('ip_panel_'+m);
+    var btn=document.getElementById('ip_mode_'+m);
+    if(panel) panel.style.display=m===mode?'':'none';
+    if(btn){
+      btn.className=m===mode?'btn':'btn-g';
+      btn.style.fontSize='11px';
+      btn.style.padding='5px 12px';
+    }
+  });
+  document.getElementById('intel_prod_resultado').innerHTML='';
+};
+
+// ── VARIANTES ─────────────────────────────────────────────────────────────────
+window.ipVariantPreview=function(){
+  var base=document.getElementById('ip_variant_base')?document.getElementById('ip_variant_base').value:'';
+  var prev=document.getElementById('ip_variant_preview');
+  if(!prev) return;
+  if(!base||!window._ipVariantBases||!window._ipVariantBases[base]){
+    prev.innerHTML='';return;
+  }
+  var b=window._ipVariantBases[base];
+  prev.innerHTML='Variantes encontradas: <strong>'+b.skus.join(', ')+'</strong>';
+};
+
+window.intelVariantAnalizar=function(){
+  var base=document.getElementById('ip_variant_base')?document.getElementById('ip_variant_base').value:'';
+  if(!base){toast('Seleccioná un producto base','err');return;}
+  var b=window._ipVariantBases&&window._ipVariantBases[base];
+  if(!b){toast('No se encontraron variantes','err');return;}
+  var periodo=document.getElementById('ip_variant_periodo')?document.getElementById('ip_variant_periodo').value:'30';
+  var iva=parseFloat(document.getElementById('ip_variant_iva')?document.getElementById('ip_variant_iva').value:21)||21;
+  // Analyze all variants combined
+  intelMultiSkusAnalizar(b.skus, base+' ('+b.skus.length+' variantes)', periodo, iva);
+};
+
+// ── MULTI SKU BUSCAR ─────────────────────────────────────────────────────────
+window.ipMultiBuscar=function(){
+  var q=(document.getElementById('ip_multi_buscar')?document.getElementById('ip_multi_buscar').value||'':'').toLowerCase();
+  var el=document.getElementById('ip_multi_lista');if(!el)return;
+  var prods=window._ipAllProds||S.products||[];
+  var filtered=q?prods.filter(function(p){
+    return (p.sku||'').toLowerCase().includes(q)||(p.desc||'').toLowerCase().includes(q);
+  }):prods;
+  el.innerHTML=filtered.slice(0,50).map(function(p){
+    var sel=window._ipMultiSelected&&window._ipMultiSelected.has(p.sku);
+    return '<div onclick="ipMultiToggle(\''+esc(p.sku)+'\')" style="padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--b1);background:'+(sel?'rgba(200,255,0,.08)':'')+'">'
+      +'<span style="font-size:14px">'+(sel?'☑':'☐')+'</span>'
+      +'<span class="sku" style="font-size:10px">'+esc(p.sku)+'</span>'
+      +'<span style="font-size:11px;color:var(--t3)">'+esc(p.desc||'')+'</span>'
+      +'</div>';
+  }).join('');
+  ipMultiUpdateLabel();
+};
+
+window.ipMultiToggle=function(sku){
+  if(!window._ipMultiSelected) window._ipMultiSelected=new Set();
+  if(window._ipMultiSelected.has(sku)) window._ipMultiSelected.delete(sku);
+  else window._ipMultiSelected.add(sku);
+  ipMultiBuscar();
+};
+
+window.ipMultiUpdateLabel=function(){
+  var el=document.getElementById('ip_multi_seleccion');if(!el)return;
+  var sel=window._ipMultiSelected?Array.from(window._ipMultiSelected):[];
+  if(!sel.length){el.innerHTML='Ningún producto seleccionado';return;}
+  el.innerHTML='<strong style="color:var(--acc)">'+sel.length+' seleccionados:</strong> '
+    +sel.map(function(s){
+      return '<span class="sku" style="font-size:9px;margin-right:4px;cursor:pointer" onclick="ipMultiToggle(\''+esc(s)+'\')">'+esc(s)+' ✕</span>';
+    }).join('');
+};
+
+window.intelMultiAnalizar=function(){
+  var skus=window._ipMultiSelected?Array.from(window._ipMultiSelected):[];
+  if(!skus.length){toast('Seleccioná al menos un producto','err');return;}
+  var periodo=document.getElementById('ip_multi_periodo')?document.getElementById('ip_multi_periodo').value:'30';
+  intelMultiSkusAnalizar(skus,'Paquete ('+skus.length+' productos)',periodo,21);
+};
+
+// ── ANÁLISIS MULTI-SKU (core) ─────────────────────────────────────────────────
+window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
+  var el=document.getElementById('intel_prod_resultado');
+  if(!el)return;
+  el.innerHTML='<div style="padding:16px;text-align:center;color:var(--t3)">Calculando...</div>';
+
+  var desde=periodo==='todo'?'2000-01-01':new Date(Date.now()-parseInt(periodo)*864e5).toISOString().split('T')[0];
+  ivaPct=ivaPct||21;
+
+  var fP=function(n){return typeof fF==='function'?fF(Math.round(n)):('$'+Math.round(n).toLocaleString('es-AR'));};
+  var gc=function(mg){return mg>=20?'var(--grn)':mg>=10?'var(--org)':'var(--red)';};
+
+  // Collect ALL orders matching any of the SKUs
+  var skuSet=new Set(skus);
+  // Also include base variants
+  var allMatchSkus=function(sku){
+    if(skuSet.has(sku)) return true;
+    // Check if any selected SKU is a variant match
+    for(var s of skuSet){
+      var b=s.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
+      var b2=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
+      if(b===b2||b===sku||b2===s) return true;
+    }
+    return false;
+  };
+
+  // ML
+  var mlOrds=(S.orders||[]).filter(function(o){
+    return allMatchSkus(o.sku||'')&&o.estado!=='cancelled'&&(!o.fecha||o.fecha>=desde);
+  });
+  var mlV=mlOrds.reduce(function(s,o){return s+(o.venta||0);},0);
+  var mlG=mlOrds.reduce(function(s,o){return s+(o.ganancia||0);},0);
+  var mlU=mlOrds.reduce(function(s,o){return s+(o.unidades||1);},0);
+
+  // Mayorista
+  var allPeds=(typeof _mayPedidos!=='undefined'&&_mayPedidos&&_mayPedidos.length)?_mayPedidos:(window._mayPedidosCache||[]);
+  var mayItems=[];
+  allPeds.forEach(function(p){
+    if(p.fecha&&p.fecha<desde) return;
+    (p.items||[]).forEach(function(it){
+      if(!allMatchSkus(it.sku||'')) return;
+      var calc=typeof mayCalcItem==='function'?mayCalcItem(it):null;
+      mayItems.push({
+        sku:it.sku,qty:it.qty||1,
+        venta:calc?calc.total_siva:((it.lista||0)*(it.qty||1)),
+        ganancia:calc?calc.ganancia:0,
+        fecha:p.fecha
+      });
+    });
+  });
+  var mayV=mayItems.reduce(function(s,i){return s+(i.venta||0);},0);
+  var mayG=mayItems.reduce(function(s,i){return s+(i.ganancia||0);},0);
+  var mayU=mayItems.reduce(function(s,i){return s+(i.qty||1);},0);
+
+  // Fulljaus
+  var fjOrds=(window._fjOrdenes||[]).filter(function(o){
+    return allMatchSkus(o.sku||'')&&['DEVTOT','ANUL','NOAPRO'].indexOf(o.estado)===-1&&(!o.fecha||o.fecha>=desde);
+  });
+  var fjV=fjOrds.reduce(function(s,o){return s+(o.venta||0);},0);
+  var fjG=fjOrds.reduce(function(s,o){return s+(o._ganancia||0);},0);
+  var fjU=fjOrds.reduce(function(s,o){return s+(o.unidades||1);},0);
+
+  var totV=mlV+mayV+fjV;
+  var totG=mlG+mayG+fjG;
+  var totU=mlU+mayU+fjU;
+  var totN=mlOrds.length+mayItems.length+fjOrds.length;
+  var mgGlobal=totV>0?(totG/totV*100):0;
+  var mgCosto=totV>totG&&(totV-totG)>0?(totG/(totV-totG)*100):0;
+
+  // Per-SKU breakdown
+  var porSku={};
+  skus.forEach(function(sku){
+    var b=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
+    var mlS=mlOrds.filter(function(o){return o.sku===sku||o.sku===b;});
+    var mayS=mayItems.filter(function(i){return i.sku===sku||i.sku===b;});
+    var fjS=fjOrds.filter(function(o){return o.sku===sku||o.sku===b;});
+    var v=(mlS.reduce(function(s,o){return s+(o.venta||0);},0))+(mayS.reduce(function(s,i){return s+(i.venta||0);},0))+(fjS.reduce(function(s,o){return s+(o.venta||0);},0));
+    var g=(mlS.reduce(function(s,o){return s+(o.ganancia||0);},0))+(mayS.reduce(function(s,i){return s+(i.ganancia||0);},0))+(fjS.reduce(function(s,o){return s+(o._ganancia||0);},0));
+    var u=(mlS.reduce(function(s,o){return s+(o.unidades||1);},0))+(mayS.reduce(function(s,i){return s+(i.qty||1);},0))+(fjS.reduce(function(s,o){return s+(o.unidades||1);},0));
+    var prod=(S.products||[]).find(function(p){return p.sku===sku;});
+    porSku[sku]={v:v,g:g,u:u,mg:v>0?(g/v*100):0,prod:prod};
+  });
+
+  var noData=totN===0;
+  var periodoLabel=periodo==='todo'?'Todo el historial':('Últimos '+periodo+' días');
+
+  var html='';
+
+  // Header
+  html+='<div style="padding:10px 14px;background:var(--s2);border-radius:var(--r);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">'
+    +'<div style="font-size:13px;font-weight:700">'+esc(titulo)+'</div>'
+    +'<div style="font-size:11px;color:var(--acc)">📅 '+periodoLabel+'</div>'
+    +'</div>';
+
+  if(noData){
+    html+='<div class="card" style="padding:24px;text-align:center">'
+      +'<div style="font-size:32px;margin-bottom:8px">📭</div>'
+      +'<div style="font-weight:700">Sin ventas para los SKUs seleccionados en este período</div>'
+      +'</div>';
+    el.innerHTML=html; return;
+  }
+
+  // KPIs
+  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">'
+    +'<div class="kpi" style="border-left:3px solid var(--b1)"><div class="kl">Venta total</div><div class="kv">'+fP(totV)+'</div><div style="font-size:10px;color:var(--t3)">Todos los canales</div></div>'
+    +'<div class="kpi" style="border-left:3px solid '+gc(mgGlobal/100)+'"><div class="kl">Ganancia total</div><div class="kv" style="color:'+gc(mgGlobal/100)+'">'+fP(totG)+'</div></div>'
+    +'<div class="kpi" style="border-left:3px solid '+gc(mgGlobal/100)+'"><div class="kl">Mg s/venta</div><div class="kv" style="color:'+gc(mgGlobal/100)+'">'+mgGlobal.toFixed(1)+'%</div><div style="font-size:10px;color:var(--t3)">Mg s/costo: '+mgCosto.toFixed(1)+'%</div></div>'
+    +'<div class="kpi"><div class="kl">Unidades</div><div class="kv">'+totU+'</div><div style="font-size:10px;color:var(--t3)">'+totN+' operaciones</div></div>'
+    +'</div>';
+
+  // Canal breakdown
+  var canales=[];
+  if(mlOrds.length) canales.push({icon:'📦',nombre:'MercadoLibre',color:'var(--acc)',v:mlV,g:mlG,u:mlU,n:mlOrds.length});
+  if(mayItems.length) canales.push({icon:'🏪',nombre:'Mayorista',color:'var(--blu)',v:mayV,g:mayG,u:mayU,n:mayItems.length});
+  if(fjOrds.length) canales.push({icon:'🛒',nombre:'Fulljaus',color:'var(--org)',v:fjV,g:fjG,u:fjU,n:fjOrds.length});
+  canales.sort(function(a,b){return (b.v>0?b.g/b.v:0)-(a.v>0?a.g/a.v:0);});
+
+  if(canales.length>1){
+    html+='<div style="display:grid;grid-template-columns:repeat('+canales.length+',1fr);gap:8px;margin-bottom:12px">'
+      +canales.map(function(r){
+        var mg=r.v>0?(r.g/r.v*100):0;
+        var col=gc(mg/100);
+        return '<div style="padding:12px;border-radius:var(--r);background:var(--s2);border-left:3px solid '+r.color+'">'
+          +'<div style="font-size:11px;font-weight:700;margin-bottom:8px">'+r.icon+' '+r.nombre+'</div>'
+          +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'
+          +'<div><div style="font-size:9px;color:var(--t3)">VENTA</div><div style="font-weight:700">'+fP(r.v)+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">GANANCIA</div><div style="font-weight:700;color:'+col+'">'+fP(r.g)+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">MG S/VENTA</div><div style="font-weight:700;color:'+col+'">'+mg.toFixed(1)+'%</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">UNIDADES</div><div style="font-weight:700">'+r.u+'</div></div>'
+          +'</div></div>';
+      }).join('')
+      +'</div>';
+  }
+
+  // Per-SKU table
+  if(skus.length>1){
+    var skuRows=Object.entries(porSku).sort(function(a,b){return b[1].v-a[1].v;});
+    html+='<div class="card" style="padding:12px;margin-bottom:12px">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Desglose por SKU</div>'
+      +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px">'
+      +'<thead><tr><th>SKU</th><th>Descripción</th><th>Unidades</th><th>Venta total</th><th>Ganancia</th><th>Mg s/venta</th><th>Mg s/costo</th></tr></thead>'
+      +'<tbody>'
+      +skuRows.map(function(entry){
+        var sku=entry[0],d=entry[1];
+        var col=gc(d.mg/100);
+        var mgc=d.v>d.g&&(d.v-d.g)>0?(d.g/(d.v-d.g)*100):0;
+        return '<tr>'
+          +'<td><span class="sku">'+esc(sku)+'</span></td>'
+          +'<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t3)">'+esc(d.prod&&d.prod.desc||'—')+'</td>'
+          +'<td class="mono">'+d.u+'</td>'
+          +'<td class="mono">'+fP(d.v)+'</td>'
+          +'<td class="mono" style="color:'+col+';font-weight:700">'+fP(d.g)+'</td>'
+          +'<td style="color:'+col+';font-weight:700">'+d.mg.toFixed(1)+'%</td>'
+          +'<td style="color:'+col+'">'+mgc.toFixed(1)+'%</td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+  }
+
+  el.innerHTML=html;
 };
 
 </script>
