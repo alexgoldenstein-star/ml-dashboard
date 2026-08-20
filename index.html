@@ -3020,6 +3020,7 @@ async function loadCacheAcumulativo(){
   if(!all.length) return false;
 
   S.orders=applyProductCosts(all);
+  window._allHistoricalOrders=S.orders; // disponible para inteligencia
   const desde=meta.desde||'';
   const hasta=meta.hasta||'';
   toast(`✓ ${all.length} ventas cargadas (${desde} → ${hasta})`,'ok');
@@ -3038,6 +3039,7 @@ async function loadCacheLegacy(){
   }
   if(!all.length) return false;
   S.orders=applyProductCosts(all);
+  window._allHistoricalOrders=S.orders;
   toast(`✓ ${all.length} ventas (caché legacy)`,'ok');
   return true;
 }
@@ -11249,6 +11251,8 @@ window.ejecutarCargaHistorica = async function(meses){
   S.orders.forEach(o=>{byId[o.id]=o;});
   applyProductCosts(allOrds).forEach(o=>{byId[o.id]=o;});
   S.orders=Object.values(byId).sort((a,b)=>a.fecha<b.fecha?1:-1);
+  // Disponibilizar para análisis multicanal
+  window._allHistoricalOrders=S.orders;
 
   await saveCache();
 
@@ -14170,6 +14174,17 @@ window.intelProdAnalizar=function(){
   canales.sort(function(a,b){return b.mg-a.mg;});
 
   var noData=!mlN&&!mayN&&!fjN;
+
+  // DEBUG: show what orders were found and what SKUs they have
+  console.log('[Intel] SKU buscado:',sku,'base:',skuB);
+  console.log('[Intel] Fuente:',(_ordSource===window._allHistoricalOrders?'historial completo':'S.orders'),'→',_ordSource.length,'órdenes totales');
+  console.log('[Intel] ML matches:',mlN,'|May matches:',mayN,'|FJ matches:',fjN);
+  // Show what unique SKUs exist in source for partial match detection
+  var skusSample=new Set();
+  _ordSource.forEach(function(o){if(o.sku&&o.sku.toLowerCase().includes(skuB.toLowerCase().slice(0,6)))skusSample.add(o.sku);});
+  console.log('[Intel] SKUs similares en fuente:',Array.from(skusSample).slice(0,20));
+
+  var noData=!mlN&&!mayN&&!fjN;
   var periodoLabel=periodo==='todo'?'Todo el historial':('Últimos '+periodo+' días');
 
   var html='';
@@ -14804,6 +14819,11 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
     html+='<div class="card" style="padding:24px;text-align:center">'
       +'<div style="font-size:32px;margin-bottom:8px">📭</div>'
       +'<div style="font-weight:700">Sin ventas para los SKUs seleccionados en este período</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-top:8px">'
+    +'SKU buscado: <span class="sku">'+esc(sku)+'</span> · Base: <span class="sku">'+esc(skuB)+'</span><br>'
+    +'Órdenes en memoria: '+_ordSource.length+'<br>'
+    +(window._allHistoricalOrders?'Historial cargado: '+window._allHistoricalOrders.length+' órdenes':'⚠ Historial no cargado — hacé clic en Carga histórica')
+    +'</div>'
       +'</div>';
     el.innerHTML=html; return;
   }
