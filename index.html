@@ -14888,4 +14888,293 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   el.innerHTML=html;
 };
 
+
+// ══════════════════════════════════════════════════════════════════
+// BOT FLOTANTE NIVIKO — Analista con contexto completo
+// ══════════════════════════════════════════════════════════════════
+var _nvBotOpen=false;
+var _nvBotHistory=[];
+
+window.nvBotToggle=function(){
+  _nvBotOpen=!_nvBotOpen;
+  var panel=document.getElementById('nv_bot_panel');
+  var btn=document.getElementById('nv_bot_btn');
+  if(panel){panel.style.display=_nvBotOpen?'flex':'none';}
+  if(btn){btn.style.transform=_nvBotOpen?'scale(0.9)':'scale(1)';}
+  if(_nvBotOpen&&_nvBotHistory.length===0){
+    nvBotAddMsg('agent','👋 Hola Alex. Soy el analista de NIVIKO. Tengo acceso a todos tus datos:\n\n📦 ML · 🏪 Mayorista · 🛒 Fulljaus\n\n¿Qué querés analizar?');
+  }
+};
+
+// ── Construcción del contexto completo ───────────────────────────
+window.nvBotContext=function(){
+  var rng=typeof getRange==='function'?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
+  var df=rng.from.split('T')[0], dt=rng.to.split('T')[0];
+
+  // ML
+  var ords=(window._allHistoricalOrders&&window._allHistoricalOrders.length?window._allHistoricalOrders:S.orders||[])
+    .filter(function(o){return o.estado!=='cancelled'&&o.fecha>=df&&o.fecha<=dt;});
+  var mlV=ords.reduce(function(s,o){return s+(o.venta||0);},0);
+  var mlG=ords.reduce(function(s,o){return s+(o.ganancia||0);},0);
+  var mlU=ords.reduce(function(s,o){return s+(o.unidades||1);},0);
+  var mlN=ords.length;
+
+  // Top SKUs ML
+  var skuMap={};
+  ords.forEach(function(o){
+    if(!o.sku)return;
+    if(!skuMap[o.sku])skuMap[o.sku]={v:0,g:0,u:0,n:0,desc:o.desc||''};
+    skuMap[o.sku].v+=(o.venta||0);skuMap[o.sku].g+=(o.ganancia||0);
+    skuMap[o.sku].u+=(o.unidades||1);skuMap[o.sku].n++;
+  });
+  var topML=Object.entries(skuMap).sort(function(a,b){return b[1].v-a[1].v;}).slice(0,10)
+    .map(function(e){var mg=e[1].v>0?(e[1].g/e[1].v*100):0;
+      return e[0]+' | '+e[1].u+'u | $'+Math.round(e[1].v/1e3)+'K | mg:'+mg.toFixed(1)+'%';}).join('\n');
+
+  // Mayorista
+  var allPeds=(typeof _mayPedidos!=='undefined'&&_mayPedidos&&_mayPedidos.length)?_mayPedidos:(window._mayPedidosCache||[]);
+  var peds=allPeds.filter(function(p){return !p.fecha||(p.fecha>=df&&p.fecha<=dt);});
+  var mayV=peds.reduce(function(s,p){return s+(p.venta_siva||p.total_siva||0);},0);
+  var mayG=peds.reduce(function(s,p){return s+(p.ganancia||0);},0);
+  var mayN=peds.length;
+  var mayU=peds.reduce(function(s,p){return s+(p.items||[]).reduce(function(s2,i){return s2+(i.qty||1);},0);},0);
+
+  // Fulljaus
+  var fjOrds=(window._fjOrdenes||[]).filter(function(o){
+    return ['DEVTOT','ANUL','NOAPRO'].indexOf(o.estado)===-1&&(!o.fecha||o.fecha>=df);
+  });
+  var fjV=fjOrds.reduce(function(s,o){return s+(o.venta||0);},0);
+  var fjG=fjOrds.reduce(function(s,o){return s+(o._ganancia||0);},0);
+  var fjN=fjOrds.length;
+
+  // Totales
+  var totV=mlV+mayV+fjV;
+  var totG=mlG+mayG+fjG;
+  var mgG=totV>0?(totG/totV*100):0;
+
+  // SKUs en rojo ML
+  var enRojo=Object.entries(skuMap).filter(function(e){return e[1].v>0&&e[1].g/e[1].v<0.05;})
+    .sort(function(a,b){return a[1].g/a[1].v-b[1].g/b[1].v;}).slice(0,5)
+    .map(function(e){var mg=e[1].v>0?(e[1].g/e[1].v*100):0;return e[0]+' mg:'+mg.toFixed(1)+'%';}).join(', ');
+
+  // Rubros
+  var rubros={};
+  ords.forEach(function(o){
+    var prod=(S.products||[]).find(function(p){return p.sku===o.sku;});
+    var r=prod&&prod.rubro||'Sin rubro';
+    if(!rubros[r])rubros[r]={v:0,g:0,u:0};
+    rubros[r].v+=(o.venta||0);rubros[r].g+=(o.ganancia||0);rubros[r].u+=(o.unidades||1);
+  });
+  var topRubros=Object.entries(rubros).sort(function(a,b){return b[1].v-a[1].v;}).slice(0,5)
+    .map(function(e){var mg=e[1].v>0?(e[1].g/e[1].v*100):0;
+      return e[0]+': $'+Math.round(e[1].v/1e3)+'K ventas, mg:'+mg.toFixed(1)+'%';}).join('\n');
+
+  return '=== CONTEXTO DE NEGOCIO NIVIKO ===\n'
+    +'Período analizado: '+df+' → '+dt+'\n'
+    +'Empresa: importadora/distribuidora argentina. Canales: ML (4 cuentas), Mayorista, Fulljaus.\n\n'
+    +'--- MÉTRICAS GLOBALES ---\n'
+    +'Venta total: $'+Math.round(totV/1e6*10)/10+'M\n'
+    +'Ganancia total: $'+Math.round(totG/1e6*10)/10+'M\n'
+    +'Margen global s/venta: '+mgG.toFixed(1)+'%\n\n'
+    +'--- MERCADOLIBRE ---\n'
+    +'Ventas: $'+Math.round(mlV/1e6*10)/10+'M | Ganancia: $'+Math.round(mlG/1e6*10)/10+'M | Mg: '+(mlV>0?(mlG/mlV*100).toFixed(1):0)+'%\n'
+    +'Órdenes: '+mlN+' | Unidades: '+mlU+'\n'
+    +'Top SKUs:\n'+topML+'\n\n'
+    +'--- MAYORISTA ---\n'
+    +'Ventas: $'+Math.round(mayV/1e6*10)/10+'M | Ganancia: $'+Math.round(mayG/1e6*10)/10+'M | Mg: '+(mayV>0?(mayG/mayV*100).toFixed(1):0)+'%\n'
+    +'Pedidos: '+mayN+' | Unidades: '+mayU+'\n\n'
+    +'--- FULLJAUS ---\n'
+    +'Ventas: $'+Math.round(fjV/1e6*10)/10+'M | Ganancia: $'+Math.round(fjG/1e6*10)/10+'M | Mg: '+(fjV>0?(fjG/fjV*100).toFixed(1):0)+'%\n'
+    +'Órdenes: '+fjN+'\n\n'
+    +'--- RUBROS (ML) ---\n'+topRubros+'\n\n'
+    +'--- PRODUCTOS EN ROJO (<5% mg) ---\n'+(enRojo||'Ninguno')+'\n'
+    +'--- CONFIG ---\n'
+    +'Dólar: $'+(S.cfg.dolar||0)+' | Com ML: '+(S.cfg.com||14)+'% | Pub: '+(S.cfg.pub||5)+'% | IIBB: '+(S.cfg.iibb||4)+'%\n'
+    +'SKUs en catálogo: '+(S.products?S.products.length:0)+'\n';
+};
+
+// ── UI helpers ────────────────────────────────────────────────────
+window.nvBotAddMsg=function(role,text){
+  var el=document.getElementById('nv_bot_msgs');if(!el)return;
+  var isAgent=role==='agent';
+  var div=document.createElement('div');
+  div.style.cssText='max-width:88%;padding:10px 12px;border-radius:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;font-size:12px;'
+    +(isAgent?'align-self:flex-start;background:var(--s2);border:1px solid var(--b1);':'align-self:flex-end;background:var(--acc);color:#000;');
+  // Convert **bold** markdown
+  div.innerHTML=text.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  el.appendChild(div);
+  el.scrollTop=el.scrollHeight;
+  return div;
+};
+
+window.nvBotThink=function(){
+  var div=nvBotAddMsg('agent','⏳ Analizando...');
+  return div;
+};
+
+window.nvBotAsk=function(q){
+  if(!_nvBotOpen) nvBotToggle();
+  var inp=document.getElementById('nv_bot_inp');
+  if(inp){inp.value=q;nvBotSend();}
+};
+
+// ── Send message ──────────────────────────────────────────────────
+window.nvBotSend=async function(){
+  var inp=document.getElementById('nv_bot_inp');
+  var text=(inp?inp.value||'':'').trim();
+  if(!text) return;
+  inp.value='';
+
+  nvBotAddMsg('user',text);
+  _nvBotHistory.push({role:'user',content:text});
+
+  var thinkDiv=nvBotThink();
+  var status=document.getElementById('nv_bot_status');
+  if(status) status.textContent='Analizando datos...';
+
+  try{
+    var ctx=nvBotContext();
+    var msgs=_nvBotHistory.slice(-8); // last 4 exchanges
+
+    var body={
+      model:'claude-sonnet-4-6',
+      max_tokens:1500,
+      system:'Sos el analista de negocio de NIVIKO, empresa argentina de importación y distribución.\n'
+        +'Tenés acceso a datos reales del negocio que se te proveen en el contexto.\n'
+        +'REGLAS:\n'
+        +'- Respondé en español, sé directo y accionable\n'
+        +'- Usá números concretos del contexto provisto\n'
+        +'- Cuando detectes problemas señalalos claramente\n'
+        +'- Formato: texto claro, usá **negrita** para destacar métricas clave\n'
+        +'- Si te piden un informe, estructuralo con secciones claras\n'
+        +'- No inventes datos que no estén en el contexto\n\n'
+        +'CONTEXTO DE DATOS ACTUALES:\n'+ctx,
+      messages:msgs
+    };
+
+    var r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+
+    if(!r.ok) throw new Error('API '+r.status);
+    var d=await r.json();
+    var resp=(d.content&&d.content[0]&&d.content[0].text)||'Sin respuesta';
+
+    thinkDiv.remove();
+    nvBotAddMsg('agent',resp);
+    _nvBotHistory.push({role:'assistant',content:resp});
+    if(status) status.textContent='Listo';
+
+  }catch(e){
+    thinkDiv.remove();
+    nvBotAddMsg('agent','⚠ Error al consultar: '+e.message+'\n\nVerificá tu conexión o token de API.');
+    if(status) status.textContent='Error';
+    console.error('[nvBot]',e);
+  }
+};
+
+// ── Informe completo ──────────────────────────────────────────────
+window.nvBotInforme=async function(){
+  var modal=document.getElementById('nv_informe_modal');
+  var body=document.getElementById('nv_informe_body');
+  if(!modal||!body) return;
+  modal.style.display='flex';
+  body.innerHTML='<div style="text-align:center;color:var(--t3);padding:40px">⏳ Generando informe ejecutivo...</div>';
+
+  try{
+    var ctx=nvBotContext();
+    var r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:2500,
+        system:'Generá un informe ejecutivo de ventas completo y estructurado para NIVIKO.\nUsá los datos del contexto. Formato: secciones con títulos claros, métricas clave en negrita, análisis por canal, top productos, alertas y recomendaciones. Escribí en español profesional.',
+        messages:[{role:'user',content:'Generá el informe ejecutivo completo del período con todos los datos disponibles.\n\nCONTEXTO:\n'+ctx}]
+      })
+    });
+    var d=await r.json();
+    var text=(d.content&&d.content[0]&&d.content[0].text)||'Error generando informe';
+
+    // Render informe
+    window._nvInformeText=text;
+    window._nvInformeCtx=ctx;
+
+    body.innerHTML='<div id="nv_informe_content" style="line-height:1.7;white-space:pre-wrap">'
+      +text.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+           .replace(/#{1,3}\s*([^\n]+)/g,'<h3 style="margin:16px 0 6px;font-size:14px;color:var(--acc)">$1</h3>')
+           .replace(/\n/g,'<br>')
+      +'</div>';
+
+  }catch(e){
+    body.innerHTML='<div style="color:var(--red);padding:20px">Error: '+e.message+'</div>';
+  }
+};
+
+// ── Exportar CSV ──────────────────────────────────────────────────
+window.nvInformeCSV=function(){
+  var rng=typeof getRange==='function'?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
+  var df=rng.from.split('T')[0], dt=rng.to.split('T')[0];
+  var ords=(window._allHistoricalOrders&&window._allHistoricalOrders.length?window._allHistoricalOrders:S.orders||[])
+    .filter(function(o){return o.estado!=='cancelled'&&o.fecha>=df&&o.fecha<=dt;});
+
+  var rows=[['Fecha','Canal','Cuenta','SKU','Descripción','Unidades','Venta','Comisión','Ganancia','Mg s/venta','Mg s/costo','Modal']];
+
+  ords.forEach(function(o){
+    var mg=o.venta>0?(o.ganancia/o.venta*100):0;
+    var mgc=o.venta&&o.ganancia&&(o.venta-o.ganancia)>0?(o.ganancia/(o.venta-o.ganancia)*100):0;
+    rows.push([o.fecha||'',o.acct||'ML',o.acct||'',o.sku||'',o.desc||'',o.unidades||1,Math.round(o.venta||0),Math.round(o.comision||0),Math.round(o.ganancia||0),mg.toFixed(1)+'%',mgc.toFixed(1)+'%',o.modal||'']);
+  });
+
+  // Add mayorista rows
+  var allPeds=(typeof _mayPedidos!=='undefined'&&_mayPedidos&&_mayPedidos.length)?_mayPedidos:(window._mayPedidosCache||[]);
+  allPeds.filter(function(p){return !p.fecha||(p.fecha>=df&&p.fecha<=dt);}).forEach(function(p){
+    (p.items||[]).forEach(function(it){
+      var calc=typeof mayCalcItem==='function'?mayCalcItem(it):null;
+      var v=calc?calc.total_siva:0;
+      var g=calc?calc.ganancia:0;
+      var mg=v>0?(g/v*100):0;
+      rows.push([p.fecha||'','Mayorista','',it.sku||'',it.desc||'',it.qty||1,Math.round(v),0,Math.round(g),mg.toFixed(1)+'%','','']);
+    });
+  });
+
+  var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='NIVIKO_informe_'+df+'_'+dt+'.csv';
+  a.click();
+  toast('✓ CSV descargado','ok');
+};
+
+// ── Exportar PDF ──────────────────────────────────────────────────
+window.nvInformePDF=function(){
+  var text=window._nvInformeText||'Sin informe generado. Generá el informe primero.';
+  var rng=typeof getRange==='function'?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
+  var df=rng.from.split('T')[0], dt=rng.to.split('T')[0];
+
+  var win=window.open('','_blank');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<title>NIVIKO — Informe '+df+' al '+dt+'</title>'
+    +'<style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;color:#1a1a1a;line-height:1.6}'
+    +'h1{color:#c8ff00;background:#0e0e12;padding:20px;border-radius:8px}'
+    +'h3{color:#333;margin:20px 0 8px;border-bottom:2px solid #c8ff00;padding-bottom:4px}'
+    +'strong{color:#000}'
+    +'@media print{body{margin:20px}}'
+    +'</style></head><body>'
+    +'<h1>🤖 NIVIKO — Informe Ejecutivo</h1>'
+    +'<p style="color:#666">Período: <strong>'+df+'</strong> al <strong>'+dt+'</strong> · Generado: '+new Date().toLocaleString('es-AR')+'</p>'
+    +'<hr>'
+    +'<div style="white-space:pre-wrap">'
+    +text.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+         .replace(/#{1,3}\s*([^\n]+)/g,'<h3>$1</h3>')
+         .replace(/\n/g,'<br>')
+    +'</div>'
+    +'<script>setTimeout(function(){window.print();},500);<\/script>'
+    +'</body></html>');
+  win.document.close();
+};
+
 </script>
