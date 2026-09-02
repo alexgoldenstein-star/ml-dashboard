@@ -12271,13 +12271,32 @@ function fjCalcularCostos(orden){
   if(typeof window!=='undefined'&&window._fjFeeDebug)
     console.log('[FJ fee]',mkt,'M.comision:',M.comision,'tabP length:',(M.fee_logistico_peso||[]).length);
   const tabP=venta<35000&&M.fee_logistico_peso_menor35k?M.fee_logistico_peso_menor35k:M.fee_logistico_peso;
-  if(tabP&&tabP.length&&S.products){
-    const pr=S.products.find(p=>p.sku===sku||p.sku===skuB);
-    const kg=pr?.peso_aforado||0;
+  if(tabP&&tabP.length){
+    // 1. Peso desde catálogo de productos (campo peso_aforado)
+    const pr=S.products?S.products.find(p=>p.sku===sku||p.sku===skuB):null;
+    let kg=pr?.peso_aforado||0;
+
+    // 2. Si no tiene en catálogo, buscar en los items de la orden Fulljaus
+    //    El API incluye peso_aforado o dimensions en algunos items
+    if(!kg&&orden.items&&orden.items.length){
+      const it0=orden.items[0];
+      // Fulljaus puede mandar peso_aforado, peso, weight, o dimensions
+      kg=it0.peso_aforado||it0.peso||it0.weight||0;
+      // Si viene dimensions: {alto, ancho, prof, peso} calcular peso aforado
+      if(!kg&&it0.dimensions){
+        const d=it0.dimensions;
+        const pesoReal=d.peso||d.weight||0;
+        const pesoVol=(d.alto||d.height||0)*(d.ancho||d.width||0)*(d.prof||d.depth||0)/4000;
+        kg=Math.max(pesoReal,pesoVol);
+      }
+    }
+
     if(kg>0){
       const tr=tabP.find(t=>kg<=t.hasta_kg);
       feeLogis=((tr?tr.monto:tabP[tabP.length-1].monto)||0)*uds;
     }
+    // Guardar si se encontró peso para mostrarlo en el modal
+    orden._pesoAforado=kg||null;
   }
 
   // 4. Publicidad/extras
@@ -13492,6 +13511,7 @@ window.fjVerOrden=function(ordId){
   var sinCosto=o._sinCosto||costos.sinCosto;
   var pr2=S.products?S.products.find(function(p){return p.sku===o.sku||p.sku===(o.sku||'').replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'');}):null;
   var ivaPct=pr2?pr2.iva||21:21;
+  var kgMostrar=o._pesoAforado||(pr2&&pr2.peso_aforado)||0;
   var defs=window.FJ_CONFIG_DEFAULTS||{};
   var nombre=(defs[o.marketplace]&&defs[o.marketplace].nombre)||o.marketplaceNombre||o.marketplace||'—';
   var cuotasLabel=o.cuotas>1?(o.cuotas+' cuotas — costo del cliente con la plataforma'):'Sin financiacion (1 cuota)';
@@ -13533,7 +13553,9 @@ window.fjVerOrden=function(ordId){
     if(!o.sku||o.sku==='—') msgs.push('⚠ SKU no identificado');
     else if(sinCosto) msgs.push('⚠ Sin costo ARS para SKU "'+o.sku+'". Cargalo en Productos.');
     var pr2=S.products?S.products.find(function(p){return p.sku===o.sku;}):null;
-    if(pr2&&!pr2.peso_aforado) msgs.push('⚠ Sin peso aforado para "'+o.sku+'" — fee logístico puede ser incorrecto.');
+    var _kgFJ=o._pesoAforado||(pr2&&pr2.peso_aforado)||0;
+  if(!_kgFJ) msgs.push('⚠ Sin peso aforado para "'+o.sku+'" — fee logístico = $0. Cargalo en Productos → columna Peso Aforado.');
+  else if(_kgFJ&&!(pr2&&pr2.peso_aforado)) msgs.push('ℹ Peso de la orden: '+_kgFJ+'kg. Guardalo también en Productos para cálculos futuros.');
     if(!pr2&&o.sku&&o.sku!=='—') msgs.push('⚠ SKU "'+o.sku+'" no encontrado en catálogo.');
     al.innerHTML=msgs.join('<br>');
     pi.appendChild(al);
