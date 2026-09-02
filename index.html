@@ -11932,15 +11932,18 @@ Respondé SOLO con un JSON válido, sin texto adicional, formato: {"MLA123":"${(
 
 // Marketplaces NIVIKO — código Fulljaus → config
 window.FJ_MARKETS_CFG = {
-  fravegasc: {nombre:'Frávega',        color:'#FF4D4D'},
-  megatone:  {nombre:'Megatone',       color:'#FF8A4D'},
-  cetrogar:  {nombre:'Cetrogar',       color:'#FFB347'},
-  oncity:    {nombre:'Oncity',         color:'#E8FF47'},
-  pardo:     {nombre:'Pardo',          color:'#47E87F'},
-  carrefour: {nombre:'Carrefour',      color:'#4DA3FF'},
-  tiendabna: {nombre:'Tienda BNA',     color:'#A78BFA'},
-  credicoop: {nombre:'Tienda Credicoop',color:'#FF6B9D'},
-  bapro:     {nombre:'Provincia Compras',color:'#5AC8FA'},
+  fravegasc: {nombre:'Frávega',           color:'#FF4D4D'},
+  megatone:  {nombre:'Megatone',          color:'#FF8A4D'},
+  cetrogar:  {nombre:'Cetrogar',          color:'#FFB347'},
+  oncity:    {nombre:'Oncity',            color:'#E8FF47'},
+  pardo:     {nombre:'Pardo',             color:'#47E87F'},
+  carrefour: {nombre:'Carrefour',         color:'#4DA3FF'},
+  tiendabna: {nombre:'Tienda BNA',        color:'#A78BFA'},
+  credicoop: {nombre:'Tienda Credicoop',  color:'#FF6B9D'},
+  bapro:     {nombre:'Provincia Compras', color:'#5AC8FA'},
+  personal:  {nombre:'Personal',          color:'#C77DFF'},
+  infobae:   {nombre:'Infobae',           color:'#00E5A0'},
+  icbc:      {nombre:'ICBC Mall',         color:'#FFB347'},
 };
 
 // ── TABLAS DE COSTOS FULLJAUS (actualizadas julio 2026) ──────────────────────
@@ -12013,11 +12016,14 @@ window.FJ_CONFIG_DEFAULTS = {
     cuotas_tabla: {1: 0, 3: 6.8, 6: 10.6, 9: 13.7, 12: 16.6},
   },
 
-  // Otros marketplaces — sin datos propios, usar estructura vacía
+  // Otros marketplaces — completar comisión y fee en Config costos
   cetrogar:  {nombre:'Cetrogar',  comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
   oncity:    {nombre:'Oncity',    comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
   pardo:     {nombre:'Pardo',     comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
   carrefour: {nombre:'Carrefour', comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
+  personal:  {nombre:'Personal',  comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
+  infobae:   {nombre:'Infobae',   comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
+  icbc:      {nombre:'ICBC Mall', comision:12, publicidad:0, gastos_extra:0, fee_logistico_fijo:0, fee_logistico_peso:[], cuotas_tabla:{1:0}},
 };
 
 // Config de costos por defecto (se pisa con lo guardado en Firebase)
@@ -12164,6 +12170,10 @@ window.fjCargar = async function(){
     if(!d.ok) throw new Error(d.error||'Error al cargar');
 
     window._fjOrdenes = d.orders||[];
+    // Log unique marketplace IDs para diagnóstico
+    const _uniqMkts=new Set((window._fjOrdenes||[]).map(o=>o.marketplace));
+    console.log('[FJ] Marketplaces en órdenes:',Array.from(_uniqMkts));
+    window._fjFeeDebug=true; // enable fee logging
 
     // Cruzar con S.products para enrichment
     window._fjOrdenes = window._fjOrdenes.map(o=>{
@@ -12208,7 +12218,23 @@ window.fjSync = async function(){
 
 // ── CALCULAR COSTOS (con config configurable) ─────────────────────────────────
 function fjCalcularCostos(orden){
-  const mkt=orden.marketplace||'';
+  // Normalizar marketplace key al formato de FJ_CONFIG_DEFAULTS
+  const _rawMkt=(orden.marketplace||'').toLowerCase().trim();
+  const _mktMap={
+    'fravega':'fravegasc','frávega':'fravegasc','fravegasc':'fravegasc',
+    'megatone':'megatone',
+    'cetrogar':'cetrogar',
+    'oncity':'oncity','on city':'oncity',
+    'pardo':'pardo',
+    'carrefour':'carrefour',
+    'tiendabna':'tiendabna','tienda bna':'tiendabna','bna':'tiendabna',
+    'credicoop':'credicoop','tienda credicoop':'credicoop',
+    'bapro':'bapro','provincia compras':'bapro',
+    'personal':'personal',
+    'infobae':'infobae',
+    'icbc':'icbc','icbc mall':'icbc',
+  };
+  const mkt=_mktMap[_rawMkt]||_rawMkt||'';
   const G=(window.FJ_CONFIG||{}).global||{};
   // M: primero Firebase config, fallback a defaults (garantiza fee logistico)
   const _cfg=(window.FJ_CONFIG||{}).markets||{};
@@ -12241,6 +12267,9 @@ function fjCalcularCostos(orden){
 
   // 3. Fee logístico por peso aforado
   let feeLogis=M.fee_logistico_fijo||0;
+  // Debug: log what M contains
+  if(typeof window!=='undefined'&&window._fjFeeDebug)
+    console.log('[FJ fee]',mkt,'M.comision:',M.comision,'tabP length:',(M.fee_logistico_peso||[]).length);
   const tabP=venta<35000&&M.fee_logistico_peso_menor35k?M.fee_logistico_peso_menor35k:M.fee_logistico_peso;
   if(tabP&&tabP.length&&S.products){
     const pr=S.products.find(p=>p.sku===sku||p.sku===skuB);
