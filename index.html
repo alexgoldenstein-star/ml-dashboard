@@ -2002,7 +2002,16 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
 
         <!-- SKU selector -->
         <div class="card" style="margin-bottom:12px">
-          <div class="ch"><span class="ct">📦 Producto</span></div>
+          <div class="ch" style="display:flex;align-items:center;justify-content:space-between">
+            <span class="ct">📦 Producto</span>
+            <div style="display:flex;gap:6px">
+              <button id="calc_mode_sku_btn" class="btn-g btn-sm on" onclick="calcSetProdMode('sku')" style="font-size:11px">Del catálogo</button>
+              <button id="calc_mode_manual_btn" class="btn-g btn-sm" onclick="calcSetProdMode('manual')" style="font-size:11px">✏ Manual</button>
+            </div>
+          </div>
+
+          <!-- Modo catálogo -->
+          <div id="calc_prod_sku_panel">
           <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
             <div>
               <label class="lbl">SKU / Producto</label>
@@ -2012,6 +2021,19 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
             </div>
             <button class="btn-g btn-sm" onclick="renderCalc()" style="height:34px" title="Recargar productos">↻</button>
           </div>
+          </div><!-- /calc_prod_sku_panel -->
+
+          <!-- Modo manual -->
+          <div id="calc_prod_manual_panel" style="display:none">
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:flex-end;margin-bottom:8px">
+              <div>
+                <label class="lbl">Nombre de la simulación</label>
+                <input class="inp" id="calc_manual_nombre" type="text" placeholder="Ej: Silla gaming importada $80k">
+              </div>
+              <button class="btn" onclick="calcGuardarSimulacion()" style="white-space:nowrap;font-size:12px">💾 Guardar</button>
+            </div>
+          </div>
+
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
             <div>
               <label class="lbl">Costo producto (ARS)</label>
@@ -2078,6 +2100,15 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <div id="calcMulticanalBody">
             <p style="font-size:12px;color:var(--t3);padding:12px 0">Seleccioná un producto arriba para ver el análisis multicanal.</p>
           </div>
+        </div>
+
+        <!-- Simulaciones guardadas -->
+        <div class="card" id="calc_saved_panel" style="margin-bottom:12px;display:none">
+          <div class="ch" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span class="ct">📋 Simulaciones guardadas</span>
+            <button class="btn-g btn-sm" onclick="calcVerSimulaciones()">Ver todas</button>
+          </div>
+          <div id="calc_saved_lista" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
 
         <div class="card" id="calcHistCard" style="margin-bottom:12px;display:none">
@@ -15240,6 +15271,151 @@ window.calcEnvioModeChange=function(){
   var wrap=document.getElementById('calc_envio_manual_wrap');
   if(wrap) wrap.style.display=mode==='manual'?'':'none';
   calcUpdate();
+};
+
+
+// ── MODO PRODUCTO EN CALCULADORA ─────────────────────────────────────────────
+window._calcProdMode='sku';
+window._calcSimulaciones=null; // loaded from Firebase
+
+window.calcSetProdMode=function(mode){
+  window._calcProdMode=mode;
+  var skuPanel=document.getElementById('calc_prod_sku_panel');
+  var manPanel=document.getElementById('calc_prod_manual_panel');
+  var btnSku=document.getElementById('calc_mode_sku_btn');
+  var btnMan=document.getElementById('calc_mode_manual_btn');
+  if(skuPanel) skuPanel.style.display=mode==='sku'?'':'none';
+  if(manPanel) manPanel.style.display=mode==='manual'?'':'none';
+  if(btnSku){btnSku.className=mode==='sku'?'btn btn-sm':'btn-g btn-sm';btnSku.style.fontSize='11px';}
+  if(btnMan){btnMan.className=mode==='manual'?'btn btn-sm':'btn-g btn-sm';btnMan.style.fontSize='11px';}
+  calcUpdate();
+};
+
+// Override calcLoadSku to also handle manual mode name
+var _origCalcUpdate=window.calcUpdate;
+window.calcUpdate=function(){
+  if(window._calcProdMode==='manual'){
+    // In manual mode, don't override inputs from product catalog
+    // Just recalculate with whatever is in the inputs
+  }
+  if(_origCalcUpdate) _origCalcUpdate.apply(this,arguments);
+};
+
+// ── GUARDAR SIMULACIÓN ────────────────────────────────────────────────────────
+window.calcGuardarSimulacion=async function(){
+  var nombre=(document.getElementById('calc_manual_nombre')?document.getElementById('calc_manual_nombre').value||'':'').trim();
+  if(!nombre){toast('Ingresá un nombre para la simulación','err');return;}
+
+  var sim={
+    id: 'sim_'+Date.now(),
+    nombre: nombre,
+    fecha: new Date().toISOString().split('T')[0],
+    // Inputs
+    costo: parseFloat(document.getElementById('calc_costo')?.value||0)||0,
+    iva: parseFloat(document.getElementById('calc_iva')?.value||21)||21,
+    precio: parseFloat(document.getElementById('calc_precio')?.value||0)||0,
+    com: parseFloat(document.getElementById('calc_com')?.value||16)||16,
+    pub: parseFloat(document.getElementById('calc_pub')?.value||5)||5,
+    iibb: parseFloat(document.getElementById('calc_iibb2')?.value||4)||4,
+    envioMode: document.getElementById('calc_envio_mode')?.value||'auto',
+    envioManual: parseFloat(document.getElementById('calc_envio_manual')?.value||0)||0,
+    sku: document.getElementById('calc_sku')?.value||'',
+  };
+
+  // Load existing
+  if(!window._calcSimulaciones){
+    var saved=await fb.get('calc_simulaciones').catch(function(){return null;});
+    window._calcSimulaciones=(saved&&saved.items)||[];
+  }
+  window._calcSimulaciones.unshift(sim);
+  // Keep max 50
+  if(window._calcSimulaciones.length>50) window._calcSimulaciones=window._calcSimulaciones.slice(0,50);
+
+  await fb.set('calc_simulaciones',{items:window._calcSimulaciones,updated:new Date().toISOString()});
+  toast('✓ Simulación "'+nombre+'" guardada','ok');
+  calcVerSimulaciones();
+};
+
+// ── VER SIMULACIONES ──────────────────────────────────────────────────────────
+window.calcVerSimulaciones=async function(){
+  var panel=document.getElementById('calc_saved_panel');
+  var lista=document.getElementById('calc_saved_lista');
+  if(!panel||!lista) return;
+
+  if(!window._calcSimulaciones){
+    var saved=await fb.get('calc_simulaciones').catch(function(){return null;});
+    window._calcSimulaciones=(saved&&saved.items)||[];
+  }
+
+  panel.style.display=window._calcSimulaciones.length?'':'none';
+  if(!window._calcSimulaciones.length) return;
+
+  var fF2=function(n){return typeof fF==='function'?fF(Math.round(n)):('$'+Math.round(n).toLocaleString('es-AR'));};
+
+  lista.innerHTML=window._calcSimulaciones.slice(0,10).map(function(s){
+    return '<div style="padding:10px 12px;background:var(--s2);border-radius:var(--r);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="calcCargarSimulacion(\''+s.id+'\')">'
+      +'<div style="flex:1">'
+      +'<div style="font-weight:700;font-size:12px">'+esc(s.nombre)+'</div>'
+      +'<div style="font-size:10px;color:var(--t3)">'+s.fecha+' · Costo: '+fF2(s.costo)+' · Precio: '+fF2(s.precio)+' · Com: '+s.com+'%</div>'
+      +'</div>'
+      +'<button class="btn btn-sm" style="font-size:10px;padding:4px 10px" onclick="event.stopPropagation();calcCargarSimulacion(\''+s.id+'\')">Cargar</button>'
+      +'<button class="btn-g btn-sm" style="font-size:10px;color:var(--red)" onclick="event.stopPropagation();calcBorrarSimulacion(\''+s.id+'\')">✕</button>'
+      +'</div>';
+  }).join('');
+};
+
+// ── CARGAR SIMULACIÓN ─────────────────────────────────────────────────────────
+window.calcCargarSimulacion=function(id){
+  var s=(window._calcSimulaciones||[]).find(function(x){return x.id===id;});
+  if(!s) return;
+
+  // Set inputs
+  var set=function(id,val){var el=document.getElementById(id);if(el)el.value=val;};
+  set('calc_costo',s.costo);
+  set('calc_iva',s.iva);
+  set('calc_precio',s.precio);
+  set('calc_com',s.com);
+  set('calc_pub',s.pub);
+  set('calc_iibb2',s.iibb);
+  set('calc_envio_mode',s.envioMode);
+  if(s.envioManual) set('calc_envio_manual',s.envioManual);
+  set('calc_manual_nombre',s.nombre);
+
+  // Switch to manual mode if no SKU, or set SKU
+  if(s.sku){
+    calcSetProdMode('sku');
+    set('calc_sku',s.sku);
+    calcLoadSku();
+  } else {
+    calcSetProdMode('manual');
+  }
+
+  // Show/hide manual envio input
+  var mWrap=document.getElementById('calc_envio_manual_wrap');
+  if(mWrap) mWrap.style.display=s.envioMode==='manual'?'':'none';
+
+  calcUpdate();
+  toast('✓ Simulación "'+s.nombre+'" cargada','ok');
+};
+
+// ── BORRAR SIMULACIÓN ─────────────────────────────────────────────────────────
+window.calcBorrarSimulacion=async function(id){
+  window._calcSimulaciones=(window._calcSimulaciones||[]).filter(function(s){return s.id!==id;});
+  await fb.set('calc_simulaciones',{items:window._calcSimulaciones,updated:new Date().toISOString()});
+  calcVerSimulaciones();
+  toast('Simulación eliminada','ok');
+};
+
+// Load saved sims when calc opens
+var _origRenderCalc=window.renderCalc;
+window.renderCalc=async function(){
+  if(_origRenderCalc) await _origRenderCalc.apply(this,arguments);
+  // Load saved simulations
+  if(!window._calcSimulaciones){
+    var saved=await fb.get('calc_simulaciones').catch(function(){return null;});
+    window._calcSimulaciones=(saved&&saved.items)||[];
+  }
+  calcVerSimulaciones();
 };
 
 </script>
