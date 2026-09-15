@@ -2084,7 +2084,12 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
                 <option value="flex">Flex promedio</option>
                 <option value="full">Full promedio</option>
                 <option value="correo">Correo/Despacho prom.</option>
+                <option value="manual">✏ Ingresar manualmente</option>
               </select>
+              <div id="calc_envio_manual_wrap" style="display:none;margin-top:6px">
+                <label class="lbl">Costo de envío $</label>
+                <input class="inp" id="calc_envio_manual" type="number" placeholder="Ej: 9590" oninput="calcUpdate()" style="width:100%">
+              </div>
             </div>
           </div>
           <div id="calcEnvioStats" style="display:none;margin-top:6px;padding:8px 10px;background:var(--s2);border-radius:var(--r);font-size:11px;color:var(--t3)"></div>
