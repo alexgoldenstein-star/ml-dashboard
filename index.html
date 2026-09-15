@@ -2057,7 +2057,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
             </div>
             <div>
               <label class="lbl">Envío — fuente</label>
-              <select class="inp" id="calc_envio_mode" onchange="calcUpdate()">
+              <select class="inp" id="calc_envio_mode" onchange="calcEnvioModeChange()">
                 <option value="auto">Promedio total</option>
                 <option value="flex">Flex promedio</option>
                 <option value="full">Full promedio</option>
@@ -9447,7 +9447,11 @@ window.calcUpdate = function(){
 
     const envMode = document.getElementById('calc_envio_mode')?.value||'auto';
     const stats = window._calcEnvioStats;
-    if(modal==='Flex'){
+
+    // Manual override — usuario ingresó costo real de envío
+    if(envMode==='manual'&&modal!=='Flex'){
+      costoEnvio=parseFloat(document.getElementById('calc_envio_manual')?.value||0)||0;
+    } else if(modal==='Flex'){
       // Para Flex < $33k:
       //   fee logístico (por unidad vendida) → siempre se cobra aparte
       //   bonificación ML (lo que pagó el comprador) → ingreso
@@ -9475,8 +9479,10 @@ window.calcUpdate = function(){
       ?precio+ingresoEnvio-com-costoCordon-costo-iva-pub-iibb-ret-feeLogistico
       :precio-com-costo-iva-pub-iibb-ret-costoEnvio-feeLogistico;
     const dbE=(_envioDB||{})[skuSel];
+    const _envMode2=document.getElementById('calc_envio_mode')?.value||'auto';
     const envioLabel=modal==='Flex'
       ?`Bonif ${fF(ingresoEnvio)} · Cordón ${fF(costoCordon)}`
+      :_envMode2==='manual'?'✏ Manual'
       :(dbE&&(modal==='Full'?dbE.full:dbE.correo)>0
           ?`📌 DB real (${dbE.nota||'guardado'})`
           :(stats?.[modal]?.n>0?`Historial (${stats[modal].n}ó)`:'Estimado'));
@@ -15226,6 +15232,14 @@ window.nvInformePDF=function(){
     +'<script>setTimeout(function(){window.print();},500);<\/script>'
     +'</body></html>');
   win.document.close();
+};
+
+
+window.calcEnvioModeChange=function(){
+  var mode=document.getElementById('calc_envio_mode')?.value;
+  var wrap=document.getElementById('calc_envio_manual_wrap');
+  if(wrap) wrap.style.display=mode==='manual'?'':'none';
+  calcUpdate();
 };
 
 </script>
