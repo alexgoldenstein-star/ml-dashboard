@@ -1113,6 +1113,13 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
                 </div>
               </div>
               <div id="ip_multi_seleccion" style="font-size:11px;color:var(--t3)">Ningún producto seleccionado</div>
+              <div style="margin-top:10px;padding:10px;background:var(--s2);border-radius:var(--r);display:flex;gap:10px;align-items:flex-end">
+                <div>
+                  <label class="lbl" style="font-size:10px">Costo por unidad base $ (opcional)</label>
+                  <input class="inp" id="ip_costo_base_unit" type="number" placeholder="Ej: 1200 por vaso" style="width:200px;font-size:12px;padding:5px 10px">
+                </div>
+                <div style="font-size:10px;color:var(--t3);padding-bottom:8px">Si no lo completás, usa<br>costo del catálogo ÷ cantidad del pack</div>
+              </div>
             </div>
             <!-- Precio manual inputs -->
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px" id="intel_prod_precios">
@@ -15064,21 +15071,41 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   var mgGlobal=totV>0?(totG/totV*100):0;
   var mgCosto=totV>totG&&(totV-totG)>0?(totG/(totV-totG)*100):0;
 
-  // Inversión total (costo × unidades base)
+  // Inversión total — costo por unidad BASE
+  // El costo del catálogo es del SET, hay que dividir por el multiplicador
+  // Si el usuario ingresó un costo manual por unidad base, usar ese
+  var _costoBaseManual=parseFloat(document.getElementById('ip_costo_base_unit')?document.getElementById('ip_costo_base_unit').value||0:0)||0;
   var inversionTotal=0;
+  var costoBaseUsado=0; // costo por unidad base efectivo
   skus.forEach(function(sku){
     var prod=(S.products||[]).find(function(p){return p.sku===sku;});
-    var costoU=prod?prod.ars||0:0;
-    if(!costoU) return;
-    // Unidades de este SKU vendidas
+    var costoSet=prod?prod.ars||0:0;
+    if(!costoSet&&!_costoBaseManual) return;
+    // Multiplicador del SKU: GOURMET-X12 → 12
+    var mX=sku.match(/-X(\d+)$/i);
+    var mult=mX?parseInt(mX[1])||1:1;
+    // Costo por unidad base = manual si existe, sino costo_set / multiplicador
+    var costoUBase=_costoBaseManual>0?_costoBaseManual:(costoSet>0?costoSet/mult:0);
+    if(!costoUBase) return;
+    // Unidades BASE vendidas de este SKU
     var mlS=mlOrds.filter(function(o){return o.sku===sku;});
     var mayS=mayItems.filter(function(i){return i.sku===sku;});
     var fjS=fjOrds.filter(function(o){return o.sku===sku;});
     var uSku=(mlS.reduce(function(s,o){return s+uBase(o.sku,o.unidades||1);},0))
             +(mayS.reduce(function(s,i){return s+uBase(i.sku,i.qty||1);},0))
             +(fjS.reduce(function(s,o){return s+uBase(o.sku,o.unidades||1);},0));
-    inversionTotal+=costoU*uSku;
+    inversionTotal+=costoUBase*uSku;
+    if(costoUBase>costoBaseUsado) costoBaseUsado=costoUBase;
   });
+  // También para porSku
+  var _getCostoBase=function(sku){
+    if(_costoBaseManual>0) return _costoBaseManual;
+    var prod=(S.products||[]).find(function(p){return p.sku===sku;});
+    var costoSet=prod?prod.ars||0:0;
+    var mX=sku.match(/-X(\d+)$/i);
+    var mult=mX?parseInt(mX[1])||1:1;
+    return costoSet>0?costoSet/mult:0;
+  };
 
   // Per-SKU breakdown
   var porSku={};
@@ -15094,10 +15121,10 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
          +(mayS.reduce(function(s,i){return s+uBase(i.sku,i.qty||1);},0))
          +(fjS.reduce(function(s,o){return s+uBase(o.sku,o.unidades||1);},0));
     var prod=(S.products||[]).find(function(p){return p.sku===sku;});
-    var costoU=prod?prod.ars||0:0;
-    var inversion=costoU*u;
+    var costoBase=_getCostoBase(sku);
+    var inversion=costoBase*u;
     var mgc=v>0&&g!==undefined&&(v-g)>0?(g/(v-g)*100):0;
-    porSku[sku]={v:v,g:g,u:u,mg:v>0?(g/v*100):0,mgc:mgc,inversion:inversion,costoU:costoU,prod:prod};
+    porSku[sku]={v:v,g:g,u:u,mg:v>0?(g/v*100):0,mgc:mgc,inversion:inversion,costoU:costoBase,prod:prod};
   });
 
   var noData=totN===0;
@@ -15132,7 +15159,7 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
     +'</div>'
     +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">'
     +'<div class="kpi" style="border-left:3px solid var(--acc)"><div class="kl">Unidades base totales</div><div class="kv">'+totU.toLocaleString("es-AR")+'</div><div style="font-size:10px;color:var(--t3)">'+totN+' operaciones · compuestos expandidos</div></div>'
-    +'<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Inversión total (costo)</div><div class="kv" style="color:var(--red)">'+fP(inversionTotal)+'</div><div style="font-size:10px;color:var(--t3)">'+(totU>0?'$'+Math.round(inversionTotal/totU).toLocaleString("es-AR")+" c/u base":"")+'</div></div>'
+    +'<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Inversión total (costo)</div><div class="kv" style="color:var(--red)">'+fP(inversionTotal)+'</div><div style="font-size:10px;color:var(--t3)">'+(totU>0?fP(Math.round(inversionTotal/totU))+' c/u base':'')+(_costoBaseManual?' · manual':'· auto (costo÷pack)')+'</div></div>'
     +'<div class="kpi" style="border-left:3px solid var(--grn)"><div class="kl">Ganancia por u. base</div><div class="kv" style="color:'+gc((totU>0?totG/totU:0)/( inversionTotal/totU||1))+'">'+fP(totU>0?totG/totU:0)+'</div><div style="font-size:10px;color:var(--t3)">ROI: '+(inversionTotal>0?(totG/inversionTotal*100).toFixed(1)+"%":"—")+'</div></div>'
     +'<div class="kpi"><div class="kl">Unidades</div><div class="kv">'+totU+'</div><div style="font-size:10px;color:var(--t3)">'+totN+' operaciones</div></div>'
     +'</div>';
