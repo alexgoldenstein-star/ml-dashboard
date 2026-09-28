@@ -14328,6 +14328,17 @@ window.intelProdAnalizar=function(){
   var costo=prod?prod.ars||0:0;
   var skuB=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,'').replace(/-X[0-9]+$/i,'');
 
+  // Helper: convierte unidades vendidas en unidades base reales
+  // Si NVK-VASO-X6 vende 5 ops → 30 unidades base de NVK-VASO
+  var _compDB=(window._stkDB&&window._stkDB.compuestos)||{};
+  var unidadesBase=function(vendSku, qty){
+    var comp=_compDB[vendSku];
+    if(comp&&comp.base_sku&&(comp.base_sku===sku||comp.base_sku===skuB)){
+      return (qty||1)*(comp.qty_base||1);
+    }
+    return qty||1;
+  };
+
   // Período
   var periodo=document.getElementById('intel_prod_periodo')?document.getElementById('intel_prod_periodo').value:'todo';
   var desde=periodo==='todo'?'2000-01-01':new Date(Date.now()-parseInt(periodo)*864e5).toISOString().split('T')[0];
@@ -14342,7 +14353,7 @@ window.intelProdAnalizar=function(){
   });
   var mlV=mlOrds.reduce(function(s,o){return s+(o.venta||0);},0);
   var mlG=mlOrds.reduce(function(s,o){return s+(o.ganancia||0);},0);
-  var mlU=mlOrds.reduce(function(s,o){return s+(o.unidades||1);},0);
+  var mlU=mlOrds.reduce(function(s,o){return s+unidadesBase(o.sku,o.unidades||1);},0);
   var mlN=mlOrds.length;
 
   // ── MAYORISTA: items con ese SKU en el período ──
@@ -14367,7 +14378,7 @@ window.intelProdAnalizar=function(){
   });
   var mayV=mayItems.reduce(function(s,i){return s+(i.venta||0);},0);
   var mayG=mayItems.reduce(function(s,i){return s+(i.ganancia||0);},0);
-  var mayU=mayItems.reduce(function(s,i){return s+(i.qty||1);},0);
+  var mayU=mayItems.reduce(function(s,i){return s+unidadesBase(i.sku,i.qty||1);},0);
   var mayN=mayItems.length;
 
   // ── FULLJAUS: órdenes con ese SKU en el período ──
@@ -14378,7 +14389,7 @@ window.intelProdAnalizar=function(){
   });
   var fjV=fjOrds.reduce(function(s,o){return s+(o.venta||0);},0);
   var fjG=fjOrds.reduce(function(s,o){return s+(o._ganancia||0);},0);
-  var fjU=fjOrds.reduce(function(s,o){return s+(o.unidades||1);},0);
+  var fjU=fjOrds.reduce(function(s,o){return s+unidadesBase(o.sku,o.unidades||1);},0);
   var fjN=fjOrds.length;
 
   // ── TOTALES ──
@@ -14388,6 +14399,8 @@ window.intelProdAnalizar=function(){
   var totN=mlN+mayN+fjN;
   var mgGlobal=totV>0?(totG/totV*100):0;
   var roiGlobal=costo&&totU>0?(totG/(costo*totU)*100):0;
+  var inversionTotal=costo*totU;  // total invertido en lo vendido
+  var recuperado=inversionTotal+totG; // lo que recuperaste (venta neta)
 
   var fP=function(n){return typeof fF==='function'?fF(Math.round(n)):('$'+Math.round(n).toLocaleString('es-AR'));};
   var gc=function(mg){return mg>=20?'var(--grn)':mg>=10?'var(--org)':'var(--red)';};
@@ -14452,7 +14465,7 @@ window.intelProdAnalizar=function(){
       ['Venta total',fP(totV),'','Todos los canales'],
       ['Ganancia total',fP(totG),gc(mgGlobal/100),'Mix real'],
       ['Margen s/venta',mgGlobal.toFixed(1)+'%',gc(mgGlobal/100),'Promedio ponderado'],
-      ['Unidades vendidas',totU.toLocaleString('es-AR'),'',totN+' operaciones'],
+      ['Unidades base vendidas',totU.toLocaleString('es-AR'),'',totN+' ops · '+(Object.keys(_compDB).length?'compuestos expandidos':'sin compuestos')],
     ].map(function(k){
       return '<div class="kpi" style="border-left:3px solid '+(k[2]||'var(--b1)')+'"><div class="kl">'+k[0]+'</div><div class="kv" style="'+(k[2]?'color:'+k[2]:'')+'">'+(k[1])+'</div><div style="font-size:10px;color:var(--t3)">'+k[3]+'</div></div>';
     }).join('')
@@ -14461,7 +14474,7 @@ window.intelProdAnalizar=function(){
   // G/U y ROI
   if(costo&&totU>0){
     var ganPorU=totG/totU;
-    html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">'
+    html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">'
       +'<div class="kpi" style="border-left:3px solid var(--acc)">'
       +'<div class="kl">Ganancia por unidad</div>'
       +'<div class="kv" style="color:'+gc(ganPorU>0?0.15:0)+'">'+fP(ganPorU)+'</div>'
@@ -14472,6 +14485,11 @@ window.intelProdAnalizar=function(){
       +'<div class="kv" style="color:'+gc(roiGlobal/100)+'">'+roiGlobal.toFixed(1)+'%</div>'
       +'<div style="font-size:10px;color:var(--t3)">Ganancia ÷ inversión total</div>'
       +'</div>'
+    +'<div class="kpi" style="border-left:3px solid var(--red)">'
+    +'<div class="kl">Inversión total (costo)</div>'
+    +'<div class="kv" style="color:var(--red)">'+fP(inversionTotal)+'</div>'
+    +'<div style="font-size:10px;color:var(--t3)">'+totU+' uds × '+fP(costo)+' c/u</div>'
+    +'</div>'
       +'<div class="kpi" style="border-left:3px solid var(--org)">'
       +'<div class="kl">Ticket promedio global</div>'
       +'<div class="kv">'+fP(totN?totV/totN:0)+'</div>'
@@ -14508,7 +14526,7 @@ window.intelProdAnalizar=function(){
           +'<div><div style="font-size:9px;color:var(--t3)">VENTA TOTAL</div><div style="font-size:14px;font-weight:700">'+fP(r.ventas)+'</div></div>'
           +'<div><div style="font-size:9px;color:var(--t3)">GANANCIA</div><div style="font-size:14px;font-weight:700;color:'+col+'">'+fP(r.ganancia)+'</div></div>'
           +'<div><div style="font-size:9px;color:var(--t3)">MARGEN S/VENTA</div><div style="font-size:14px;font-weight:700;color:'+col+'">'+r.mg.toFixed(1)+'%</div></div>'
-          +'<div><div style="font-size:9px;color:var(--t3)">UNIDADES</div><div style="font-size:14px;font-weight:700">'+r.unidades+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">UNIDADES BASE</div><div style="font-size:14px;font-weight:700">'+r.unidades+'</div></div>'
           +'<div><div style="font-size:9px;color:var(--t3)">OPERACIONES</div><div style="font-size:12px">'+r.ordenes+'</div></div>'
           +'<div><div style="font-size:9px;color:var(--t3)">TICKET PROM.</div><div style="font-size:12px">'+fP(r.tPromedio)+'</div></div>'
           +(r.gPorU&&costo?'<div style="grid-column:1/-1"><div style="font-size:9px;color:var(--t3)">GANANCIA POR UNIDAD</div><div style="font-size:14px;font-weight:700;color:'+col+'">'+fP(r.gPorU)+'</div></div>':'')
@@ -15101,7 +15119,7 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
     html+='<div class="card" style="padding:12px;margin-bottom:12px">'
       +'<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Desglose por SKU</div>'
       +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px">'
-      +'<thead><tr><th>SKU</th><th>Descripción</th><th>Unidades</th><th>Venta total</th><th>Ganancia</th><th>Mg s/venta</th><th>Mg s/costo</th></tr></thead>'
+      +'<thead><tr><th>SKU</th><th>Descripción</th><th>Uds base</th><th>Inversión</th><th>Venta total</th><th>Ganancia</th><th>Mg s/venta</th><th>Mg s/costo</th></tr></thead>'
       +'<tbody>'
       +skuRows.map(function(entry){
         var sku=entry[0],d=entry[1];
@@ -15111,6 +15129,7 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
           +'<td><span class="sku">'+esc(sku)+'</span></td>'
           +'<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t3)">'+esc(d.prod&&d.prod.desc||'—')+'</td>'
           +'<td class="mono">'+d.u+'</td>'
+          +'<td class="mono" style="color:var(--red)">'+( d.prod&&d.prod.ars&&d.u?fP(d.prod.ars*d.u):'—')+'</td>'
           +'<td class="mono">'+fP(d.v)+'</td>'
           +'<td class="mono" style="color:'+col+';font-weight:700">'+fP(d.g)+'</td>'
           +'<td style="color:'+col+';font-weight:700">'+d.mg.toFixed(1)+'%</td>'
