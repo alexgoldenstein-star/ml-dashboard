@@ -15059,6 +15059,22 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   var mgGlobal=totV>0?(totG/totV*100):0;
   var mgCosto=totV>totG&&(totV-totG)>0?(totG/(totV-totG)*100):0;
 
+  // Inversión total (costo × unidades base)
+  var inversionTotal=0;
+  skus.forEach(function(sku){
+    var prod=(S.products||[]).find(function(p){return p.sku===sku;});
+    var costoU=prod?prod.ars||0:0;
+    if(!costoU) return;
+    // Unidades de este SKU vendidas
+    var mlS=mlOrds.filter(function(o){return o.sku===sku;});
+    var mayS=mayItems.filter(function(i){return i.sku===sku;});
+    var fjS=fjOrds.filter(function(o){return o.sku===sku;});
+    var uSku=(mlS.reduce(function(s,o){return s+uBase(o.sku,o.unidades||1);},0))
+            +(mayS.reduce(function(s,i){return s+uBase(i.sku,i.qty||1);},0))
+            +(fjS.reduce(function(s,o){return s+uBase(o.sku,o.unidades||1);},0));
+    inversionTotal+=costoU*uSku;
+  });
+
   // Per-SKU breakdown
   var porSku={};
   skus.forEach(function(sku){
@@ -15104,10 +15120,15 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   }
 
   // KPIs
-  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">'
+  html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">'
     +'<div class="kpi" style="border-left:3px solid var(--b1)"><div class="kl">Venta total</div><div class="kv">'+fP(totV)+'</div><div style="font-size:10px;color:var(--t3)">Todos los canales</div></div>'
     +'<div class="kpi" style="border-left:3px solid '+gc(mgGlobal/100)+'"><div class="kl">Ganancia total</div><div class="kv" style="color:'+gc(mgGlobal/100)+'">'+fP(totG)+'</div></div>'
     +'<div class="kpi" style="border-left:3px solid '+gc(mgGlobal/100)+'"><div class="kl">Mg s/venta</div><div class="kv" style="color:'+gc(mgGlobal/100)+'">'+mgGlobal.toFixed(1)+'%</div><div style="font-size:10px;color:var(--t3)">Mg s/costo: '+mgCosto.toFixed(1)+'%</div></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">'
+    +'<div class="kpi" style="border-left:3px solid var(--acc)"><div class="kl">Unidades base totales</div><div class="kv">'+totU.toLocaleString("es-AR")+'</div><div style="font-size:10px;color:var(--t3)">'+totN+' operaciones · compuestos expandidos</div></div>'
+    +'<div class="kpi" style="border-left:3px solid var(--red)"><div class="kl">Inversión total (costo)</div><div class="kv" style="color:var(--red)">'+fP(inversionTotal)+'</div><div style="font-size:10px;color:var(--t3)">'+(totU>0?'$'+Math.round(inversionTotal/totU).toLocaleString("es-AR")+" c/u base":"")+'</div></div>'
+    +'<div class="kpi" style="border-left:3px solid var(--grn)"><div class="kl">Ganancia por u. base</div><div class="kv" style="color:'+gc((totU>0?totG/totU:0)/( inversionTotal/totU||1))+'">'+fP(totU>0?totG/totU:0)+'</div><div style="font-size:10px;color:var(--t3)">ROI: '+(inversionTotal>0?(totG/inversionTotal*100).toFixed(1)+"%":"—")+'</div></div>'
     +'<div class="kpi"><div class="kl">Unidades</div><div class="kv">'+totU+'</div><div style="font-size:10px;color:var(--t3)">'+totN+' operaciones</div></div>'
     +'</div>';
 
