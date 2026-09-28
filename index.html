@@ -14332,11 +14332,14 @@ window.intelProdAnalizar=function(){
   // Si NVK-VASO-X6 vende 5 ops → 30 unidades base de NVK-VASO
   var _compDB=(window._stkDB&&window._stkDB.compuestos)||{};
   var unidadesBase=function(vendSku, qty){
+    qty=qty||1;
+    // 1. Configurado en compuestos
     var comp=_compDB[vendSku];
-    if(comp&&comp.base_sku&&(comp.base_sku===sku||comp.base_sku===skuB)){
-      return (qty||1)*(comp.qty_base||1);
-    }
-    return qty||1;
+    if(comp&&comp.qty_base&&comp.qty_base>1) return qty*comp.qty_base;
+    // 2. Leer multiplicador del SKU: OSLO-X36 → 36
+    var mX=vendSku.match(/-X(\d+)$/i);
+    if(mX){var mult=parseInt(mX[1])||1;if(mult>1) return qty*mult;}
+    return qty;
   };
 
   // Período
@@ -14983,18 +14986,20 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   var desde=periodo==='todo'?'2000-01-01':new Date(Date.now()-parseInt(periodo)*864e5).toISOString().split('T')[0];
   ivaPct=ivaPct||21;
 
-  // Compuestos: para expandir unidades base
+  // Expandir unidades base:
+  // 1. Primero busca en _stkDB.compuestos (configurado en módulo Stock)
+  // 2. Si no está, lee el multiplicador directo del SKU: OSLO-X36 → 36, GOURMET-X12 → 12
   var _cDB=(window._stkDB&&window._stkDB.compuestos)||{};
   var uBase=function(vendSku,qty){
     qty=qty||1;
+    // Opción 1: configurado en compuestos
     var comp=_cDB[vendSku];
-    if(comp&&comp.qty_base){
-      // Check if this pack's base is in our selected SKUs
-      var bSku=comp.base_sku||'';
-      if(skus.indexOf(bSku)>=0||skus.some(function(s){
-        var sb=s.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,'');
-        return sb===bSku||sb===vendSku;
-      })) return qty*comp.qty_base;
+    if(comp&&comp.qty_base&&comp.qty_base>1) return qty*comp.qty_base;
+    // Opción 2: leer multiplicador del SKU (-X6, -X12, -X18, -X24, -X36, etc.)
+    var mX=vendSku.match(/-X(\d+)$/i);
+    if(mX){
+      var mult=parseInt(mX[1])||1;
+      if(mult>1) return qty*mult;
     }
     return qty;
   };
