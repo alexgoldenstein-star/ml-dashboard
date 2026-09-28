@@ -14983,6 +14983,22 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   var desde=periodo==='todo'?'2000-01-01':new Date(Date.now()-parseInt(periodo)*864e5).toISOString().split('T')[0];
   ivaPct=ivaPct||21;
 
+  // Compuestos: para expandir unidades base
+  var _cDB=(window._stkDB&&window._stkDB.compuestos)||{};
+  var uBase=function(vendSku,qty){
+    qty=qty||1;
+    var comp=_cDB[vendSku];
+    if(comp&&comp.qty_base){
+      // Check if this pack's base is in our selected SKUs
+      var bSku=comp.base_sku||'';
+      if(skus.indexOf(bSku)>=0||skus.some(function(s){
+        var sb=s.replace(/-[NBRGPSMA](-X\d+)?$/i,'').replace(/-X\d+$/i,'');
+        return sb===bSku||sb===vendSku;
+      })) return qty*comp.qty_base;
+    }
+    return qty;
+  };
+
   var fP=function(n){return typeof fF==='function'?fF(Math.round(n)):('$'+Math.round(n).toLocaleString('es-AR'));};
   var gc=function(mg){return mg>=20?'var(--grn)':mg>=10?'var(--org)':'var(--red)';};
 
@@ -15006,7 +15022,7 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   });
   var mlV=mlOrds.reduce(function(s,o){return s+(o.venta||0);},0);
   var mlG=mlOrds.reduce(function(s,o){return s+(o.ganancia||0);},0);
-  var mlU=mlOrds.reduce(function(s,o){return s+(o.unidades||1);},0);
+  var mlU=mlOrds.reduce(function(s,o){return s+uBase(o.sku,o.unidades||1);},0);
 
   // Mayorista
   var allPeds=(typeof _mayPedidos!=='undefined'&&_mayPedidos&&_mayPedidos.length)?_mayPedidos:(window._mayPedidosCache||[]);
@@ -15026,7 +15042,7 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   });
   var mayV=mayItems.reduce(function(s,i){return s+(i.venta||0);},0);
   var mayG=mayItems.reduce(function(s,i){return s+(i.ganancia||0);},0);
-  var mayU=mayItems.reduce(function(s,i){return s+(i.qty||1);},0);
+  var mayU=mayItems.reduce(function(s,i){return s+uBase(i.sku,i.qty||1);},0);
 
   // Fulljaus
   var fjOrds=(window._fjOrdenes||[]).filter(function(o){
@@ -15034,7 +15050,7 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   });
   var fjV=fjOrds.reduce(function(s,o){return s+(o.venta||0);},0);
   var fjG=fjOrds.reduce(function(s,o){return s+(o._ganancia||0);},0);
-  var fjU=fjOrds.reduce(function(s,o){return s+(o.unidades||1);},0);
+  var fjU=fjOrds.reduce(function(s,o){return s+uBase(o.sku,o.unidades||1);},0);
 
   var totV=mlV+mayV+fjV;
   var totG=mlG+mayG+fjG;
@@ -15052,9 +15068,15 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
     var fjS=fjOrds.filter(function(o){return o.sku===sku||o.sku===b;});
     var v=(mlS.reduce(function(s,o){return s+(o.venta||0);},0))+(mayS.reduce(function(s,i){return s+(i.venta||0);},0))+(fjS.reduce(function(s,o){return s+(o.venta||0);},0));
     var g=(mlS.reduce(function(s,o){return s+(o.ganancia||0);},0))+(mayS.reduce(function(s,i){return s+(i.ganancia||0);},0))+(fjS.reduce(function(s,o){return s+(o._ganancia||0);},0));
-    var u=(mlS.reduce(function(s,o){return s+(o.unidades||1);},0))+(mayS.reduce(function(s,i){return s+(i.qty||1);},0))+(fjS.reduce(function(s,o){return s+(o.unidades||1);},0));
+    // Unidades base expandidas por compuesto
+    var u=(mlS.reduce(function(s,o){return s+uBase(o.sku,o.unidades||1);},0))
+         +(mayS.reduce(function(s,i){return s+uBase(i.sku,i.qty||1);},0))
+         +(fjS.reduce(function(s,o){return s+uBase(o.sku,o.unidades||1);},0));
     var prod=(S.products||[]).find(function(p){return p.sku===sku;});
-    porSku[sku]={v:v,g:g,u:u,mg:v>0?(g/v*100):0,prod:prod};
+    var costoU=prod?prod.ars||0:0;
+    var inversion=costoU*u;
+    var mgc=v>0&&g!==undefined&&(v-g)>0?(g/(v-g)*100):0;
+    porSku[sku]={v:v,g:g,u:u,mg:v>0?(g/v*100):0,mgc:mgc,inversion:inversion,costoU:costoU,prod:prod};
   });
 
   var noData=totN===0;
@@ -15107,7 +15129,8 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
           +'<div><div style="font-size:9px;color:var(--t3)">VENTA</div><div style="font-weight:700">'+fP(r.v)+'</div></div>'
           +'<div><div style="font-size:9px;color:var(--t3)">GANANCIA</div><div style="font-weight:700;color:'+col+'">'+fP(r.g)+'</div></div>'
           +'<div><div style="font-size:9px;color:var(--t3)">MG S/VENTA</div><div style="font-weight:700;color:'+col+'">'+mg.toFixed(1)+'%</div></div>'
-          +'<div><div style="font-size:9px;color:var(--t3)">UNIDADES</div><div style="font-weight:700">'+r.u+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">MG S/COSTO</div><div style="font-weight:700;color:'+col+'">'+( r.v>r.g&&(r.v-r.g)>0?(r.g/(r.v-r.g)*100).toFixed(1)+'%':'—')+'</div></div>'
+          +'<div><div style="font-size:9px;color:var(--t3)">UNIDADES BASE</div><div style="font-weight:700">'+r.u+'</div></div>'
           +'</div></div>';
       }).join('')
       +'</div>';
@@ -15124,15 +15147,16 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
       +skuRows.map(function(entry){
         var sku=entry[0],d=entry[1];
         var col=gc(d.mg/100);
-        var mgc=d.v>d.g&&(d.v-d.g)>0?(d.g/(d.v-d.g)*100):0;
+        var mgc=d.mgc||( d.v>d.g&&(d.v-d.g)>0?(d.g/(d.v-d.g)*100):0);
+        var inv=d.inversion||(d.costoU?d.costoU*d.u:0);
         return '<tr>'
           +'<td><span class="sku">'+esc(sku)+'</span></td>'
           +'<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t3)">'+esc(d.prod&&d.prod.desc||'—')+'</td>'
           +'<td class="mono">'+d.u+'</td>'
-          +'<td class="mono" style="color:var(--red)">'+( d.prod&&d.prod.ars&&d.u?fP(d.prod.ars*d.u):'—')+'</td>'
+          +'<td class="mono" style="color:var(--red)">'+(inv?fP(inv):'—')+'</td>'
           +'<td class="mono">'+fP(d.v)+'</td>'
-          +'<td class="mono" style="color:'+col+';font-weight:700">'+fP(d.g)+'</td>'
-          +'<td style="color:'+col+';font-weight:700">'+d.mg.toFixed(1)+'%</td>'
+          +'<td class="mono" style="font-weight:700;color:'+col+'">'+fP(d.g)+'</td>'
+          +'<td style="font-weight:700;color:'+col+'">'+d.mg.toFixed(1)+'%</td>'
           +'<td style="color:'+col+'">'+mgc.toFixed(1)+'%</td>'
           +'</tr>';
       }).join('')
