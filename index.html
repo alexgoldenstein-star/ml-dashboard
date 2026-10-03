@@ -174,7 +174,8 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
     <div class="ni" data-p="catalogo"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg> Catálogo</div>
     <div class="ni" data-p="fulljaus"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M1 6h14"/><circle cx="4.5" cy="9.5" r="1"/><path d="M7 9.5h5"/></svg>Fulljaus</div>
     <div class="ni" data-p="control"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5h3M5 11h4"/></svg> Control</div>
-    <div class="ni" data-p="stock"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="14" height="10" rx="1.5"/><path d="M4 4V3a2 2 0 0 1 4 0v1M8 4V3a2 2 0 0 1 4 0v1"/><path d="M5 9h2M9 9h2M5 12h6"/></svg> Stock</div>
+    <div class="ni" data-p="oportunidades"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3"/><circle cx="8" cy="11" r=".5" fill="currentColor"/></svg> Oportunidades</div>
+<div class="ni" data-p="stock"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="14" height="10" rx="1.5"/><path d="M4 4V3a2 2 0 0 1 4 0v1M8 4V3a2 2 0 0 1 4 0v1"/><path d="M5 9h2M9 9h2M5 12h6"/></svg> Stock</div>
 <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
     <div class="ns">Sistema</div>
@@ -1400,6 +1401,75 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
 
         <!-- Detalle expandido -->
         <div id="cat_detalle" style="margin-top:12px"></div>
+
+      </div>
+    </div>
+
+    <div class="page" id="page-oportunidades">
+      <div style="max-width:1100px;margin:0 auto">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div class="ct">🔍 Oportunidades de mercado en ML</div>
+            <div style="font-size:11px;color:var(--t3)">Análisis semanal automático · Última ejecución: <span id="op_last_run">—</span></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-g btn-sm" onclick="opVerHistorial()">📋 Historial</button>
+            <button class="btn" onclick="opCorrerAnalisis()">▶ Correr ahora</button>
+          </div>
+        </div>
+
+        <!-- Búsqueda manual -->
+        <div class="card" style="padding:14px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:10px">Búsqueda manual</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+            <div>
+              <label class="lbl">Producto o categoría a analizar</label>
+              <input class="inp" id="op_query" placeholder="Ej: vasos de vidrio, silla gamer, heladera no frost..." onkeydown="if(event.key==='Enter')opBuscarProducto()">
+            </div>
+            <div>
+              <label class="lbl">Tipo de análisis</label>
+              <select class="inp" id="op_tipo">
+                <option value="oportunidad">🎯 Oportunidad de entrada</option>
+                <option value="competencia">⚔ Análisis de competencia</option>
+                <option value="precio">💰 Estrategia de precio</option>
+                <option value="similar">🔗 Similar a lo que vendo</option>
+              </select>
+            </div>
+            <button class="btn" onclick="opBuscarProducto()">Analizar</button>
+          </div>
+        </div>
+
+        <!-- Análisis semanal automático — productos similares a NIVIKO -->
+        <div class="card" style="padding:14px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div>
+              <div style="font-size:12px;font-weight:700">📡 Radar semanal — categorías NIVIKO</div>
+              <div style="font-size:10px;color:var(--t3)">Muebles · Sillas · Electro · Hogar · Gadgets</div>
+            </div>
+            <div style="font-size:10px;color:var(--t3)" id="op_radar_status">No ejecutado</div>
+          </div>
+          <div id="op_radar_chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+            <button class="btn-g btn-sm" onclick="opRadarCategoria('sillas de oficina')" style="font-size:10px">🪑 Sillas oficina</button>
+            <button class="btn-g btn-sm" onclick="opRadarCategoria('vasos de vidrio')" style="font-size:10px">🥛 Vasos</button>
+            <button class="btn-g btn-sm" onclick="opRadarCategoria('heladera')" style="font-size:10px">❄ Heladeras</button>
+            <button class="btn-g btn-sm" onclick="opRadarCategoria('monitor')" style="font-size:10px">🖥 Monitores</button>
+            <button class="btn-g btn-sm" onclick="opRadarCategoria('silla gamer')" style="font-size:10px">🎮 Sillas gamer</button>
+            <button class="btn-g btn-sm" onclick="opRadarCategoria('notebook')" style="font-size:10px">💻 Notebooks</button>
+            <button class="btn-g btn-sm" onclick="opRadarCategoria('mesa escritorio')" style="font-size:10px">🖊 Escritorios</button>
+            <button class="btn-g btn-sm" onclick="opRadarCategoria('aspiradora')" style="font-size:10px">🌀 Aspiradoras</button>
+          </div>
+        </div>
+
+        <!-- Resultados -->
+        <div id="op_resultado"></div>
+
+        <!-- Historial -->
+        <div id="op_historial_panel" style="display:none;margin-top:14px">
+          <div style="font-size:12px;font-weight:700;margin-bottom:10px">📋 Análisis anteriores</div>
+          <div id="op_historial_lista"></div>
+        </div>
 
       </div>
     </div>
@@ -2828,7 +2898,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,stock:renderStock,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,catalogo:renderCatalogo,fulljaus:renderFulljaus,control:renderControl};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,oportunidades:renderOportunidades,stock:renderStock,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,catalogo:renderCatalogo,fulljaus:renderFulljaus,control:renderControl};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -16205,6 +16275,320 @@ window.stkSincronizar=async function(){
   toast('Sincronizando ventas con stock...','ok');
   stkRenderStock();
   toast('✓ Stock actualizado con ventas de todos los canales','ok');
+};
+
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MÓDULO OPORTUNIDADES ML — Análisis de mercado semanal
+// ══════════════════════════════════════════════════════════════════════════════
+var _opHistorial=[];
+var _opLoaded=false;
+
+window.renderOportunidades=async function(){
+  if(!_opLoaded){
+    var h=await fb.get('op_historial').catch(function(){return null;});
+    if(h&&h.items) _opHistorial=h.items;
+    _opLoaded=true;
+    // Show last run
+    var last=_opHistorial[0];
+    var el=document.getElementById('op_last_run');
+    if(el&&last) el.textContent=last.fecha+' — '+last.query;
+    // Auto-run if last run was > 7 days ago
+    if(last){
+      var days=(Date.now()-new Date(last.ts||last.fecha).getTime())/864e5;
+      if(days>7) opCorrerAnalisis();
+    }
+  }
+};
+
+// ── ANÁLISIS DE UN PRODUCTO ───────────────────────────────────────────────────
+window.opBuscarProducto=async function(){
+  var query=(document.getElementById('op_query')?document.getElementById('op_query').value||'':'').trim();
+  var tipo=document.getElementById('op_tipo')?document.getElementById('op_tipo').value:'oportunidad';
+  if(!query){toast('Ingresá un producto o categoría','err');return;}
+  await opAnalizar(query,tipo,true);
+};
+
+window.opRadarCategoria=async function(query){
+  await opAnalizar(query,'oportunidad',true);
+};
+
+window.opAnalizar=async function(query,tipo,showLoading){
+  var el=document.getElementById('op_resultado');
+  if(!el) return;
+  if(showLoading){
+    el.innerHTML='<div class="card" style="padding:24px;text-align:center">'
+      +'<div style="font-size:20px;margin-bottom:8px">🔍</div>'
+      +'<div style="font-weight:700;margin-bottom:4px">Analizando: "'+esc(query)+'"</div>'
+      +'<div style="font-size:11px;color:var(--t3)">Consultando ML API + análisis con IA...</div>'
+      +'</div>';
+  }
+
+  var acct=S.accounts&&S.accounts.find(function(a){return a.token;});
+  var token=acct?acct.token:'';
+
+  try{
+    // 1. Get real ML data
+    var mlData={};
+    try{
+      var r1=await fetch(PROXY+'/mercado/analisis_nuevo?query='+encodeURIComponent(query),{
+        headers:token?{'x-ml-token':token}:{}
+      });
+      if(r1.ok) mlData=await r1.json();
+    }catch(e){console.warn('[op] analisis_nuevo',e);}
+
+    // Also try direct search
+    var searchData={};
+    try{
+      var r2=await fetch(PROXY+'/mercado/search?q='+encodeURIComponent(query)+'&limit=50&sort=sold_quantity_desc',{
+        headers:token?{'x-ml-token':token}:{}
+      });
+      if(r2.ok) searchData=await r2.json();
+    }catch(e){console.warn('[op] search',e);}
+
+    var items=(searchData.results||mlData.items||[]);
+    var paging=searchData.paging||{};
+
+    // 2. Process data
+    var precios=items.map(function(i){return i.price||0;}).filter(function(p){return p>0;});
+    var precioMin=precios.length?Math.min.apply(null,precios):0;
+    var precioMax=precios.length?Math.max.apply(null,precios):0;
+    var precioPromedio=precios.length?precios.reduce(function(a,b){return a+b;},0)/precios.length:0;
+    var total=paging.total||mlData.total||items.length;
+
+    // Sellers analysis
+    var sellers={};
+    items.forEach(function(i){
+      var s=i.seller&&(i.seller.nickname||i.seller.id);
+      if(s) sellers[s]=(sellers[s]||0)+(i.sold_quantity||0);
+    });
+    var topSellers=Object.entries(sellers).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+    var hhi=0; // Herfindahl-Hirschman Index (concentración de mercado)
+    var totVentas=Object.values(sellers).reduce(function(a,b){return a+b;},0);
+    if(totVentas>0){
+      topSellers.forEach(function(s){
+        var share=s[1]/totVentas;
+        hhi+=share*share;
+      });
+    }
+
+    // Top products by sales
+    var topProducts=items.slice().sort(function(a,b){return (b.sold_quantity||0)-(a.sold_quantity||0);}).slice(0,10);
+
+    // Price gap analysis - find price bands with few sellers
+    var bands={};
+    items.forEach(function(i){
+      var band=Math.floor((i.price||0)/10000)*10000;
+      bands[band]=(bands[band]||0)+1;
+    });
+
+    // 3. AI analysis
+    var aiAnalysis='';
+    try{
+      var myProducts=(S.products||[]).slice(0,20).map(function(p){return p.desc||p.sku;}).join(', ');
+      var prompt='Analizá esta oportunidad de mercado en MercadoLibre Argentina.\n\n'
+        +'Categoría/producto buscado: "'+query+'"\n'
+        +'Tipo de análisis: '+tipo+'\n\n'
+        +'DATOS REALES DE ML:\n'
+        +'- Total publicaciones: '+total.toLocaleString('es-AR')+'\n'
+        +'- Precio mínimo: $'+Math.round(precioMin).toLocaleString('es-AR')+'\n'
+        +'- Precio máximo: $'+Math.round(precioMax).toLocaleString('es-AR')+'\n'
+        +'- Precio promedio: $'+Math.round(precioPromedio).toLocaleString('es-AR')+'\n'
+        +'- Top vendedores: '+topSellers.map(function(s){return s[0]+' ('+s[1]+' ventas)';}).join(', ')+'\n'
+        +'- Concentración mercado (HHI): '+(hhi*100).toFixed(1)+'% (>25% = concentrado, <10% = fragmentado)\n\n'
+        +'Top 5 productos más vendidos:\n'
+        +topProducts.slice(0,5).map(function(p){
+          return '- "'+p.title+'" | $'+Math.round(p.price||0).toLocaleString('es-AR')+' | '+( p.sold_quantity||0)+' ventas | '+( p.seller&&p.seller.nickname||'?');
+        }).join('\n')+'\n\n'
+        +'CONTEXTO NIVIKO:\n'
+        +'Somos importador/distribuidor argentino. Productos actuales: '+myProducts+'\n\n'
+        +'Respondé con:\n'
+        +'1. OPORTUNIDAD (puntuación 1-10 y por qué)\n'
+        +'2. ANÁLISIS DE COMPETENCIA (quiénes dominan, cómo están posicionados)\n'
+        +'3. ESTRATEGIA DE PRECIO recomendada para entrar\n'
+        +'4. VOLUMEN ESTIMADO de ventas si entra NIVIKO\n'
+        +'5. RIESGOS principales\n'
+        +'6. PRÓXIMOS PASOS concretos\n\n'
+        +'Sé específico y accionable. Usá los datos reales, no generalidades.';
+
+      var aiR=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-6',
+          max_tokens:2000,
+          messages:[{role:'user',content:prompt}]
+        })
+      });
+      if(aiR.ok){
+        var aiD=await aiR.json();
+        aiAnalysis=(aiD.content&&aiD.content[0]&&aiD.content[0].text)||'';
+      }
+    }catch(e){console.warn('[op] AI',e);}
+
+    // 4. Score oportunidad
+    var score=5;
+    if(hhi<0.1) score+=2; // mercado fragmentado = más oportunidad
+    else if(hhi>0.3) score-=2; // muy concentrado = difícil entrar
+    if(total>1000&&total<10000) score+=1; // tamaño razonable
+    if(precioPromedio>15000) score+=1; // ticket alto
+    var scoreColor=score>=7?'var(--grn)':score>=5?'var(--org)':'var(--red)';
+    var scoreLabel=score>=7?'Alta':'Media';
+    if(score<4) scoreLabel='Baja';
+
+    // 5. Render
+    var html='';
+
+    // Header card
+    html+='<div class="card" style="padding:14px;margin-bottom:12px">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
+    html+='<div><div style="font-weight:700;font-size:15px">'+esc(query)+'</div>';
+    html+='<div style="font-size:11px;color:var(--t3)">'+total.toLocaleString('es-AR')+' publicaciones en ML</div></div>';
+    html+='<div style="text-align:center;padding:10px 20px;background:var(--s2);border-radius:var(--r);border:2px solid '+scoreColor+'">';
+    html+='<div style="font-size:10px;color:var(--t3)">OPORTUNIDAD</div>';
+    html+='<div style="font-size:28px;font-weight:900;color:'+scoreColor+'">'+score+'/10</div>';
+    html+='<div style="font-size:11px;font-weight:700;color:'+scoreColor+'">'+scoreLabel+'</div>';
+    html+='</div></div>';
+
+    // KPIs
+    html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">';
+    html+='<div class="kpi"><div class="kl">Precio mín</div><div class="kv" style="font-size:16px">$'+Math.round(precioMin/1000)+'K</div></div>';
+    html+='<div class="kpi"><div class="kl">Precio prom</div><div class="kv" style="font-size:16px">$'+Math.round(precioPromedio/1000)+'K</div></div>';
+    html+='<div class="kpi"><div class="kl">Precio máx</div><div class="kv" style="font-size:16px">$'+Math.round(precioMax/1000)+'K</div></div>';
+    html+='<div class="kpi" style="border-left:3px solid '+(hhi<0.1?'var(--grn)':hhi>0.25?'var(--red)':'var(--org)')+'"><div class="kl">Concentración</div><div class="kv" style="font-size:16px">'+(hhi*100).toFixed(0)+'%</div><div style="font-size:9px;color:var(--t3)">'+(hhi<0.1?'Fragmentado':hhi>0.25?'Concentrado':'Moderado')+'</div></div>';
+    html+='</div></div>';
+
+    // Top sellers
+    if(topSellers.length){
+      html+='<div class="card" style="padding:12px;margin-bottom:12px">';
+      html+='<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Top vendedores</div>';
+      html+='<div style="display:flex;flex-direction:column;gap:5px">';
+      topSellers.forEach(function(s,i){
+        var pct=totVentas>0?(s[1]/totVentas*100).toFixed(0):0;
+        html+='<div style="display:flex;align-items:center;gap:8px;font-size:12px">';
+        html+='<span style="font-size:10px;color:var(--t3);width:16px">#'+(i+1)+'</span>';
+        html+='<span style="font-weight:600;flex:1">'+esc(s[0])+'</span>';
+        html+='<div style="width:100px;background:var(--b1);border-radius:4px;height:6px"><div style="width:'+pct+'%;background:var(--acc);height:6px;border-radius:4px"></div></div>';
+        html+='<span style="font-size:10px;color:var(--t3);width:60px;text-align:right">'+s[1].toLocaleString('es-AR')+' ('+pct+'%)</span>';
+        html+='</div>';
+      });
+      html+='</div></div>';
+    }
+
+    // Top products table
+    if(topProducts.length){
+      html+='<div class="card" style="padding:12px;margin-bottom:12px">';
+      html+='<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Productos más vendidos</div>';
+      html+='<div style="overflow-x:auto"><table class="tbl" style="font-size:11px">';
+      html+='<thead><tr><th>#</th><th>Título</th><th>Precio</th><th>Vendidos</th><th>Vendedor</th><th>Ver</th></tr></thead><tbody>';
+      topProducts.forEach(function(p,i){
+        html+='<tr>';
+        html+='<td style="color:var(--t3)">'+(i+1)+'</td>';
+        html+='<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.title||'—')+'</td>';
+        html+='<td class="mono">$'+(Math.round(p.price||0)).toLocaleString('es-AR')+'</td>';
+        html+='<td class="mono" style="font-weight:700;color:var(--acc)">'+(p.sold_quantity||0).toLocaleString('es-AR')+'</td>';
+        html+='<td style="font-size:10px;color:var(--t3)">'+(p.seller&&p.seller.nickname||'—')+'</td>';
+        html+='<td>'+(p.permalink?'<a href="'+esc(p.permalink)+'" target="_blank" style="color:var(--acc);font-size:10px">Ver →</a>':'—')+'</td>';
+        html+='</tr>';
+      });
+      html+='</tbody></table></div></div>';
+    }
+
+    // AI analysis
+    if(aiAnalysis){
+      html+='<div class="card" style="padding:14px;margin-bottom:12px">';
+      html+='<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:10px">🤖 Análisis IA</div>';
+      html+='<div style="font-size:12px;line-height:1.7;white-space:pre-wrap">'+aiAnalysis.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')+'</div>';
+      html+='</div>';
+    }
+
+    // Save to history
+    var entry={
+      id:'op_'+Date.now(),
+      query:query,tipo:tipo,
+      fecha:new Date().toISOString().split('T')[0],
+      ts:new Date().toISOString(),
+      score:score,
+      precioPromedio:Math.round(precioPromedio),
+      total:total,
+      hhi:parseFloat((hhi*100).toFixed(1)),
+      aiAnalysis:aiAnalysis
+    };
+    _opHistorial.unshift(entry);
+    if(_opHistorial.length>50) _opHistorial=_opHistorial.slice(0,50);
+    await fb.set('op_historial',{items:_opHistorial,updated:new Date().toISOString()});
+    var lastEl=document.getElementById('op_last_run');
+    if(lastEl) lastEl.textContent=entry.fecha+' — '+entry.query;
+
+    el.innerHTML=html;
+
+  }catch(e){
+    console.error('[op]',e);
+    el.innerHTML='<div class="card" style="padding:20px;color:var(--red)">Error al analizar: '+e.message+'</div>';
+  }
+};
+
+// ── ANÁLISIS SEMANAL AUTOMÁTICO ───────────────────────────────────────────────
+window.opCorrerAnalisis=async function(){
+  var categorias=['sillas de oficina','vasos de vidrio','escritorios','heladera','monitor','silla gamer'];
+  var status=document.getElementById('op_radar_status');
+  if(status) status.textContent='Ejecutando...';
+  toast('Iniciando análisis semanal de '+categorias.length+' categorías...','ok');
+  for(var i=0;i<categorias.length;i++){
+    if(status) status.textContent='Analizando '+categorias[i]+'... ('+(i+1)+'/'+categorias.length+')';
+    await opAnalizar(categorias[i],'oportunidad',false);
+    await new Promise(function(r){setTimeout(r,2000);}); // rate limit
+  }
+  if(status) status.textContent='Completado — '+new Date().toLocaleDateString('es-AR');
+  toast('✓ Análisis semanal completado','ok');
+};
+
+// ── HISTORIAL ─────────────────────────────────────────────────────────────────
+window.opVerHistorial=function(){
+  var panel=document.getElementById('op_historial_panel');
+  var lista=document.getElementById('op_historial_lista');
+  if(!panel||!lista) return;
+  panel.style.display=panel.style.display==='none'?'':'none';
+  if(panel.style.display==='') return;
+  if(!_opHistorial.length){
+    lista.innerHTML='<div style="color:var(--t3);font-size:12px">Sin análisis guardados todavía.</div>';
+    return;
+  }
+  var gc=function(s){return s>=7?'var(--grn)':s>=5?'var(--org)':'var(--red)';};
+  lista.innerHTML='<div style="display:flex;flex-direction:column;gap:6px">'
+    +_opHistorial.slice(0,20).map(function(e){
+      return '<div style="padding:10px 12px;background:var(--s2);border-radius:var(--r);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="opCargarAnalisis(\''+e.id+'\')">'
+        +'<div style="text-align:center;min-width:40px"><div style="font-size:16px;font-weight:900;color:'+gc(e.score||5)+'">'+( e.score||'?')+'</div><div style="font-size:9px;color:var(--t3)">/10</div></div>'
+        +'<div style="flex:1"><div style="font-weight:600;font-size:12px">'+esc(e.query)+'</div>'
+        +'<div style="font-size:10px;color:var(--t3)">'+e.fecha+' · $'+Math.round((e.precioPromedio||0)/1000)+'K prom · '+( e.total||0).toLocaleString('es-AR')+' pubs · HHI: '+(e.hhi||0)+'%</div></div>'
+        +'<button class="btn-g btn-sm" style="font-size:10px" onclick="event.stopPropagation();opCargarAnalisis(\''+e.id+'\')">Ver</button>'
+        +'</div>';
+    }).join('')
+    +'</div>';
+};
+
+window.opCargarAnalisis=function(id){
+  var e=_opHistorial.find(function(x){return x.id===id;});
+  if(!e||!e.aiAnalysis) return;
+  // Re-show results from cache
+  var el=document.getElementById('op_resultado');
+  if(!el) return;
+  var gc=function(s){return s>=7?'var(--grn)':s>=5?'var(--org)':'var(--red)';};
+  el.innerHTML='<div class="card" style="padding:14px;margin-bottom:12px;border-left:3px solid var(--acc)">'
+    +'<div style="font-size:10px;color:var(--t3);margin-bottom:6px">Análisis del '+e.fecha+' (historial)</div>'
+    +'<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
+    +'<div style="font-weight:700;font-size:15px">'+esc(e.query)+'</div>'
+    +'<span style="font-size:18px;font-weight:900;color:'+gc(e.score||5)+'">'+( e.score||'?')+'/10</span>'
+    +'</div>'
+    +'<div style="display:flex;gap:12px;font-size:11px;color:var(--t3);margin-bottom:12px">'
+    +'<span>💰 $'+Math.round((e.precioPromedio||0)/1000)+'K prom</span>'
+    +'<span>📦 '+(e.total||0).toLocaleString('es-AR')+' publicaciones</span>'
+    +'<span>🏪 HHI: '+(e.hhi||0)+'%</span>'
+    +'</div>'
+    +'<div style="font-size:12px;line-height:1.7;white-space:pre-wrap">'+e.aiAnalysis.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')+'</div>'
+    +'<button class="btn" onclick="document.getElementById(\'op_query\').value=\''+esc(e.query)+'\';opBuscarProducto()" style="margin-top:12px;font-size:11px">↻ Re-analizar ahora</button>'
+    +'</div>';
 };
 
 </script>
