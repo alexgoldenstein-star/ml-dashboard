@@ -2922,12 +2922,23 @@ function updateCalLabel(){
     btn?.classList.remove("active");
   }
 }
-function getOrders(){const _excl=['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'];const _filtered=S.orders.filter(o=>!_excl.includes(o.estado));return S.acct==="ALL"?_filtered:_filtered.filter(o=>o.acct===S.acct);}
+function _isActivoOrden(o){
+  // Para órdenes ML: usar estadoML si está disponible (campo guardado desde proxy)
+  // Para FJ: usar estado (DEVTOT, ANUL, NOAPRO)
+  // Para órdenes ML antiguas sin estadoML: estado puede ser provincia o 'cancelled' (si fue reconciliada)
+  const mlExcl=['cancelled','returned','refunded','not_delivered'];
+  const fjExcl=['DEVTOT','ANUL','NOAPRO'];
+  if(o.estadoML) return !mlExcl.includes(o.estadoML); // Usar estadoML si disponible
+  if(fjExcl.includes(o.estado)) return false;          // FJ canceladas
+  if(mlExcl.includes(o.estado)) return false;          // ML reconciliadas (estado='cancelled')
+  return true;                                          // Resto: activas
+}
+function getOrders(){const _filtered=S.orders.filter(_isActivoOrden);return S.acct==="ALL"?_filtered:_filtered.filter(o=>o.acct===S.acct);}
 function getOrdersFiltered(){
   const{from,to}=getRange();
   const df=from.split('T')[0],dt=to.split('T')[0];
   const a=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  const _excl2=['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'];return a.filter(o=>o.fecha&&o.fecha>=df&&o.fecha<=dt&&!_excl2.includes(o.estado));
+  return a.filter(o=>o.fecha&&o.fecha>=df&&o.fecha<=dt&&_isActivoOrden(o));
 }
 function getRange(){
   const argNow=new Date(new Date().getTime()-3*60*60*1000);
@@ -3125,7 +3136,7 @@ function slimOrder(o){
   // Remover campos undefined para evitar error de Firebase
   const raw={
     id:o.id,acct:o.acct,fecha:o.fecha,sku:o.sku,desc:o.desc,
-    unidades:o.unidades||1,ciudad:o.ciudad,estado:o.estado,modal:o.modal,cordon:o.cordon||0,
+    unidades:o.unidades||1,ciudad:o.ciudad,estado:o.estado,estadoML:o.estadoML||null,modal:o.modal,cordon:o.cordon||0,
     venta:o.venta||0,comision:o.comision||0,cuotas:o.cuotas||0,costo:o.costo||0,
     iva:o.iva||0,ivaPct:o.ivaPct||21,pub:o.pub||0,iibb:o.iibb||0,
     costoEnvio:o.costoEnvio||0,bonifEnvio:o.bonifEnvio||0,
@@ -3201,7 +3212,7 @@ async function saveHistorialSnapshot(){
 
   // Por mes
   const porMes={};
-  S.orders.filter(o=>!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)).forEach(o=>{
+  S.orders.filter(_isActivoOrden).forEach(o=>{
     if(!o.fecha) return;
     const mes=o.fecha.substring(0,7);
     if(!porMes[mes]) porMes[mes]={mes,ventas:0,ganancia:0,ordenes:0,unidades:0,pub:0};
@@ -3215,7 +3226,7 @@ async function saveHistorialSnapshot(){
 
   // Por semana (últimas 12)
   const porSemana={};
-  S.orders.filter(o=>!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)).forEach(o=>{
+  S.orders.filter(_isActivoOrden).forEach(o=>{
     if(!o.fecha) return;
     const d=new Date(o.fecha);
     // Semana: lunes de esa semana
@@ -3232,7 +3243,7 @@ async function saveHistorialSnapshot(){
 
   // Por SKU top 20 (ganancia total acumulada)
   const porSku={};
-  S.orders.filter(o=>!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&o.sku).forEach(o=>{
+  S.orders.filter(o=>_isActivoOrden(o)&&o.sku).forEach(o=>{
     if(!porSku[o.sku]) porSku[o.sku]={sku:o.sku,ventas:0,ganancia:0,unidades:0};
     porSku[o.sku].ventas+=o.venta||0;
     porSku[o.sku].ganancia+=o.ganancia||0;
@@ -3613,7 +3624,7 @@ async function runReconcile(force=false){
   for(const acct of S.accounts){
     if(!acct.token)continue;
     const uid=UID[acct.id]||acct.userId;if(!uid)continue;
-    const acctOrders=S.orders.filter(o=>o.acct===acct.id&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+    const acctOrders=S.orders.filter(o=>o.acct===acct.id&&_isActivoOrden(o));
     if(!acctOrders.length)continue;
     try{
       const r=await fetch(PROXY+"/reconcile",{
@@ -3655,7 +3666,7 @@ async function runReconcile(force=false){
   // (últimas 2 semanas con estado != cancelled)
   try{
     const hace14=new Date(Date.now()-14*864e5).toISOString().split('T')[0];
-    const ordenes2sem=S.orders.filter(o=>o.fecha>=hace14&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+    const ordenes2sem=S.orders.filter(o=>o.fecha>=hace14&&_isActivoOrden(o));
     if(ordenes2sem.length&&force){
       let canceladas=0;
       for(const acct of S.accounts){
@@ -3668,9 +3679,9 @@ async function runReconcile(force=false){
         // Actualizar estado en S.orders
         S.orders=S.orders.map(o=>{
           if(o.acct!==acct.id)return o;
-          if(cancelIds.has(String(o.id))&&o.estado!=='cancelled'){
+          if(cancelIds.has(String(o.id))&&o.estadoML!=='cancelled'&&o.estado!=='cancelled'){
             canceladas++;
-            return {...o,estado:'cancelled',ganancia:0,pub:0};
+            return {...o,estado:'cancelled',estadoML:'cancelled',ganancia:0,pub:0};
           }
           return o;
         });
@@ -3749,7 +3760,7 @@ async function refreshTokens(){
 function checkAlertas(){
   // Confiar 100% en los flags del servidor (sinProducto, sinZona)
   // El servidor tiene PRODS hardcoded + edits de Firebase — es la fuente de verdad
-  const _activeOrds=S.orders.filter(o=>o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+  const _activeOrds=S.orders.filter(_isActivoOrden);
   const sinProd=[...new Set(
     _activeOrds.filter(o=>o.sinProducto===true && o.sku && o.sku!=='—')
     .map(o=>o.sku)
@@ -4063,7 +4074,7 @@ function renderRent(){
     '<div class="kpi red"><div class="kl">Costo productos</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+'</div></div>'+
     '<div class="kpi org"><div class="kl">Comisiones ML</div><div class="kv">'+fS(com)+'</div><div class="ks">'+pct(v>0?com/v:0)+'</div></div>';
   const accts=['GBA','BHO','IURA','GBS'];
-  const rA={};accts.forEach(a=>{const oa=S.orders.filter(x=>x.acct===a&&x.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(x.estado));const va=oa.reduce((s,x)=>s+x.venta,0);rA[a]=va>0?oa.reduce((s,x)=>s+x.ganancia,0)/va:0;});
+  const rA={};accts.forEach(a=>{const oa=S.orders.filter(x=>x.acct===a&&_isActivoOrden(x));const va=oa.reduce((s,x)=>s+x.venta,0);rA[a]=va>0?oa.reduce((s,x)=>s+x.ganancia,0)/va:0;});
   const maxR=Math.max(...Object.values(rA).map(Math.abs),.01);
   document.getElementById('rentBars').innerHTML=accts.map(a=>'<div class="br"><div class="bl">'+a+'</div><div class="bt"><div class="bf" style="width:'+Math.abs(rA[a])/maxR*100+'%;background:'+ac(a)+'"></div></div><div class="bv" style="color:'+(rA[a]>=0?'var(--grn)':'var(--red)')+'">'+pct(rA[a])+'</div></div>').join('');
   const costs=[{l:'Costo prod.',v:costo,c:'var(--red)'},{l:'Comisión ML',v:com,c:'var(--blu)'},{l:'IVA',v:iva,c:'var(--org)'},{l:'IIBB',v:iibb,c:'var(--acc)'},{l:'Publicidad',v:pub,c:'var(--pur,#A78BFA)'},{l:'Envío',v:env,c:'var(--grn)'}];
@@ -4129,7 +4140,7 @@ window.renderProds=function renderProds(){
   else if(filtroRubro) p=p.filter(x=>(x.rubro||x.rubroAuto||'')===filtroRubro);
 
   const gm={},vm={},um={};
-  S.orders.filter(o=>o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)).forEach(o=>{gm[o.sku]=(gm[o.sku]||0)+o.ganancia;vm[o.sku]=(vm[o.sku]||0)+o.venta;um[o.sku]=(um[o.sku]||0)+o.unidades;});
+  S.orders.filter(_isActivoOrden).forEach(o=>{gm[o.sku]=(gm[o.sku]||0)+o.ganancia;vm[o.sku]=(vm[o.sku]||0)+o.venta;um[o.sku]=(um[o.sku]||0)+o.unidades;});
   const el=document.getElementById("prodCount");if(el)el.textContent=S.products.length;
 
   let h="";
@@ -4694,7 +4705,7 @@ function renderCatAnalysisAI(id, {marketData:m, conf}, isExplore){
       <thead><tr><th>SKU</th><th>Descripción</th><th>Mi precio ML</th><th>Mediana mercado</th><th>Diferencia</th></tr></thead>
       <tbody>
         ${myProds.map(p=>{
-          const myOrds=S.orders.filter(o=>o.sku===p.sku&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+          const myOrds=S.orders.filter(o=>o.sku===p.sku&&_isActivoOrden(o));
           const myPrice=myOrds.length?myOrds.reduce((s,o)=>s+o.venta,0)/myOrds.length:0;
           if(!myPrice) return '';
           const diff=myPrice-(m.precio_mediana||0);
@@ -4870,7 +4881,7 @@ function renderCatAnalysis(id, {results, top5Details, conf}, isExplore){
       <thead><tr><th>SKU</th><th>Descripción</th><th>Mi precio ML</th><th>Precio mercado</th><th>Diferencia</th><th>Posición</th></tr></thead>
       <tbody>
         ${myProds.map(p=>{
-          const myOrders = S.orders.filter(o=>o.sku===p.sku&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+          const myOrders = S.orders.filter(o=>o.sku===p.sku&&_isActivoOrden(o));
           const myPrice = myOrders.length ? myOrders.reduce((s,o)=>s+o.venta,0)/myOrders.length : 0;
           if(!myPrice) return '';
           const diff = myPrice - median;
@@ -4987,7 +4998,7 @@ window.doBenchmark = async function(){
     const data = await r.json();
     const results = (data.results||[]).filter(x=>x.price>0);
     if(!results.length){el.innerHTML='<p style="color:var(--t3)">Sin resultados</p>';return;}
-    const myOrders = S.orders.filter(o=>o.sku===sku&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+    const myOrders = S.orders.filter(o=>o.sku===sku&&_isActivoOrden(o));
     const myPrice = myOrders.length ? myOrders.reduce((s,o)=>s+o.venta,0)/myOrders.length : 0;
     const prices = results.map(r=>r.price).sort((a,b)=>a-b);
     const median = prices[Math.floor(prices.length/2)];
@@ -5231,7 +5242,7 @@ window.medValidar=function(){
   const el=document.getElementById('med_validacion');if(!el)return;
   const dias=parseInt(document.getElementById('med_dias')?.value||30);
   const dateFrom=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
-  const ords=S.orders.filter(function(o){return o.fecha>=dateFrom&&(o.modal==='Correo'||o.modal==='Full')&&(o.costoEnvio||0)>100&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado);});
+  const ords=S.orders.filter(function(o){return o.fecha>=dateFrom&&(o.modal==='Correo'||o.modal==='Full')&&(o.costoEnvio||0)>100&&_isActivoOrden(o);});
   if(!ords.length){el.innerHTML='<p style="color:var(--t3);font-size:12px">Sin órdenes Correo/Full con costo de envío en los últimos '+dias+' días.</p>';return;}
   const porSku={};
   ords.forEach(function(o){if(!o.sku)return;if(!porSku[o.sku])porSku[o.sku]={sku:o.sku,ords:[],med:_medidasDB[o.sku]||null};porSku[o.sku].ords.push(o);});
@@ -5269,8 +5280,9 @@ window.medValidar=function(){
 // ── VENTAS CANCELADAS / DEVUELTAS ─────────────────────────────
 async function renderCanceladas(el){
   // Mostrar datos locales mientras carga
+  const _cancEstados=['cancelled','returned','refunded','not_delivered'];
   const ordsLocal=S.orders.filter(o=>
-    o.estado==='cancelled'||o.estado==='returned'||o.estado==='refunded'||o.estado==='not_delivered'
+    _cancEstados.includes(o.estadoML)||_cancEstados.includes(o.estado)
   );
 
   // Header con filtro de fechas y botón recargar
@@ -5338,8 +5350,8 @@ async function renderCanceladas(el){
 
 function cancRenderData(ords, el, fromML, motivoMap){
   if(!el) return;
-  const totCanc=ords.filter(o=>o.estado==='cancelled').length;
-  const totDev=ords.filter(o=>o.estado!=='cancelled').length;
+  const totCanc=ords.filter(o=>o.estado==='cancelled'||o.estadoML==='cancelled').length;
+  const totDev=ords.filter(o=>o.estado!=='cancelled'&&o.estadoML!=='cancelled').length;
   const ventaTotal=ords.reduce((s,o)=>s+(o.venta||0),0);
 
   const porSku={};
@@ -5459,8 +5471,8 @@ window.convRecargar = async function(){
   if(tbody) tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--t3)">⏳ Calculando conversión desde órdenes...</td></tr>';
 
   // Calcular conversión desde órdenes reales (sin necesidad de API de visitas)
-  const ords = S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado));
-  
+  const ords = S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&_isActivoOrden(o));
+
   window._convItems = [];
   const porSku = {};
   ords.forEach(o=>{
@@ -6686,7 +6698,7 @@ async function adsCargar(accounts){
 
 function adsDesdeOrdenes(dias, dateFrom, dateTo, adsData){
   const stEl=document.getElementById('ads_status');
-  const ords=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+  const ords=S.orders.filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&_isActivoOrden(o));
 
   if(!ords.length){
     if(stEl) stEl.textContent='⚠ Sin órdenes. Actualizá las ventas primero.';
@@ -7158,7 +7170,7 @@ async function renderPortafolio(){
     const b=sku.replace(/-[NBRGPSMA](-X[0-9]+)?$/i,"").replace(/-X[0-9]+$/i,"");
     return _portSkuMap[sku]||_portSkuMap[b]||(_portSkuMap[sku]={sku,ml:{v:0,g:0,u:0,n:0},may:{v:0,g:0,u:0,n:0},fj:{v:0,g:0,u:0,n:0}});
   }
-  (window._allHistoricalOrders||S.orders).filter(o=>o.estado!=="cancelled").forEach(o=>{
+  (window._allHistoricalOrders||S.orders).filter(_isActivoOrden).forEach(o=>{
     if(!o.sku) return;
     const sk=_portGetSku(o.sku);
     sk.ml.v+=(o.venta||0);sk.ml.g+=(o.ganancia||0);sk.ml.u+=(o.unidades||1);sk.ml.n++;
@@ -7275,7 +7287,7 @@ function portConstruirAnalisis(){
 
   const skuData={};
 
-  ordersSource.filter(o=>o.sku&&o.sku!=='—'&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&o.fecha>=dateFrom).forEach(o=>{
+  ordersSource.filter(o=>o.sku&&o.sku!=='—'&&_isActivoOrden(o)&&o.fecha>=dateFrom).forEach(o=>{
     const base=skuBase(o.sku);
     if(!skuData[base]) skuData[base]={
       skuBase:base,
@@ -9571,7 +9583,7 @@ window.calcLoadSku = function(){
   const skuParts = sku.split('-');
   const ords = S.orders.filter(o=>{
     if(!o.sku) return false;
-    if(o.estado==='cancelled'||['DEVTOT','ANUL','NOAPRO'].includes(o.estado)) return false;
+    if(!_isActivoOrden(o)) return false;
     if(o.sku===sku) return true;
     // Familia: mismo modelo, diferente color (penúltimo segmento suele ser color)
     const oParts = o.sku.split('-');
@@ -9939,7 +9951,7 @@ function contCalc(){
   const rows = _contData.skus.map(s=>{
     const ords = S.orders.filter(o=>{
       if(o.sku!==s.sku) return false;
-      if(o.estado==='cancelled'||['DEVTOT','ANUL','NOAPRO'].includes(o.estado)) return false;
+      if(!_isActivoOrden(o)) return false;
       if(!o.fecha) return true;
       return new Date(o.fecha) >= cutoff;
     });
@@ -10710,7 +10722,7 @@ window.exportarPDF=async()=>{
   doc.text('Resultado por Cuenta',14,y);y+=4;
   const accts=['GBA','BHO','IURA','GBS'];
   const porCuenta=accts.map(a=>{
-    const oa=S.orders.filter(x=>x.acct===a&&x.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(x.estado));
+    const oa=S.orders.filter(x=>x.acct===a&&_isActivoOrden(x));
     const va=oa.reduce((s,x)=>s+x.venta,0);
     const ga=oa.reduce((s,x)=>s+x.ganancia,0);
     return[a,oa.length.toString(),fs(va),fs(ga),pp(va?ga/va:0)];
@@ -10863,9 +10875,7 @@ window.intelCargar = async function(){
   }
 
   // ── Órdenes ML del período (sin canceladas) ──
-  const ordsML = (S.orders||[]).filter(o=>
-    o.fecha>=dateFrom && o.fecha<=dateTo && !['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)
-  );
+  const ordsML = (S.orders||[]).filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&_isActivoOrden(o));
 
   // ── Pedidos mayorista del período ──
   const pedsMay = mayPedidos.filter(p=> p.fecha>=dateFrom && p.fecha<=dateTo);
@@ -11599,7 +11609,7 @@ window.histTab=function(tab){
 
 window.calcPorMes=function(orders){
   const m={};
-  orders.filter(o=>!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)).forEach(o=>{
+  orders.filter(_isActivoOrden).forEach(o=>{
     if(!o.fecha) return;
     const mes=o.fecha.substring(0,7);
     if(!m[mes]) m[mes]={mes,ventas:0,ganancia:0,ordenes:0,unidades:0,pub:0};
@@ -11610,7 +11620,7 @@ window.calcPorMes=function(orders){
 }
 window.calcPorSemana=function(orders){
   const m={};
-  orders.filter(o=>!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)).forEach(o=>{
+  orders.filter(_isActivoOrden).forEach(o=>{
     if(!o.fecha) return;
     const d=new Date(o.fecha); const day=d.getDay()||7;
     const lunes=new Date(d); lunes.setDate(d.getDate()-day+1);
@@ -11623,7 +11633,7 @@ window.calcPorSemana=function(orders){
 }
 window.calcTopSkus=function(orders){
   const m={};
-  const validOrds=orders.filter(o=>!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&o.sku&&o.fecha);
+  const validOrds=orders.filter(o=>_isActivoOrden(o)&&o.sku&&o.fecha);
   // Calcular rango de fechas del historial
   const fechas=validOrds.map(o=>o.fecha).sort();
   const fechaMin=fechas[0]||'';
@@ -11868,9 +11878,7 @@ window.renderRubros=async function(){
   const dateFrom=fromEl?.value;
   const dateTo=toEl?.value;
 
-  const ords=(S.orders||[]).filter(o=>
-    o.fecha>=dateFrom && o.fecha<=dateTo && !['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)
-  );
+  const ords=(S.orders||[]).filter(o=>o.fecha>=dateFrom&&o.fecha<=dateTo&&_isActivoOrden(o));
 
   // Debug: cuántos productos tienen rubro
   const prodsConRubro=S.products.filter(p=>p.rubro||p.rubroAuto).length;
@@ -13179,7 +13187,7 @@ window.renderCanalesIntegrados = async function(){
   const{from:_rf,to:_rt}=getRange();
   const _df=_rf.split('T')[0],_dt=_rt.split('T')[0];
   const _ba=S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);
-  const ordsML=_ba.filter(o=>o.fecha&&o.fecha>=_df&&o.fecha<=_dt&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado));
+  const ordsML=_ba.filter(o=>o.fecha&&o.fecha>=_df&&o.fecha<=_dt&&_isActivoOrden(o));
 
   // ── ML ──
   const ml={
@@ -13560,7 +13568,7 @@ window.impRenderRentabilidadReal=async function(){
   compras.forEach(function(c){
     var skusSet=new Set((c.skus||[]).map(function(s){return s.trim().toUpperCase();}));
     var ords=(S.orders||[]).filter(function(o){
-      return o.fecha>=c.fecha&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&Array.from(skusSet).some(function(sk){return o.sku&&o.sku.toUpperCase().startsWith(sk);});
+      return o.fecha>=c.fecha&&_isActivoOrden(o)&&Array.from(skusSet).some(function(sk){return o.sku&&o.sku.toUpperCase().startsWith(sk);});
     });
     var udsV=ords.reduce(function(s,o){return s+(o.unidades||1);},0);
     var ventaT=ords.reduce(function(s,o){return s+(o.venta||0);},0);
@@ -13597,7 +13605,7 @@ window.impEstimarRecalcular=function(){
   var el=document.getElementById('ih_estimar_resultado');if(!el)return;
   if(!rubro){el.innerHTML='';return;}
   var skus=(S.products||[]).filter(function(p){return(p.rubro||p.rubroAuto)===rubro;}).map(function(p){return p.sku;});
-  var ords=(S.orders||[]).filter(function(o){return !['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&skus.includes(o.sku);});
+  var ords=(S.orders||[]).filter(function(o){return _isActivoOrden(o)&&skus.includes(o.sku);});
   if(!ords.length){el.innerHTML='<p style="color:var(--org);font-size:11px">Sin ventas historicas en este rubro.</p>';return;}
   var vH=ords.reduce(function(s,o){return s+(o.venta||0);},0);
   var gH=ords.reduce(function(s,o){return s+(o.ganancia||0);},0);
@@ -14205,7 +14213,7 @@ window.calcMulticanal=function(sku){
   var pesoAf=prod.peso_aforado||0;
 
   // Precios de venta actuales en cada canal (del historial de órdenes)
-  var mlOrdenes=S.orders?S.orders.filter(function(o){return o.sku===sku&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado);}).slice(-30):[];
+  var mlOrdenes=S.orders?S.orders.filter(function(o){return o.sku===sku&&_isActivoOrden(o);}).slice(-30):[];
   var precioML=mlOrdenes.length>0?mlOrdenes.reduce(function(s,o){return s+(o.venta||0);},0)/mlOrdenes.length:0;
 
   // FJ ordenes
@@ -14428,10 +14436,9 @@ window.intelProdAnalizar=function(){
   var hasta=new Date().toISOString().split('T')[0];
 
   // ── ML: órdenes con ese SKU en el período ──
-  var _exclIntel=['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'];
   var mlOrds=(S.orders||[]).filter(function(o){
     return (o.sku===sku||o.sku===skuB)
-      &&!_exclIntel.includes(o.estado)
+      &&_isActivoOrden(o)
       &&(!o.fecha||o.fecha>=desde);
   });
   var mlV=mlOrds.reduce(function(s,o){return s+(o.venta||0);},0);
@@ -14714,7 +14721,7 @@ window.histSkuFiltrar=function(){
   if(periodo!=='todo'){
     var dias=parseInt(periodo)||9999;
     var desde=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
-    var periodOrds=S.orders.filter(function(o){return o.fecha&&o.fecha>=desde&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado);});
+    var periodOrds=S.orders.filter(function(o){return o.fecha&&o.fecha>=desde&&_isActivoOrden(o);});
     var skuMap2={};
     periodOrds.forEach(function(o){
       if(!o.sku) return;
@@ -15105,9 +15112,8 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   };
 
   // ML
-  var _exclMulti=['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'];
   var mlOrds=(S.orders||[]).filter(function(o){
-    return allMatchSkus(o.sku||'')&&!_exclMulti.includes(o.estado)&&(!o.fecha||o.fecha>=desde);
+    return allMatchSkus(o.sku||'')&&_isActivoOrden(o)&&(!o.fecha||o.fecha>=desde);
   });
   var mlV=mlOrds.reduce(function(s,o){return s+(o.venta||0);},0);
   var mlG=mlOrds.reduce(function(s,o){return s+(o.ganancia||0);},0);
@@ -15324,7 +15330,7 @@ window.nvBotContext=function(){
 
   // ML
   var ords=(window._allHistoricalOrders&&window._allHistoricalOrders.length?window._allHistoricalOrders:S.orders||[])
-    .filter(function(o){return !['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&o.fecha>=df&&o.fecha<=dt;});
+    .filter(function(o){return _isActivoOrden(o)&&o.fecha>=df&&o.fecha<=dt;});
   var mlV=ords.reduce(function(s,o){return s+(o.venta||0);},0);
   var mlG=ords.reduce(function(s,o){return s+(o.ganancia||0);},0);
   var mlU=ords.reduce(function(s,o){return s+(o.unidades||1);},0);
@@ -15529,7 +15535,7 @@ window.nvInformeCSV=function(){
   var rng=typeof getRange==='function'?getRange():{from:new Date(Date.now()-30*864e5).toISOString(),to:new Date().toISOString()};
   var df=rng.from.split('T')[0], dt=rng.to.split('T')[0];
   var ords=(window._allHistoricalOrders&&window._allHistoricalOrders.length?window._allHistoricalOrders:S.orders||[])
-    .filter(function(o){return !['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&o.fecha>=df&&o.fecha<=dt;});
+    .filter(function(o){return _isActivoOrden(o)&&o.fecha>=df&&o.fecha<=dt;});
 
   var rows=[['Fecha','Canal','Cuenta','SKU','Descripción','Unidades','Venta','Comisión','Ganancia','Mg s/venta','Mg s/costo','Modal']];
 
@@ -15801,7 +15807,7 @@ window.stkCalcVentas=function(dias){
 
   // ML orders
   var ordSrc=(window._allHistoricalOrders&&window._allHistoricalOrders.length)?window._allHistoricalOrders:S.orders||[];
-  ordSrc.filter(function(o){return !['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&o.fecha>=desde;})
+  ordSrc.filter(function(o){return _isActivoOrden(o)&&o.fecha>=desde;})
     .forEach(function(o){addV(o.sku,o.unidades||1);});
 
   // Mayorista
@@ -15848,7 +15854,7 @@ window.stkCalcVentasDesde=function(baseSku,desde){
     else if(sku===baseSku) total+=qty;
   };
   var ordSrc=(window._allHistoricalOrders&&window._allHistoricalOrders.length)?window._allHistoricalOrders:S.orders||[];
-  ordSrc.filter(function(o){return !['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&(!o.fecha||o.fecha>=desde);})
+  ordSrc.filter(function(o){return _isActivoOrden(o)&&(!o.fecha||o.fecha>=desde);})
     .forEach(function(o){addV(o.sku,o.unidades||1);});
   var allPeds=(typeof _mayPedidos!=='undefined'&&_mayPedidos&&_mayPedidos.length)?_mayPedidos:(window._mayPedidosCache||[]);
   allPeds.filter(function(p){return !p.fecha||p.fecha>=desde;}).forEach(function(p){
@@ -16112,7 +16118,7 @@ window.stkRenderIntel=function(){
     var desde=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
     var total=0;
     var ordSrc=(window._allHistoricalOrders&&window._allHistoricalOrders.length)?window._allHistoricalOrders:S.orders||[];
-    ordSrc.filter(function(o){return o.sku===packSku&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&(!o.fecha||o.fecha>=desde);})
+    ordSrc.filter(function(o){return o.sku===packSku&&_isActivoOrden(o)&&(!o.fecha||o.fecha>=desde);})
       .forEach(function(o){total+=o.unidades||1;});
     var allPeds=(typeof _mayPedidos!=='undefined'&&_mayPedidos&&_mayPedidos.length)?_mayPedidos:(window._mayPedidosCache||[]);
     allPeds.filter(function(p){return !p.fecha||p.fecha>=desde;}).forEach(function(p){
@@ -16128,7 +16134,7 @@ window.stkRenderIntel=function(){
     var desde=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
     var totV=0,totG=0;
     var ordSrc=(window._allHistoricalOrders&&window._allHistoricalOrders.length)?window._allHistoricalOrders:S.orders||[];
-    ordSrc.filter(function(o){return o.sku===packSku&&!['cancelled','returned','refunded','not_delivered','DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&(!o.fecha||o.fecha>=desde);})
+    ordSrc.filter(function(o){return o.sku===packSku&&_isActivoOrden(o)&&(!o.fecha||o.fecha>=desde);})
       .forEach(function(o){totV+=o.venta||0;totG+=o.ganancia||0;});
     return {v:totV,g:totG,mg:totV>0?(totG/totV*100):0};
   };
