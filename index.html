@@ -2922,7 +2922,7 @@ function updateCalLabel(){
     btn?.classList.remove("active");
   }
 }
-function getOrders(){return S.acct==="ALL"?S.orders:S.orders.filter(o=>o.acct===S.acct);}
+function getOrders(){const _filtered=S.orders.filter(o=>o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));return S.acct==="ALL"?_filtered:_filtered.filter(o=>o.acct===S.acct);}
 function getOrdersFiltered(){
   const{from,to}=getRange();
   const df=from.split('T')[0],dt=to.split('T')[0];
@@ -3613,7 +3613,7 @@ async function runReconcile(force=false){
   for(const acct of S.accounts){
     if(!acct.token)continue;
     const uid=UID[acct.id]||acct.userId;if(!uid)continue;
-    const acctOrders=S.orders.filter(o=>o.acct===acct.id);
+    const acctOrders=S.orders.filter(o=>o.acct===acct.id&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
     if(!acctOrders.length)continue;
     try{
       const r=await fetch(PROXY+"/reconcile",{
@@ -3749,24 +3749,25 @@ async function refreshTokens(){
 function checkAlertas(){
   // Confiar 100% en los flags del servidor (sinProducto, sinZona)
   // El servidor tiene PRODS hardcoded + edits de Firebase — es la fuente de verdad
+  const _activeOrds=S.orders.filter(o=>o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
   const sinProd=[...new Set(
-    S.orders.filter(o=>o.sinProducto===true && o.sku && o.sku!=='—')
+    _activeOrds.filter(o=>o.sinProducto===true && o.sku && o.sku!=='—')
     .map(o=>o.sku)
   )];
   const sinZona=[...new Set(
-    S.orders.filter(o=>o.sinZona===true && o.ciudad)
+    _activeOrds.filter(o=>o.sinZona===true && o.ciudad)
     .map(o=>o.ciudad)
   )];
 
   // Alerta 1: envío anómalo — costoEnvio > 30% del precio de venta
-  const envioAnomalo = S.orders.filter(o=>{
+  const envioAnomalo = _activeOrds.filter(o=>{
     const env = o.costoEnvio||0;
     return env > 0 && o.venta > 0 && env/o.venta > 0.30;
   }).sort((a,b)=>(b.costoEnvio/b.venta)-(a.costoEnvio/a.venta));
 
   // Alerta 2: precio inconsistente por SKU — variación > 20% respecto al promedio del SKU
   const skuPrices = {};
-  S.orders.forEach(o=>{
+  _activeOrds.forEach(o=>{
     if(!o.sku||o.sku==="—")return;
     if(!skuPrices[o.sku])skuPrices[o.sku]={ventas:[],desc:o.desc};
     skuPrices[o.sku].ventas.push({id:o.id,venta:o.venta,fecha:o.fecha,acct:o.acct});
@@ -4062,7 +4063,7 @@ function renderRent(){
     '<div class="kpi red"><div class="kl">Costo productos</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+'</div></div>'+
     '<div class="kpi org"><div class="kl">Comisiones ML</div><div class="kv">'+fS(com)+'</div><div class="ks">'+pct(v>0?com/v:0)+'</div></div>';
   const accts=['GBA','BHO','IURA','GBS'];
-  const rA={};accts.forEach(a=>{const oa=S.orders.filter(x=>x.acct===a);const va=oa.reduce((s,x)=>s+x.venta,0);rA[a]=va>0?oa.reduce((s,x)=>s+x.ganancia,0)/va:0;});
+  const rA={};accts.forEach(a=>{const oa=S.orders.filter(x=>x.acct===a&&x.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(x.estado));const va=oa.reduce((s,x)=>s+x.venta,0);rA[a]=va>0?oa.reduce((s,x)=>s+x.ganancia,0)/va:0;});
   const maxR=Math.max(...Object.values(rA).map(Math.abs),.01);
   document.getElementById('rentBars').innerHTML=accts.map(a=>'<div class="br"><div class="bl">'+a+'</div><div class="bt"><div class="bf" style="width:'+Math.abs(rA[a])/maxR*100+'%;background:'+ac(a)+'"></div></div><div class="bv" style="color:'+(rA[a]>=0?'var(--grn)':'var(--red)')+'">'+pct(rA[a])+'</div></div>').join('');
   const costs=[{l:'Costo prod.',v:costo,c:'var(--red)'},{l:'Comisión ML',v:com,c:'var(--blu)'},{l:'IVA',v:iva,c:'var(--org)'},{l:'IIBB',v:iibb,c:'var(--acc)'},{l:'Publicidad',v:pub,c:'var(--pur,#A78BFA)'},{l:'Envío',v:env,c:'var(--grn)'}];
@@ -4128,7 +4129,7 @@ window.renderProds=function renderProds(){
   else if(filtroRubro) p=p.filter(x=>(x.rubro||x.rubroAuto||'')===filtroRubro);
 
   const gm={},vm={},um={};
-  S.orders.forEach(o=>{gm[o.sku]=(gm[o.sku]||0)+o.ganancia;vm[o.sku]=(vm[o.sku]||0)+o.venta;um[o.sku]=(um[o.sku]||0)+o.unidades;});
+  S.orders.filter(o=>o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)).forEach(o=>{gm[o.sku]=(gm[o.sku]||0)+o.ganancia;vm[o.sku]=(vm[o.sku]||0)+o.venta;um[o.sku]=(um[o.sku]||0)+o.unidades;});
   const el=document.getElementById("prodCount");if(el)el.textContent=S.products.length;
 
   let h="";
@@ -4693,7 +4694,7 @@ function renderCatAnalysisAI(id, {marketData:m, conf}, isExplore){
       <thead><tr><th>SKU</th><th>Descripción</th><th>Mi precio ML</th><th>Mediana mercado</th><th>Diferencia</th></tr></thead>
       <tbody>
         ${myProds.map(p=>{
-          const myOrds=S.orders.filter(o=>o.sku===p.sku);
+          const myOrds=S.orders.filter(o=>o.sku===p.sku&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
           const myPrice=myOrds.length?myOrds.reduce((s,o)=>s+o.venta,0)/myOrds.length:0;
           if(!myPrice) return '';
           const diff=myPrice-(m.precio_mediana||0);
@@ -4869,7 +4870,7 @@ function renderCatAnalysis(id, {results, top5Details, conf}, isExplore){
       <thead><tr><th>SKU</th><th>Descripción</th><th>Mi precio ML</th><th>Precio mercado</th><th>Diferencia</th><th>Posición</th></tr></thead>
       <tbody>
         ${myProds.map(p=>{
-          const myOrders = S.orders.filter(o=>o.sku===p.sku);
+          const myOrders = S.orders.filter(o=>o.sku===p.sku&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
           const myPrice = myOrders.length ? myOrders.reduce((s,o)=>s+o.venta,0)/myOrders.length : 0;
           if(!myPrice) return '';
           const diff = myPrice - median;
@@ -4986,7 +4987,7 @@ window.doBenchmark = async function(){
     const data = await r.json();
     const results = (data.results||[]).filter(x=>x.price>0);
     if(!results.length){el.innerHTML='<p style="color:var(--t3)">Sin resultados</p>';return;}
-    const myOrders = S.orders.filter(o=>o.sku===sku);
+    const myOrders = S.orders.filter(o=>o.sku===sku&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado));
     const myPrice = myOrders.length ? myOrders.reduce((s,o)=>s+o.venta,0)/myOrders.length : 0;
     const prices = results.map(r=>r.price).sort((a,b)=>a-b);
     const median = prices[Math.floor(prices.length/2)];
@@ -5230,7 +5231,7 @@ window.medValidar=function(){
   const el=document.getElementById('med_validacion');if(!el)return;
   const dias=parseInt(document.getElementById('med_dias')?.value||30);
   const dateFrom=new Date(Date.now()-dias*864e5).toISOString().split('T')[0];
-  const ords=S.orders.filter(function(o){return o.fecha>=dateFrom&&(o.modal==='Correo'||o.modal==='Full')&&(o.costoEnvio||0)>100;});
+  const ords=S.orders.filter(function(o){return o.fecha>=dateFrom&&(o.modal==='Correo'||o.modal==='Full')&&(o.costoEnvio||0)>100&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado);});
   if(!ords.length){el.innerHTML='<p style="color:var(--t3);font-size:12px">Sin órdenes Correo/Full con costo de envío en los últimos '+dias+' días.</p>';return;}
   const porSku={};
   ords.forEach(function(o){if(!o.sku)return;if(!porSku[o.sku])porSku[o.sku]={sku:o.sku,ords:[],med:_medidasDB[o.sku]||null};porSku[o.sku].ords.push(o);});
@@ -9570,6 +9571,7 @@ window.calcLoadSku = function(){
   const skuParts = sku.split('-');
   const ords = S.orders.filter(o=>{
     if(!o.sku) return false;
+    if(o.estado==='cancelled'||['DEVTOT','ANUL','NOAPRO'].includes(o.estado)) return false;
     if(o.sku===sku) return true;
     // Familia: mismo modelo, diferente color (penúltimo segmento suele ser color)
     const oParts = o.sku.split('-');
@@ -9937,6 +9939,7 @@ function contCalc(){
   const rows = _contData.skus.map(s=>{
     const ords = S.orders.filter(o=>{
       if(o.sku!==s.sku) return false;
+      if(o.estado==='cancelled'||['DEVTOT','ANUL','NOAPRO'].includes(o.estado)) return false;
       if(!o.fecha) return true;
       return new Date(o.fecha) >= cutoff;
     });
@@ -10707,7 +10710,7 @@ window.exportarPDF=async()=>{
   doc.text('Resultado por Cuenta',14,y);y+=4;
   const accts=['GBA','BHO','IURA','GBS'];
   const porCuenta=accts.map(a=>{
-    const oa=S.orders.filter(x=>x.acct===a);
+    const oa=S.orders.filter(x=>x.acct===a&&x.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(x.estado));
     const va=oa.reduce((s,x)=>s+x.venta,0);
     const ga=oa.reduce((s,x)=>s+x.ganancia,0);
     return[a,oa.length.toString(),fs(va),fs(ga),pp(va?ga/va:0)];
@@ -14428,7 +14431,7 @@ window.intelProdAnalizar=function(){
   var mlOrds=(S.orders||[]).filter(function(o){
     return (o.sku===sku||o.sku===skuB)
       &&o.estado!=='cancelled'
-      &&o.ganancia!==undefined
+      &&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)
       &&(!o.fecha||o.fecha>=desde);
   });
   var mlV=mlOrds.reduce(function(s,o){return s+(o.venta||0);},0);
@@ -14526,7 +14529,10 @@ window.intelProdAnalizar=function(){
     +(costo?' · Costo: <strong style="color:var(--t1)">'+fP(costo)+'</strong>':'<span style="color:var(--org)"> · Sin costo cargado</span>')
     +(prod&&prod.peso_aforado?' · Peso: <strong>'+prod.peso_aforado+'kg</strong>':'')
     +'</div></div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     +'<div style="font-size:11px;color:var(--acc);font-weight:600">📅 '+periodoLabel+'</div>'
+    +'<div style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(255,77,77,.12);color:var(--red);font-weight:600">✗ canceladas excluidas</div>'
+    +'</div>'
     +'</div>';
 
   if(noData){
@@ -15100,7 +15106,7 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
 
   // ML
   var mlOrds=(S.orders||[]).filter(function(o){
-    return allMatchSkus(o.sku||'')&&o.estado!=='cancelled'&&(!o.fecha||o.fecha>=desde);
+    return allMatchSkus(o.sku||'')&&o.estado!=='cancelled'&&!['DEVTOT','ANUL','NOAPRO'].includes(o.estado)&&(!o.fecha||o.fecha>=desde);
   });
   var mlV=mlOrds.reduce(function(s,o){return s+(o.venta||0);},0);
   var mlG=mlOrds.reduce(function(s,o){return s+(o.ganancia||0);},0);
@@ -15205,7 +15211,10 @@ window.intelMultiSkusAnalizar=function(skus, titulo, periodo, ivaPct){
   // Header
   html+='<div style="padding:10px 14px;background:var(--s2);border-radius:var(--r);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">'
     +'<div style="font-size:13px;font-weight:700">'+esc(titulo)+'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
     +'<div style="font-size:11px;color:var(--acc)">📅 '+periodoLabel+'</div>'
+    +'<div style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(255,77,77,.12);color:var(--red);font-weight:600">✗ canceladas excluidas</div>'
+    +'</div>'
     +'</div>';
 
   if(noData){
