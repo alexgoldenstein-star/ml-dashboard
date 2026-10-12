@@ -331,7 +331,9 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
-          <input class="srch" placeholder="Buscar SKU..." oninput="filterP(this.value)" style="flex:1;min-width:120px">
+          <input class="srch" id="prodBuscarInput" placeholder="Buscar SKU..." oninput="filterP(this.value)" style="flex:1;min-width:120px">
+          <span id="prodFiltroInfo" style="display:none;font-size:11px;color:var(--acc);white-space:nowrap"></span>
+          <button id="prodSelTodoFiltro" onclick="prodSeleccionarFiltrados()" style="display:none" class="btn-g btn-sm" title="Seleccionar todos los productos del filtro actual">☑ Sel. todo</button>
           <select class="inp" id="prodFiltroRubro" onchange="renderProds()" style="font-size:11px;padding:4px 8px">
             <option value="">Todos los rubros</option>
             <option value="__sin_asignar__">⚠ Sin asignar</option>
@@ -4178,9 +4180,29 @@ window.renderProds=function renderProds(){
       "</tr>";
   });
   document.getElementById("prodBody").innerHTML=h||'<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:16px">Sin productos</td></tr>';
+  // Mostrar badge "Sel. todo" cuando hay filtro de texto activo
+  var infoEl=document.getElementById('prodFiltroInfo');
+  var btnEl=document.getElementById('prodSelTodoFiltro');
+  if(pf&&p.length>0){
+    if(infoEl){infoEl.style.display='';infoEl.textContent=p.length+' resultado'+(p.length!==1?'s':'');}
+    if(btnEl)btnEl.style.display='';
+  } else {
+    if(infoEl)infoEl.style.display='none';
+    if(btnEl)btnEl.style.display='none';
+  }
   prodActualizarBulkBar();
 }
 window.filterP=v=>{S.pFilter=v;renderProds();};
+
+window.prodSeleccionarFiltrados=function(){
+  // Selecciona todos los checkboxes visibles en la tabla filtrada
+  document.querySelectorAll('.prod_check').forEach(function(cb){
+    cb.checked=true;
+    var sku=cb.dataset.sku;
+    if(sku) window._prodSeleccionados.add(sku);
+  });
+  prodActualizarBulkBar();
+};
 
 // ── SELECCIÓN MASIVA + APLICAR RUBRO ─────────────────────────────────────────
 window.prodToggleCheck=function(sku,checked){
