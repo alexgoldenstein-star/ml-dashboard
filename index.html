@@ -16684,6 +16684,56 @@ window._dbg={
       headers:{'x-ml-token':tok}
     }).then(function(r){return r.json();}).then(console.log);
   },
+  fetchOrden:function(orderId,acctId){
+    // Fetch detalles de una orden específica del ML API
+    // acctId: id de cuenta (GBS/GBA/BHO) para obtener el token correcto
+    var tok;
+    if(acctId){
+      var acc=(S.accounts||[]).find(function(a){return a.id===acctId;});
+      tok=acc?acc.token:null;
+    }
+    if(!tok)tok=this.getToken();
+    if(!tok){console.error('No token disponible');return;}
+    return fetch(PROXY+'/plataforma/orden/'+orderId,{
+      headers:{'x-ml-token':tok}
+    }).then(function(r){return r.json();}).then(function(d){
+      console.log('Orden',orderId,'→',d);
+      return d;
+    });
+  },
+  investigarSplit:function(n){
+    // Busca las primeras n órdenes canceladas y muestra sus detalles del ML API
+    // para detectar si son "split orders" (tienen pack_id o motivo especial)
+    var self=this;
+    n=n||5;
+    var canceladas=S.orders.filter(function(o){
+      var ml=['cancelled','returned','refunded','not_delivered'];
+      return ml.includes(o.estadoML)||ml.includes(o.estado);
+    }).slice(0,n);
+    console.log('Investigando',canceladas.length,'órdenes canceladas...');
+    return Promise.all(canceladas.map(function(o){
+      // Encontrar la cuenta correcta para esta orden
+      var acc=(S.accounts||[]).find(function(a){return a.id===o.acct;});
+      var tok=acc?acc.token:self.getToken();
+      return fetch(PROXY+'/plataforma/orden/'+o.id,{
+        headers:{'x-ml-token':tok}
+      }).then(function(r){return r.json();}).then(function(d){
+        return {
+          id:o.id, acct:o.acct,
+          status:d.status, motivo:d.motivo,
+          pack_id:d.pack_id, shipping_id:d.shipping_id,
+          total:d.total, items:(d.items||[]).length,
+          fecha_cierre:d.fecha_cierre
+        };
+      }).catch(function(e){return {id:o.id,error:e.message};});
+    })).then(function(results){
+      console.table(results);
+      var conPack=results.filter(function(r){return r.pack_id;});
+      console.log('Con pack_id (posibles splits):',conPack.length,'/',results.length);
+      if(conPack.length) console.log('Pack IDs:',conPack.map(function(r){return r.pack_id;}));
+      return results;
+    });
+  },
   scriptOK:true
 };
 console.log('[NIVIKO] Script cargado OK. _dbg disponible. Órdenes:', S.orders?S.orders.length:'S no init');
