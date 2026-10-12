@@ -16663,7 +16663,7 @@ window._dbg={
   fetchCanceladas:function(seller_id){
     var tok=this.getToken();
     if(!tok){console.error('No token disponible');return;}
-    return fetch('https://niviko-proxy.vercel.app/plataforma/canceladas?seller_id='+(seller_id||'169823966')+'&limit=5',{
+    return fetch(PROXY+'/plataforma/canceladas?seller_id='+(seller_id||'169823966')+'&limit=5',{
       headers:{'x-ml-token':tok}
     }).then(function(r){return r.json();}).then(console.log);
   },
