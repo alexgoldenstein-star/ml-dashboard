@@ -3662,21 +3662,30 @@ async function runReconcile(force=false){
       }
     }catch(e){console.warn("reconcile",acct.id,e.message);}
   }
-  // Reconciliar canceladas: revisar órdenes "recientes" que pueden haberse cancelado
-  // (últimas 2 semanas con estado != cancelled)
+  // Reconciliar canceladas: cuando es forzado revisa últimos 60 días en bloques de 30
   try{
-    const hace14=new Date(Date.now()-14*864e5).toISOString().split('T')[0];
-    const ordenes2sem=S.orders.filter(o=>o.fecha>=hace14&&_isActivoOrden(o));
-    if(ordenes2sem.length&&force){
+    if(force){
       let canceladas=0;
+      const hace60=new Date(Date.now()-60*864e5).toISOString().split('T')[0];
+      const hace30=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+      // Períodos: [hace60→hace30] y [hace30→hoy]
+      const periodos=[[hace60,hace30],[hace30,today]];
+      toast('🔄 Verificando canceladas (últimos 60 días)...');
       for(const acct of S.accounts){
         if(!acct.token)continue;
         const sellerId=UID[acct.id]||acct.userId;
-        // Traer órdenes canceladas de los últimos 14 días desde ML
-        const r=await fetch(`${PROXY}/plataforma/canceladas?seller_id=${sellerId}&date_from=${hace14}&date_to=${today}&limit=100`,
-          {headers:{'x-ml-token':acct.token}}).then(r=>r.ok?r.json():{}).catch(()=>({}));
-        const cancelIds=new Set((r.orders||[]).map(o=>String(o.id)));
-        // Actualizar estado en S.orders
+        const cancelIds=new Set();
+        for(const [df,dt] of periodos){
+          // ML permite max 50 por query; paginamos hasta 200
+          for(let offset=0;offset<200;offset+=50){
+            const r=await fetch(`${PROXY}/plataforma/canceladas?seller_id=${sellerId}&date_from=${df}&date_to=${dt}&limit=50&offset=${offset}`,
+              {headers:{'x-ml-token':acct.token}}).then(r=>r.ok?r.json():{}).catch(()=>({}));
+            const ords=r.orders||[];
+            ords.forEach(o=>cancelIds.add(String(o.id)));
+            if(ords.length<50)break; // no hay más páginas
+          }
+        }
+        if(!cancelIds.size)continue;
         S.orders=S.orders.map(o=>{
           if(o.acct!==acct.id)return o;
           if(cancelIds.has(String(o.id))&&o.estadoML!=='cancelled'&&o.estado!=='cancelled'){
@@ -3687,10 +3696,10 @@ async function runReconcile(force=false){
         });
       }
       if(canceladas>0){
-        toast(`✓ ${canceladas} órdenes actualizadas a canceladas`,'ok');
+        toast(`✓ ${canceladas} órdenes marcadas como canceladas`,'ok');
         await saveCache();renderAll();
-      } else if(force){
-        toast('✓ Sin cambios en canceladas','ok');
+      } else {
+        toast('✓ Sin canceladas nuevas en los últimos 60 días','ok');
       }
     }
   }catch(e){console.warn('[reconcile canceladas]',e.message);}
