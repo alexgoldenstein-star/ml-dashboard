@@ -16632,6 +16632,19 @@ window._dbg={
   },
   activoCount:function(){return S.orders.filter(_isActivoOrden).length;},
   totalCount:function(){return S.orders.length;},
+  getToken:function(){
+    // devuelve el token de la primera cuenta activa
+    var accs=S.accounts||[];
+    for(var i=0;i<accs.length;i++){if(accs[i].token)return accs[i].token;}
+    return null;
+  },
+  fetchCanceladas:function(seller_id){
+    var tok=this.getToken();
+    if(!tok){console.error('No token disponible');return;}
+    return fetch('https://niviko-proxy.vercel.app/plataforma/canceladas?seller_id='+(seller_id||'169823966')+'&limit=5',{
+      headers:{'x-ml-token':tok}
+    }).then(function(r){return r.json();}).then(console.log);
+  },
   scriptOK:true
 };
 console.log('[NIVIKO] Script cargado OK. _dbg disponible. Órdenes:', S.orders?S.orders.length:'S no init');
