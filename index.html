@@ -16616,4 +16616,23 @@ window.opCargarAnalisis=function(id){
     +'</div>';
 };
 
+// DEBUG: exponer funciones y estado para diagnóstico desde consola
+window._dbg={
+  isActivo:_isActivoOrden,
+  getOrders:getOrders,
+  getFiltered:getOrdersFiltered,
+  getS:function(){return S;},
+  reconcile:runReconcile,
+  cancelCount:function(){
+    return S.orders.filter(function(o){
+      var ml=['cancelled','returned','refunded','not_delivered'];
+      return ml.includes(o.estadoML)||ml.includes(o.estado);
+    }).length;
+  },
+  activoCount:function(){return S.orders.filter(_isActivoOrden).length;},
+  totalCount:function(){return S.orders.length;},
+  scriptOK:true
+};
+console.log('[NIVIKO] Script cargado OK. _dbg disponible. Órdenes:', S.orders?S.orders.length:'S no init');
+
 </script>
