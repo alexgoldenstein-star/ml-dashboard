@@ -3690,18 +3690,35 @@ async function runReconcile(force=false){
         if(!cancelIds.size)continue;
         S.orders=S.orders.map(o=>{
           if(o.acct!==acct.id)return o;
-          if(cancelIds.has(String(o.id))&&o.estadoML!=='cancelled'&&o.estado!=='cancelled'){
+          const esCancelada=cancelIds.has(String(o.id));
+          const yaMarcada=(o.estadoML==='cancelled'||o.estado==='cancelled');
+          if(esCancelada&&!yaMarcada){
+            // nueva cancelada
             canceladas++;
             return {...o,estado:'cancelled',estadoML:'cancelled',ganancia:0,pub:0};
+          }
+          if(yaMarcada&&(o.ganancia!==0||o.pub!==0)){
+            // ya marcada pero ganancia no reseteada — corregir
+            canceladas++;
+            return {...o,ganancia:0,pub:0};
           }
           return o;
         });
       }
-      if(canceladas>0){
-        toast(`✓ ${canceladas} órdenes marcadas como canceladas`,'ok');
+      // Limpiar TODAS las canceladas que tengan ganancia != 0 (independiente del rango)
+      let limpiezas=0;
+      S.orders=S.orders.map(o=>{
+        if((o.estadoML==='cancelled'||o.estado==='cancelled')&&(o.ganancia!==0||o.pub!==0)){
+          limpiezas++;
+          return {...o,ganancia:0,pub:0};
+        }
+        return o;
+      });
+      if(canceladas>0||limpiezas>0){
+        toast(`✓ ${canceladas} nuevas + ${limpiezas} corregidas`,'ok');
         await saveCache();renderAll();
       } else {
-        toast('✓ Sin canceladas nuevas en los últimos 60 días','ok');
+        toast('✓ Sin cambios en canceladas','ok');
       }
     }
   }catch(e){console.warn('[reconcile canceladas]',e.message);}
