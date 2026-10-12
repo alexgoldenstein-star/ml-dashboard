@@ -16734,6 +16734,63 @@ window._dbg={
       return results;
     });
   },
+  fetchPack:function(packId,acctId){
+    // Trae todas las órdenes de un pack desde ML API
+    var tok;
+    if(acctId){
+      var acc=(S.accounts||[]).find(function(a){return a.id===acctId;});
+      tok=acc?acc.token:null;
+    }
+    if(!tok)tok=this.getToken();
+    if(!tok){console.error('No token');return Promise.reject('no token');}
+    return fetch(PROXY+'/plataforma/pack/'+packId,{headers:{'x-ml-token':tok}})
+      .then(function(r){return r.json();});
+  },
+  analizarCanceladasConPack:function(n){
+    // Para cada cancelada con pack_id, consulta el pack en ML API
+    // para ver si tiene órdenes hermanas activas (paid/confirmed)
+    var self=this;
+    n=n||20;
+    return self.investigarSplit(n).then(function(results){
+      var conPack=results.filter(function(r){return r.pack_id;});
+      if(!conPack.length){console.log('No hay canceladas con pack_id');return;}
+      console.log('\n=== Consultando',conPack.length,'packs en ML API ===');
+      return Promise.all(conPack.map(function(r){
+        var acc=(S.accounts||[]).find(function(a){return a.id===r.acct;});
+        var tok=acc?acc.token:self.getToken();
+        return fetch(PROXY+'/plataforma/pack/'+r.pack_id,{headers:{'x-ml-token':tok}})
+          .then(function(res){return res.json();})
+          .then(function(pack){
+            var hermanas=(pack.orders||[]).filter(function(o){
+              return String(o.id)!==String(r.id); // excluir la propia orden cancelada
+            });
+            var activas=hermanas.filter(function(o){
+              return o.status&&o.status!=='cancelled';
+            });
+            return {
+              cancelada_id:r.id, acct:r.acct,
+              pack_id:r.pack_id,
+              total_cancelada:r.total||0,
+              ordenes_en_pack:pack.orders?pack.orders.length:0,
+              hermanas_activas:activas.length,
+              total_hermanas:activas.reduce(function(s,o){return s+(o.total||0);},0),
+              hermanas_ids:activas.map(function(o){return o.id;}).join(',')
+            };
+          }).catch(function(e){return {cancelada_id:r.id,error:e.message};});
+      })).then(function(rows){
+        console.log('\n=== RESULTADO SPLIT ANALYSIS ===');
+        console.table(rows);
+        var totalCanceladas=rows.reduce(function(s,r){return s+(r.total_cancelada||0);},0);
+        var totalHermanas=rows.reduce(function(s,r){return s+(r.total_hermanas||0);},0);
+        var sinHermana=rows.filter(function(r){return !r.hermanas_activas;});
+        console.log('Total $ canceladas analizadas: $'+totalCanceladas.toLocaleString('es-AR'));
+        console.log('Total $ hermanas activas (reemplazantes): $'+totalHermanas.toLocaleString('es-AR'));
+        console.log('Sin hermana activa (cancelaciones reales):',sinHermana.length);
+        console.log('Con hermanas (splits/packs):',rows.length-sinHermana.length);
+        return {rows,totalCanceladas,totalHermanas,sinHermana};
+      });
+    });
+  },
   scriptOK:true
 };
 console.log('[NIVIKO] Script cargado OK. _dbg disponible. Órdenes:', S.orders?S.orders.length:'S no init');
