@@ -274,6 +274,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
               <option value="Full">Full</option>
               <option value="Correo">Correo</option>
             </select>
+            <div id="origenChips" style="display:flex;gap:4px;align-items:center"></div>
             <button id="envioBonifBtn" class="btn-g btn-sm" onclick="toggleEnvioBonifMode()" title="Activar/desactivar costo de envío bonificado" style="font-size:10px"></button>
             <button class="btn-g btn-sm" onclick="exportCSV()">CSV</button>
           </div>
@@ -295,13 +296,17 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
     <!-- RENTABILIDAD -->
     <div class="page" id="page-rent">
       <div class="g4" id="rentKpi"></div>
+      <div class="card" style="padding:14px">
+        <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Por origen de productos</div>
+        <div id="rentOrigen" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+      </div>
       <div class="g2">
         <div class="card"><div class="ch"><span class="ct">% por cuenta</span></div><div id="rentBars"></div></div>
         <div class="card"><div class="ch"><span class="ct">Composición costos</span></div><div id="costBars"></div></div>
       </div>
       <div class="card"><div class="ch"><span class="ct">Por producto</span></div>
         <div class="tbl-wrap"><table class="tbl"><thead><tr>
-          <th>SKU</th><th>Descripción</th>
+          <th>SKU</th><th>Descripción</th><th title="Origen">Orig.</th>
           <th onclick="sortRent('costo')" style="cursor:pointer" title="Ordenar">Costo <span id="rs_costo"></span></th>
           <th onclick="sortRent('u')" style="cursor:pointer" title="Ordenar">Unid. <span id="rs_u"></span></th>
           <th onclick="sortRent('v')" style="cursor:pointer" title="Ordenar">Venta <span id="rs_v"></span></th>
@@ -2695,8 +2700,16 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
       <div style="flex:1"><label class="lbl">Costo USD</label><input class="inp" id="mp_usd" type="number" placeholder="0" oninput="calcARS()"></div>
       <div style="flex:1"><label class="lbl">Costo ARS</label><input class="inp" id="mp_ars" type="number" placeholder="0"></div>
     </div>
-    <label class="lbl">Paga publicidad ML</label>
-    <select class="inp" id="mp_pub" style="margin-bottom:10px"><option value="si">Sí (5%)</option><option value="no">No</option></select>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="flex:1"><label class="lbl">Paga publicidad ML</label>
+        <select class="inp" id="mp_pub"><option value="si">Sí (5%)</option><option value="no">No</option></select></div>
+      <div style="flex:1"><label class="lbl">Origen</label>
+        <select class="inp" id="mp_origen"><option value="">— Sin clasificar —</option><option value="importado">Importado (USD)</option><option value="local">Local (ARS)</option></select></div>
+    </div>
+    <div id="mp_historial_costo" style="display:none;margin-bottom:10px;padding:8px;background:var(--s3);border-radius:var(--r);font-size:11px">
+      <div style="color:var(--t2);margin-bottom:4px">Historial de costos</div>
+      <div id="mp_historial_lista" style="color:var(--t3)"></div>
+    </div>
     <label class="lbl">Rubro</label>
     <select class="inp" id="mp_rubro" style="margin-bottom:10px">
       <option value="">— Auto-detectar desde ML —</option>
@@ -2764,7 +2777,7 @@ const S={
   accounts:[],orders:[],products:[],zonas:{},
   prodEdits:{},zonaEdits:{},
   cfg:{dolar:1500,com:14,pub:5,iibb:4,umbral:33000,c1:3330,c2:5355,c3:6600,cid:"",csec:""},
-  vPage:0,vPer:50,vFilter:"",vModal:"",vSort:{col:"fecha",dir:-1},
+  vPage:0,vPer:50,vFilter:"",vModal:"",vOrigen:"",vSort:{col:"fecha",dir:-1},
   pFilter:"",
   zFilter:"",zCord:"",zPage:0,zPer:50,zSort:{col:"loc",dir:1},
   mTab:"cat",loading:false,
@@ -2821,6 +2834,12 @@ async function init(){
     // Si la calculadora está abierta, refrescar el selector
     if(document.getElementById('page-calc')?.classList.contains('on')) renderCalc();
   }catch(e){console.warn("products",e);}
+
+  // Historial de costos: costo vigente por fecha para no reescribir el pasado
+  try{
+    const ch=await fb.get('costos_historial');
+    S.costosHistorial=ch&&typeof ch==='object'?ch:{};
+  }catch(e){ S.costosHistorial={}; console.warn('costos_historial',e); }
 
   // Zonas: proxy base + edits Firebase
   try{
@@ -2976,7 +2995,15 @@ function applyProductCosts(orders){
   return orders.map(o=>{
     const p = S.products.find(x=>x.sku===o.sku);
     if(!p || !p.ars) return o; // sin producto o costo 0: no tocar
-    const costo = p.ars * (o.unidades||1);
+    // Buscar costo vigente en la fecha de la orden (historial de costos)
+    let arsVigente=p.ars;
+    const hist=S.costosHistorial?.[p.sku];
+    if(hist&&hist.length&&o.fecha){
+      // Ordenar por fecha ascendente y tomar el último que sea <= fecha de la orden
+      const sorted=[...hist].sort((a,b)=>a.desde.localeCompare(b.desde));
+      for(const h of sorted){ if(h.desde<=o.fecha&&h.ars>0) arsVigente=h.ars; }
+    }
+    const costo = arsVigente * (o.unidades||1);
     const ivaPct = p.iva/100;
     const iva = Math.round(o.venta - o.venta/(1+ivaPct));
     const ventaSinIva = o.venta - iva;
@@ -3953,10 +3980,17 @@ function drawDonut(accts,fO){
 }
 
 // ── VENTAS ────────────────────────────────────────────────────
+function getProdOrigen(sku){
+  const edits=S.prodEdits||{};const pe=edits[sku];if(pe?.origen)return pe.origen;
+  const hist=S.costosHistorial?.[sku];
+  if(hist?.length){const sorted=[...hist].sort((a,b)=>b.desde.localeCompare(a.desde));for(const h of sorted){if(h.origen)return h.origen;}}
+  return '';
+}
 function getFilteredV(){
   let o=getOrders();
   if(S.vFilter){const f=S.vFilter.toLowerCase();o=o.filter(x=>(x.sku||"").toLowerCase().includes(f)||(x.desc||"").toLowerCase().includes(f)||(x.ciudad||"").toLowerCase().includes(f));}
   if(S.vModal)o=o.filter(x=>x.modal===S.vModal);
+  if(S.vOrigen)o=o.filter(x=>getProdOrigen(x.sku)===S.vOrigen);
   const{col,dir}=S.vSort;
   return[...o].sort((a,b)=>{const av=a[col]??0,bv=b[col]??0;return typeof av==="string"?av.localeCompare(bv)*dir:(av-bv)*dir;});
 }
@@ -3965,14 +3999,21 @@ function renderVentas(){
   const v=o.reduce((s,x)=>s+x.venta,0),g=o.reduce((s,x)=>s+x.ganancia,0);
   const fl=o.filter(x=>x.modal==="Flex"),fu=o.filter(x=>x.modal==="Full"),co=o.filter(x=>x.modal==="Correo");
   const bc=g>=0?"up":"dn";
+  // Origin breakdown
+  const oLocal=o.filter(x=>getProdOrigen(x.sku)==='local'),oImp=o.filter(x=>getProdOrigen(x.sku)==='importado'),oNc=o.filter(x=>!getProdOrigen(x.sku));
+  const vLoc=oLocal.reduce((s,x)=>s+x.venta,0),gLoc=oLocal.reduce((s,x)=>s+x.ganancia,0);
+  const vImp=oImp.reduce((s,x)=>s+x.venta,0),gImp=oImp.reduce((s,x)=>s+x.ganancia,0);
+  const activeOrig=S.vOrigen;
+  const chipStyle=(val)=>'cursor:pointer;font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid '+(activeOrig===val?'var(--acc)':'var(--s4)')+';background:'+(activeOrig===val?'var(--acc)22':'transparent')+';color:'+(activeOrig===val?'var(--acc)':'var(--t2)')+';transition:.15s';
   document.getElementById("ventasKpi").innerHTML=
     '<div class="kpi grn"><div class="kl">Facturación</div><div class="kv">'+fS(v)+'</div><div class="ks">'+o.length+' órdenes</div></div>'+
     '<div class="kpi acc"><div class="kl">Ganancia</div><div class="kv">'+fS(g)+'</div><div class="badge '+bc+'">'+pct(v>0?g/v:0)+'</div></div>'+
-    '<div class="kpi grn" style="--before:var(--grn)"><div class="kl">Flex</div><div class="kv">'+fl.length+'</div><div class="ks">'+pct(o.length?fl.length/o.length:0)+'</div></div>'+
-    '<div class="kpi blu"><div class="kl">Full</div><div class="kv">'+fu.length+'</div><div class="ks">'+pct(o.length?fu.length/o.length:0)+'</div></div>';
+    '<div class="kpi" style="background:var(--s2);border:1px solid var(--s4)"><div class="kl" style="display:flex;align-items:center;gap:6px">Local <span onclick="filterOrigen(\'local\')" style="'+chipStyle('local')+'">▼</span></div><div class="kv" style="font-size:16px">'+fS(vLoc)+'</div><div class="ks">'+pct(vLoc>0?gLoc/vLoc:0)+' gan · '+oLocal.length+' ords</div></div>'+
+    '<div class="kpi" style="background:var(--s2);border:1px solid var(--s4)"><div class="kl" style="display:flex;align-items:center;gap:6px">Importado <span onclick="filterOrigen(\'importado\')" style="'+chipStyle('importado')+'">▼</span></div><div class="kv" style="font-size:16px">'+fS(vImp)+'</div><div class="ks">'+pct(vImp>0?gImp/vImp:0)+' gan · '+oImp.length+' ords</div></div>';
   renderVentasTable();
 }
 function renderVentasTable(){
+  renderOrigenChips();
   const all=getFilteredV(),s0=S.vPage*S.vPer;
   const page=all.slice(s0,s0+S.vPer);
   const mc={Flex:"var(--grn)",Full:"var(--blu)",Correo:"var(--org)"};
@@ -4010,6 +4051,15 @@ function renderVentasTable(){
 window.changePage=n=>{S.vPage=Math.max(0,S.vPage+n);renderVentasTable();};
 window.filterV=v=>{S.vFilter=v;S.vPage=0;renderVentasTable();};
 window.filterModal=v=>{S.vModal=v;S.vPage=0;renderVentasTable();};
+window.filterOrigen=v=>{S.vOrigen=S.vOrigen===v?'':v;S.vPage=0;renderOrigenChips();renderVentasTable();};
+function renderOrigenChips(){
+  const el=document.getElementById('origenChips');if(!el)return;
+  const chips=[{v:'',l:'Todos'},{ v:'local',l:'🏠 Local'},{v:'importado',l:'📦 Importado'}];
+  el.innerHTML=chips.map(c=>{
+    const act=S.vOrigen===c.v;
+    return'<span onclick="filterOrigen(\''+c.v+'\')" style="cursor:pointer;font-size:10px;padding:2px 8px;border-radius:12px;border:1px solid '+(act?'var(--acc)':'var(--s4)')+';background:'+(act?'var(--acc)22':'transparent')+';color:'+(act?'var(--acc)':'var(--t3)')+';white-space:nowrap;transition:.15s">'+c.l+'</span>';
+  }).join('');
+}
 window.sV=col=>{S.vSort.dir=S.vSort.col===col?-S.vSort.dir:-1;S.vSort.col=col;S.vPage=0;renderVentasTable();};
 window.exportCSV=()=>{
   const rows=getFilteredV();
@@ -4101,6 +4151,28 @@ function renderRent(){
     '<div class="kpi grn"><div class="kl">Facturación</div><div class="kv">'+fS(v)+'</div></div>'+
     '<div class="kpi red"><div class="kl">Costo productos</div><div class="kv">'+fS(costo)+'</div><div class="ks">'+pct(v>0?costo/v:0)+'</div></div>'+
     '<div class="kpi org"><div class="kl">Comisiones ML</div><div class="kv">'+fS(com)+'</div><div class="ks">'+pct(v>0?com/v:0)+'</div></div>';
+
+  // Origin comparison block
+  const oLoc=o.filter(x=>getProdOrigen(x.sku)==='local'),oImp2=o.filter(x=>getProdOrigen(x.sku)==='importado'),oNcl=o.filter(x=>!getProdOrigen(x.sku));
+  const origBlocks=[
+    {l:'🏠 Local',arr:oLoc,color:'var(--grn)'},
+    {l:'📦 Importado',arr:oImp2,color:'var(--blu)'},
+    ...(oNcl.length?[{l:'Sin clasificar',arr:oNcl,color:'var(--t3)'}]:[])
+  ];
+  const rentOrigenEl=document.getElementById('rentOrigen');
+  if(rentOrigenEl){
+    rentOrigenEl.innerHTML=origBlocks.map(b=>{
+      const bv=b.arr.reduce((s,x)=>s+x.venta,0),bg=b.arr.reduce((s,x)=>s+x.ganancia,0);
+      const bpct=bv>0?bg/bv:0,bc2=bg>=0?'var(--grn)':'var(--red)';
+      return'<div style="flex:1;min-width:160px;padding:12px;background:var(--s2);border-radius:var(--r);border:1px solid '+b.color+'44">'+
+        '<div style="font-size:12px;font-weight:600;color:'+b.color+';margin-bottom:6px">'+b.l+'</div>'+
+        '<div style="font-size:18px;font-weight:700;margin-bottom:2px">'+fS(bv)+'</div>'+
+        '<div style="font-size:11px;color:var(--t2)">'+b.arr.length+' órdenes</div>'+
+        '<div style="font-size:13px;font-weight:600;color:'+bc2+';margin-top:4px">'+fS(bg)+' <span style="font-size:10px;font-weight:400">('+pct(bpct)+')</span></div>'+
+        '</div>';
+    }).join('');
+  }
+
   const accts=['GBA','BHO','IURA','GBS'];
   const rA={};accts.forEach(a=>{const oa=S.orders.filter(x=>x.acct===a&&_isActivoOrden(x));const va=oa.reduce((s,x)=>s+x.venta,0);rA[a]=va>0?oa.reduce((s,x)=>s+x.ganancia,0)/va:0;});
   const maxR=Math.max(...Object.values(rA).map(Math.abs),.01);
@@ -4121,12 +4193,15 @@ function renderRent(){
     if(el)el.textContent=_rentSort.col===c?(_rentSort.dir===-1?' ↓':' ↑'):'';
   });
   let rH='';
+  const origenLabel={local:'🏠',importado:'📦'};
   rows.forEach(({sku,d})=>{
     const cls=d.v>0&&d.g/d.v>.15?'g':d.g<0?'r':'m';
     const pp=S.products.find(p=>p.sku===sku);
+    const orig=getProdOrigen(sku);
     rH+='<tr>'+
       '<td><span class="sku">'+esc(sku)+'</span></td>'+
       '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)">'+esc(d.desc)+'</td>'+
+      '<td style="text-align:center;font-size:13px" title="'+(orig||'Sin clasificar')+'">'+(origenLabel[orig]||'<span style="color:var(--t4)">·</span>')+'</td>'+
       '<td class="mono">'+(pp?fF(pp.ars):'—')+'</td>'+
       '<td>'+d.u+'</td>'+
       '<td class="mono">'+fF(d.v)+'</td>'+
@@ -4362,6 +4437,16 @@ window.editProd=sku=>{
   const cbmEl=document.getElementById("mp_cbm"); if(cbmEl) cbmEl.value=p.cbm||'';
   const _pa_=document.getElementById("mp_peso_aforado"); if(_pa_) _pa_.value=p.peso_aforado||'';
   const rubroEl=document.getElementById("mp_rubro"); if(rubroEl) rubroEl.value=p.rubro||'';
+  const origenEl=document.getElementById("mp_origen"); if(origenEl) origenEl.value=p.origen||'';
+  // Mostrar historial de costos si existe
+  const hist=S.costosHistorial?.[sku];
+  const histDiv=document.getElementById("mp_historial_costo");
+  const histLista=document.getElementById("mp_historial_lista");
+  if(hist&&hist.length&&histDiv&&histLista){
+    histDiv.style.display='block';
+    const sorted=[...hist].sort((a,b)=>b.desde.localeCompare(a.desde));
+    histLista.innerHTML=sorted.map(h=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid var(--b1)"><span>${h.desde}</span><span style="color:var(--t1)">$${Math.round(h.ars).toLocaleString('es-AR')}${h.usd?` / U$S${h.usd}`:''}${h.origen?` · ${h.origen}`:''}</span></div>`).join('');
+  } else if(histDiv){ histDiv.style.display='none'; }
   openModal("mProd");
 };
 window.delProd=async sku=>{
@@ -4382,10 +4467,24 @@ window.saveProd=async()=>{
   const cbm=parseFloat(document.getElementById("mp_cbm")?.value)||0;
   const pesoAf=parseFloat(document.getElementById("mp_peso_aforado")?.value)||0;
   const rubro=document.getElementById("mp_rubro")?.value||'';
-  const prod={sku,desc,usd:parseFloat(document.getElementById("mp_usd").value)||0,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{}),...(pesoAf?{peso_aforado:pesoAf}:{}),...(rubro?{rubro}:{rubro:undefined})};
+  const usd=parseFloat(document.getElementById("mp_usd").value)||0;
+  const origen=document.getElementById("mp_origen")?.value||'';
+  const prod={sku,desc,usd,ars,iva:parseFloat(document.getElementById("mp_iva").value)||21,pub:document.getElementById("mp_pub").value!=="no",pack:parseInt(document.getElementById("mp_pack").value)||packFromSku(sku),...(udsPedido?{uds_pedido:udsPedido}:{}),...(cbm?{cbm}:{}),...(pesoAf?{peso_aforado:pesoAf}:{}),...(rubro?{rubro}:{rubro:undefined}),...(origen?{origen}:{})};
   // Limpiar rubroAuto si se asignó rubro manual
   if(rubro){ const p=S.products.find(x=>x.sku===sku); if(p) delete p.rubroAuto; }
   S.prodEdits[sku]=prod;
+  // Registrar en historial de costos si cambió el costo ARS
+  if(!S.costosHistorial) S.costosHistorial={};
+  const histExist=S.costosHistorial[sku]||[];
+  const hoy=new Date().toISOString().split('T')[0];
+  const ultimoHist=histExist[histExist.length-1];
+  const arsAnterior=S.products.find(x=>x.sku===sku)?.ars||0;
+  if(!ultimoHist||ultimoHist.ars!==ars){
+    // Costo cambió o es primera vez: agregar entrada
+    const nuevaEntrada={desde:hoy,ars,...(usd?{usd}:{}),...(origen?{origen}:{})};
+    S.costosHistorial[sku]=[...histExist,nuevaEntrada];
+    await fb.set('costos_historial/'+sku,S.costosHistorial[sku]).catch(()=>{});
+  }
   const idx=S.products.findIndex(x=>x.sku===sku);
   if(idx>=0)S.products[idx]={...S.products[idx],...prod};else S.products.push(prod);
   const btn=document.getElementById("saveProdBtn");if(btn)btn.disabled=true;
