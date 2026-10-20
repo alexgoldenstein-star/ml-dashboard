@@ -407,6 +407,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
         <div class="tab"     onclick="sPlatTab('descuentos',this)">Descuentos</div>
         <div class="tab"     onclick="sPlatTab('medidas',this)">📦 Envíos y Medidas</div>
         <div class="tab"     onclick="sPlatTab('canceladas',this)">❌ Canceladas</div>
+        <div class="tab"     onclick="sPlatTab('replicar',this)">🔁 Replicar / Publicar</div>
       </div>
       <div id="platCont" style="margin-top:12px"></div>
     </div>
@@ -5309,6 +5310,7 @@ window.renderPlataforma = function(){
   else if(_platTab==='descuentos') renderDescuentos(el, accounts);
   else if(_platTab==='medidas') renderMedidas(el, accounts);
   else if(_platTab==='canceladas') renderCanceladas(el);
+  else if(_platTab==='replicar') renderReplicar(el, accounts);
 };
 
 window.sPlatTab = function(t,el){
