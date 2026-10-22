@@ -177,6 +177,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
     <div class="ni" data-p="oportunidades"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3"/><circle cx="8" cy="11" r=".5" fill="currentColor"/></svg> Oportunidades</div>
 <div class="ni" data-p="stock"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="14" height="10" rx="1.5"/><path d="M4 4V3a2 2 0 0 1 4 0v1M8 4V3a2 2 0 0 1 4 0v1"/><path d="M5 9h2M9 9h2M5 12h6"/></svg> Stock</div>
 <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
+    <div class="ni" data-p="galpon"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="6" width="14" height="9" rx="1"/><path d="M1 6l7-5 7 5"/><path d="M6 15v-5h4v5"/></svg>El Galpón</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
     <div class="ns">Sistema</div>
     <div class="ni" data-p="cuentas"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M1 14c0-3.3 3.1-6 7-6s7 2.7 7 6"/></svg>Cuentas ML</div>
@@ -343,6 +344,12 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
             <option value="">Todos los rubros</option>
             <option value="__sin_asignar__">⚠ Sin asignar</option>
           </select>
+          <select class="inp" id="prodFiltroOrigen" onchange="renderProds()" style="font-size:11px;padding:4px 8px">
+            <option value="">Todos los orígenes</option>
+            <option value="importado">📦 Importado</option>
+            <option value="local">🏪 Local</option>
+            <option value="__sin__">⚠ Sin clasificar</option>
+          </select>
         </div>
 
         <!-- Barra de acción masiva -->
@@ -362,7 +369,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
 
         <div class="tbl-wrap"><table class="tbl"><thead><tr>
           <th style="width:24px"><input type="checkbox" id="prod_check_all" onchange="prodToggleAll(this.checked)"></th>
-          <th>SKU</th><th>Descripción</th><th>Rubro</th><th>USD</th><th>ARS</th><th>IVA</th><th>Pub.</th><th>Ventas</th><th>Peso Aforado (kg)</th><th>Ganancia</th><th>%</th><th></th>
+          <th>SKU</th><th>Descripción</th><th>Rubro</th><th>Origen</th><th>USD</th><th>ARS</th><th>IVA</th><th>Pub.</th><th>Ventas</th><th>Peso Aforado (kg)</th><th>Ganancia</th><th>%</th><th></th>
         </tr></thead><tbody id="prodBody"></tbody></table></div>
       </div>
     </div>
@@ -408,6 +415,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
         <div class="tab"     onclick="sPlatTab('medidas',this)">📦 Envíos y Medidas</div>
         <div class="tab"     onclick="sPlatTab('canceladas',this)">❌ Canceladas</div>
         <div class="tab"     onclick="sPlatTab('replicar',this)">🔁 Replicar / Publicar</div>
+        <div class="tab"     onclick="sPlatTab('promociones',this)">🏷️ Promociones</div>
       </div>
       <div id="platCont" style="margin-top:12px"></div>
     </div>
@@ -2223,6 +2231,9 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
       </div>
     </div>
 
+    <!-- EL GALPON -->
+    <div class="page" id="page-galpon"></div>
+
     <!-- CALCULADORA -->
     <div class="page" id="page-calc">
       <div style="max-width:680px;margin:0 auto">
@@ -2750,9 +2761,10 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import{initializeApp,getApps,getApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import{getFirestore,doc,getDoc,setDoc,onSnapshot}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import{getDatabase,ref as dbRef,onValue as dbOnValue,push as dbPush,set as dbSet}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const FBCFG={apiKey:"AIzaSyD6ajsts8KXEJeMpwkF_ReVAm2utxVJsN4",authDomain:"niviko-app.firebaseapp.com",projectId:"niviko-app"};
 const PROXY="https://niviko-proxy-weld.vercel.app";
@@ -2906,8 +2918,8 @@ function setupNav(){
     el.addEventListener("click",()=>{goPage(el.dataset.p);closeMob();});
   });
 }
-const TITLES={overview:"Overview",ventas:"Ventas",rent:"Rentabilidad",envios:"Análisis de Envíos",productos:"Productos & Costos",zonas:"Zonas Flex",mercado:"Est. Mercado",ctrl_prod:"Control de Productos",alertas:"A completar",cuentas:"Cuentas ML",gettoken:"Get Token",config:"Configuración",portafolio:"Portafolio de Productos"};
-const NO_FILTER=["config","gettoken","alertas","cuentas"];
+const TITLES={overview:"Overview",ventas:"Ventas",rent:"Rentabilidad",envios:"Análisis de Envíos",productos:"Productos & Costos",zonas:"Zonas Flex",mercado:"Est. Mercado",ctrl_prod:"Control de Productos",alertas:"A completar",cuentas:"Cuentas ML",gettoken:"Get Token",config:"Configuración",portafolio:"Portafolio de Productos",galpon:"El Galpón"};
+const NO_FILTER=["config","gettoken","alertas","cuentas","galpon"];
 
 window.goPage=p=>{
   S.page=p;
@@ -2920,7 +2932,7 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,oportunidades:renderOportunidades,stock:renderStock,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,catalogo:renderCatalogo,fulljaus:renderFulljaus,control:renderControl};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,oportunidades:renderOportunidades,stock:renderStock,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,catalogo:renderCatalogo,fulljaus:renderFulljaus,control:renderControl,galpon:renderGalpon};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
@@ -4239,9 +4251,12 @@ window._prodSeleccionados=window._prodSeleccionados||new Set();
 window.renderProds=function renderProds(){
   const pf=S.pFilter.toLowerCase();
   const filtroRubro=document.getElementById('prodFiltroRubro')?.value||'';
+  const filtroOrigen=document.getElementById('prodFiltroOrigen')?.value||'';
   let p=S.products.filter(x=>!pf||(x.sku||"").toLowerCase().includes(pf)||(x.desc||"").toLowerCase().includes(pf));
   if(filtroRubro==='__sin_asignar__') p=p.filter(x=>!(x.rubro||x.rubroAuto));
   else if(filtroRubro) p=p.filter(x=>(x.rubro||x.rubroAuto||'')===filtroRubro);
+  if(filtroOrigen==='__sin__') p=p.filter(x=>!x.origen);
+  else if(filtroOrigen) p=p.filter(x=>x.origen===filtroOrigen);
 
   const gm={},vm={},um={};
   S.orders.filter(_isActivoOrden).forEach(o=>{gm[o.sku]=(gm[o.sku]||0)+o.ganancia;vm[o.sku]=(vm[o.sku]||0)+o.venta;um[o.sku]=(um[o.sku]||0)+o.unidades;});
@@ -4262,6 +4277,7 @@ window.renderProds=function renderProds(){
       "<td><span class=\"sku\">"+esc(x.sku)+"</span></td>"+
       "<td style=\"max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)\" title=\""+esc(x.desc)+"\">"+esc(x.desc)+"</td>"+
       "<td>"+(rubroId?"<span style=\"font-size:9px;padding:2px 7px;border-radius:8px;background:"+rubroColor+"22;color:"+rubroColor+"\">"+esc(rubroLabel)+(esAuto?" 🤖":"")+"</span>":"<span style=\"font-size:10px;color:var(--org)\">Sin asignar</span>")+"</td>"+
+      "<td>"+(x.origen==="importado"?"<span style=\"font-size:9px;padding:2px 7px;border-radius:8px;background:rgba(77,163,255,.12);color:var(--blu)\">📦 Importado</span>":(x.origen==="local"?"<span style=\"font-size:9px;padding:2px 7px;border-radius:8px;background:rgba(71,232,127,.12);color:var(--grn)\">🏪 Local</span>":"<span style=\"font-size:9px;color:var(--t3)\">—</span>"))+"</td>"+
       "<td class=\"mono\">USD "+x.usd+"</td>"+
       "<td class=\"mono\">$"+Math.round(x.ars).toLocaleString("es-AR")+"</td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.iva==21?"rgba(77,163,255,.1)":"rgba(255,138,77,.1)")+";color:"+(x.iva==21?"var(--blu)":"var(--org)")+"\">"+x.iva+"%</span></td>"+
@@ -4272,7 +4288,7 @@ window.renderProds=function renderProds(){
       "<td><div style=\"display:flex;gap:4px\"><button class=\"btn-icon\" onclick=\"editProd('"+esc(x.sku)+"')\">✎</button><button class=\"btn-icon\" onclick=\"delProd('"+esc(x.sku)+"')\" style=\"color:var(--red)\">✕</button></div></td>"+
       "</tr>";
   });
-  document.getElementById("prodBody").innerHTML=h||'<tr><td colspan="11" style="text-align:center;color:var(--t3);padding:16px">Sin productos</td></tr>';
+  document.getElementById("prodBody").innerHTML=h||'<tr><td colspan="14" style="text-align:center;color:var(--t3);padding:16px">Sin productos</td></tr>';
   // Mostrar badge "Sel. todo" cuando hay filtro de texto activo
   var infoEl=document.getElementById('prodFiltroInfo');
   var btnEl=document.getElementById('prodSelTodoFiltro');
@@ -5311,6 +5327,7 @@ window.renderPlataforma = function(){
   else if(_platTab==='medidas') renderMedidas(el, accounts);
   else if(_platTab==='canceladas') renderCanceladas(el);
   else if(_platTab==='replicar') renderReplicar(el, accounts);
+  else if(_platTab==='promociones') renderPromociones(el, accounts);
 };
 
 window.sPlatTab = function(t,el){
@@ -5569,6 +5586,873 @@ function cancRenderData(ords, el, fromML, motivoMap){
   el.innerHTML=h;
 }
 
+
+// ── EL GALPÓN ─────────────────────────────────────────────────
+// Firebase project: el-galpon-b3cac
+// Canal revendedores/feriantes — ventas via WhatsApp
+// ──────────────────────────────────────────────────────────────
+
+let _galponDB = null;          // Realtime Database EL-GALPON
+let _galponPedidos = [];       // Cache de pedidos cargados
+let _galponProductos = [];     // Catálogo del Galpón
+let _galponUnsubPedidos = null;
+let _galponTab = 'pedidos';    // tab activo en la página del Galpón
+
+// Inicializar Firebase EL-GALPON (lazy, se llama la primera vez que se abre la página)
+async function initGalponFirebase(){
+  if(_galponDB) return _galponDB;
+  try{
+    // Configuración del proyecto el-galpon-b3cac
+    // ⚠️ Reemplazar apiKey con la clave real del proyecto El Galpón
+    const galponConfig={
+      apiKey:"GALPON_API_KEY_HERE",
+      authDomain:"el-galpon-b3cac.firebaseapp.com",
+      databaseURL:"https://el-galpon-b3cac-default-rtdb.firebaseio.com",
+      projectId:"el-galpon-b3cac",
+      storageBucket:"el-galpon-b3cac.firebasestorage.app",
+      appId:"GALPON_APP_ID_HERE",
+    };
+    // Usar segunda app Firebase para no interferir con la principal (niviko-app)
+    const existingApps=getApps();
+    const galApp=existingApps.find(a=>a.name==='galpon')||initializeApp(galponConfig,'galpon');
+    _galponDB=getDatabase(galApp);
+  }catch(e){ console.warn('EL GALPON Firebase init error:',e); }
+  return _galponDB;
+}
+
+// Suscribirse a pedidos en tiempo real
+async function galponSubscribePedidos(){
+  const gdb=await initGalponFirebase();
+  if(!gdb) return;
+  if(_galponUnsubPedidos){ _galponUnsubPedidos(); _galponUnsubPedidos=null; }
+  const pedidosRef=dbRef(gdb,'pedidos');
+  const unsub=dbOnValue(pedidosRef, snap=>{
+    const raw=snap.val()||{};
+    _galponPedidos=Object.entries(raw).map(([id,v])=>({id,...v}));
+    window._galponPedidos=_galponPedidos; // exponer globalmente para renderCanalesIntegrados
+    // Refrescar overview si está activo
+    if(S.page==='overview'&&typeof renderCanalesIntegrados==='function') renderCanalesIntegrados();
+    // Refrescar página galpón si está abierta
+    if(S.page==='galpon') _galponRenderContent();
+  });
+  _galponUnsubPedidos=unsub;
+}
+
+// Cargar catálogo de productos del Galpón (one-time read)
+async function galponLoadProductos(){
+  const gdb=await initGalponFirebase();
+  if(!gdb) return;
+  try{
+    await new Promise((res,rej)=>{
+      const r=dbRef(gdb,'productos');
+      dbOnValue(r, snap=>{
+        _galponProductos=Object.entries(snap.val()||{}).map(([id,v])=>({id,...v}));
+        res();
+      },{onlyOnce:true});
+    });
+  }catch(e){ console.warn('galponLoadProductos',e); }
+}
+
+// ── Render principal de la página Galpón ──
+function renderGalpon(){
+  const el=document.getElementById('page-galpon');
+  if(!el) return;
+  // Init Firebase si todavía no se hizo
+  if(!_galponDB){
+    initGalponFirebase().then(()=>{
+      galponSubscribePedidos();
+      galponLoadProductos();
+    });
+  }
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="font-size:22px">🏚️</span>
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--t1)">El Galpón</div>
+        <div style="font-size:11px;color:var(--t3)">Canal revendedores · ventas vía WhatsApp</div>
+      </div>
+      <span id="galpon_status" style="margin-left:auto;font-size:10px;color:var(--t3)">Conectando…</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" style="margin-bottom:14px">
+      <div class="tab${_galponTab==='pedidos'?' on':''}" onclick="galponSetTab('pedidos',this)">📋 Pedidos</div>
+      <div class="tab${_galponTab==='catalogo'?' on':''}" onclick="galponSetTab('catalogo',this)">📦 Catálogo</div>
+      <div class="tab${_galponTab==='metricas'?' on':''}" onclick="galponSetTab('metricas',this)">📊 Métricas</div>
+      <div class="tab${_galponTab==='nuevo'?' on':''}" onclick="galponSetTab('nuevo',this)">➕ Nuevo pedido</div>
+    </div>
+
+    <div id="galpon_content"></div>`;
+
+  _galponRenderContent();
+}
+
+window.galponSetTab=function(tab,el){
+  _galponTab=tab;
+  document.querySelectorAll('#page-galpon .tab').forEach(t=>t.classList.remove('on'));
+  el?.classList.add('on');
+  _galponRenderContent();
+};
+
+function _galponRenderContent(){
+  const el=document.getElementById('galpon_content');
+  if(!el) return;
+  if(_galponTab==='pedidos') _galponRenderPedidos(el);
+  else if(_galponTab==='catalogo') _galponRenderCatalogo(el);
+  else if(_galponTab==='metricas') _galponRenderMetricas(el);
+  else if(_galponTab==='nuevo') _galponRenderNuevoPedido(el);
+}
+
+// ── Tab: Pedidos ──
+function _galponRenderPedidos(el){
+  const{from:_rf,to:_rt}=getRange();
+  const df=_rf.split('T')[0],dt=_rt.split('T')[0];
+  const peds=(_galponPedidos||[]).filter(p=>{
+    if(!p.fecha) return true;
+    return p.fecha>=df&&p.fecha<=dt;
+  }).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  const totVenta=peds.reduce((s,p)=>s+(p.total||p.venta||0),0);
+  const totGan=peds.reduce((s,p)=>s+(p.ganancia||0),0);
+
+  let h=`
+    <div class="g3" style="margin-bottom:14px">
+      <div class="kpi"><div class="kl">Ventas</div><div class="kv">${fS(Math.round(totVenta))}</div><div class="ks">${peds.length} pedidos</div></div>
+      <div class="kpi grn"><div class="kl">Ganancia</div><div class="kv" style="color:${totGan>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(totGan))}</div></div>
+      <div class="kpi"><div class="kl">Ticket prom.</div><div class="kv">${peds.length>0?fS(Math.round(totVenta/peds.length)):'-'}</div></div>
+    </div>`;
+
+  if(!peds.length){
+    h+='<p style="color:var(--t3);text-align:center;padding:20px">Sin pedidos en el período</p>';
+    el.innerHTML=h; return;
+  }
+
+  h+=`<div class="tbl-wrap"><table class="tbl" style="font-size:11px">
+    <thead><tr>
+      <th>Fecha</th><th>Cliente</th><th>Estado</th><th>Items</th>
+      <th>Total</th><th>Ganancia</th><th>Notas</th><th></th>
+    </tr></thead><tbody>`;
+
+  peds.forEach(p=>{
+    const estadoColor={pendiente:'var(--org)',confirmado:'var(--acc)',enviado:'var(--grn)',entregado:'var(--grn)',cancelado:'var(--red)'}[p.estado]||'var(--t3)';
+    const items=(p.items||[]).map(i=>`${i.qty||1}× ${esc(i.nombre||i.sku||'?')}`).join(', ');
+    h+=`<tr>
+      <td>${p.fecha||'-'}</td>
+      <td style="font-weight:600">${esc(p.cliente||p.nombre||'?')}</td>
+      <td><span style="color:${estadoColor};font-weight:600;text-transform:capitalize">${p.estado||'pendiente'}</span></td>
+      <td style="color:var(--t3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(items)}</td>
+      <td class="mono">${fS(Math.round(p.total||p.venta||0))}</td>
+      <td class="mono" style="color:${(p.ganancia||0)>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(p.ganancia||0))}</td>
+      <td style="color:var(--t3);font-size:10px">${esc(p.nota||p.notas||'')}</td>
+      <td>
+        <button class="btn btn-sm" onclick="galponEditarPedido('${p.id}')" style="font-size:10px">✏️</button>
+      </td>
+    </tr>`;
+  });
+  h+='</tbody></table></div>';
+  el.innerHTML=h;
+
+  // Actualizar status badge
+  const sb=document.getElementById('galpon_status');
+  if(sb) sb.textContent=`${_galponPedidos.length} pedidos cargados`;
+}
+
+// ── Tab: Catálogo ──
+function _galponRenderCatalogo(el){
+  if(!_galponProductos.length){
+    el.innerHTML='<p style="color:var(--t3);text-align:center;padding:20px">Sin productos cargados. <button class="btn btn-sm" onclick="galponLoadProductos().then(()=>_galponRenderContent())">🔄 Recargar</button></p>';
+    return;
+  }
+  let h=`<div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+    <button class="btn btn-sm" onclick="galponLoadProductos().then(()=>_galponRenderContent())">🔄 Actualizar</button>
+  </div>
+  <div class="tbl-wrap"><table class="tbl" style="font-size:11px">
+    <thead><tr><th>SKU</th><th>Nombre</th><th>Precio lista</th><th>Stock</th><th>Activo</th></tr></thead><tbody>`;
+  _galponProductos.forEach(p=>{
+    h+=`<tr>
+      <td class="mono">${esc(p.sku||p.id)}</td>
+      <td>${esc(p.nombre||p.name||'?')}</td>
+      <td class="mono">${fS(p.precio||p.price||0)}</td>
+      <td>${p.stock??'?'}</td>
+      <td>${p.activo!==false?'✅':'❌'}</td>
+    </tr>`;
+  });
+  h+='</tbody></table></div>';
+  el.innerHTML=h;
+}
+
+// ── Tab: Métricas ──
+function _galponRenderMetricas(el){
+  const peds=_galponPedidos||[];
+  if(!peds.length){ el.innerHTML='<p style="color:var(--t3);text-align:center;padding:20px">Sin datos</p>'; return; }
+
+  // Agrupar por mes
+  const byMes={};
+  peds.forEach(p=>{
+    const mes=(p.fecha||'').slice(0,7)||'?';
+    if(!byMes[mes]) byMes[mes]={mes,ventas:0,ganancia:0,ordenes:0};
+    byMes[mes].ventas+=(p.total||p.venta||0);
+    byMes[mes].ganancia+=(p.ganancia||0);
+    byMes[mes].ordenes++;
+  });
+  const meses=Object.values(byMes).sort((a,b)=>a.mes.localeCompare(b.mes));
+
+  // Agrupar por cliente
+  const byCliente={};
+  peds.forEach(p=>{
+    const c=p.cliente||p.nombre||'?';
+    if(!byCliente[c]) byCliente[c]={cliente:c,ventas:0,ordenes:0};
+    byCliente[c].ventas+=(p.total||p.venta||0);
+    byCliente[c].ordenes++;
+  });
+  const clientes=Object.values(byCliente).sort((a,b)=>b.ventas-a.ventas).slice(0,10);
+
+  const totVenta=peds.reduce((s,p)=>s+(p.total||p.venta||0),0);
+  const totGan=peds.reduce((s,p)=>s+(p.ganancia||0),0);
+  const mg=totVenta>0?(totGan/totVenta*100):0;
+
+  let h=`
+    <div class="g4" style="margin-bottom:14px">
+      <div class="kpi acc"><div class="kl">Total histórico</div><div class="kv">${fS(Math.round(totVenta))}</div><div class="ks">${peds.length} pedidos</div></div>
+      <div class="kpi grn"><div class="kl">Ganancia histórica</div><div class="kv" style="color:${totGan>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(totGan))}</div></div>
+      <div class="kpi"><div class="kl">Margen promedio</div><div class="kv" style="color:${mg>=20?'var(--grn)':mg>=10?'var(--org)':'var(--red)'}">${mg.toFixed(1)}%</div></div>
+      <div class="kpi"><div class="kl">Clientes únicos</div><div class="kv">${Object.keys(byCliente).length}</div></div>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <div class="ch"><span class="ct">Ventas por mes</span></div>
+        <table class="tbl" style="font-size:11px"><thead><tr><th>Mes</th><th>Ventas</th><th>Ganancia</th><th>Pedidos</th></tr></thead><tbody>`;
+  meses.forEach(m=>{
+    h+=`<tr><td>${m.mes}</td><td class="mono">${fS(Math.round(m.ventas))}</td><td class="mono" style="color:${m.ganancia>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(m.ganancia))}</td><td>${m.ordenes}</td></tr>`;
+  });
+  h+=`</tbody></table></div>
+      <div class="card">
+        <div class="ch"><span class="ct">Top clientes</span></div>
+        <table class="tbl" style="font-size:11px"><thead><tr><th>Cliente</th><th>Ventas</th><th>Pedidos</th></tr></thead><tbody>`;
+  clientes.forEach(c=>{
+    h+=`<tr><td style="font-weight:600">${esc(c.cliente)}</td><td class="mono">${fS(Math.round(c.ventas))}</td><td>${c.ordenes}</td></tr>`;
+  });
+  h+='</tbody></table></div></div>';
+  el.innerHTML=h;
+}
+
+// ── Tab: Nuevo Pedido ──
+function _galponRenderNuevoPedido(el){
+  el.innerHTML=`
+    <div class="card" style="max-width:560px">
+      <div class="ch"><span class="ct">Registrar pedido</span></div>
+      <label class="lbl">Cliente / Revendedor</label>
+      <input class="inp" id="gal_cliente" placeholder="Nombre del cliente">
+      <label class="lbl">Fecha</label>
+      <input class="inp" id="gal_fecha" type="date" value="${new Date().toISOString().slice(0,10)}">
+      <label class="lbl">Estado</label>
+      <select class="inp" id="gal_estado">
+        <option value="pendiente">Pendiente</option>
+        <option value="confirmado">Confirmado</option>
+        <option value="enviado">Enviado</option>
+        <option value="entregado">Entregado</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+
+      <div class="ch" style="margin-top:12px;margin-bottom:6px"><span class="ct" style="font-size:12px">Items</span><button class="btn btn-sm" onclick="galponAddItem()" style="font-size:10px">+ Agregar</button></div>
+      <div id="gal_items">
+        ${_galponItemRow(0)}
+      </div>
+
+      <label class="lbl" style="margin-top:12px">Total $</label>
+      <input class="inp" id="gal_total" type="number" placeholder="0" oninput="galponCalcGanancia()">
+      <label class="lbl">Costo total $</label>
+      <input class="inp" id="gal_costo" type="number" placeholder="0" oninput="galponCalcGanancia()">
+      <div id="gal_gan_preview" style="font-size:11px;color:var(--t3);margin-top:4px"></div>
+
+      <label class="lbl">Nota / WhatsApp</label>
+      <textarea class="inp" id="gal_nota" rows="2" placeholder="Nota interna o link de conv. WhatsApp" style="resize:vertical"></textarea>
+
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn" onclick="galponGuardarPedido()" style="background:var(--acc);color:#000;font-weight:700">💾 Guardar pedido</button>
+        <button class="btn btn-sm" onclick="galponSetTab('pedidos',null)">Cancelar</button>
+      </div>
+      <div id="gal_save_msg" style="margin-top:8px;font-size:11px"></div>
+    </div>`;
+}
+
+let _galponItemCount=1;
+function _galponItemRow(i){
+  return `<div class="gal-item-row" id="gal_row_${i}" style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+    <input class="inp" id="gal_sku_${i}" placeholder="SKU" style="width:90px;flex-shrink:0">
+    <input class="inp" id="gal_nombre_${i}" placeholder="Producto" style="flex:1">
+    <input class="inp" id="gal_qty_${i}" type="number" value="1" min="1" placeholder="Qty" style="width:55px;flex-shrink:0">
+    <input class="inp" id="gal_precio_${i}" type="number" placeholder="$" style="width:80px;flex-shrink:0">
+    <button onclick="document.getElementById('gal_row_${i}').remove()" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px">✕</button>
+  </div>`;
+}
+
+window.galponAddItem=function(){
+  const cont=document.getElementById('gal_items');
+  if(!cont) return;
+  const i=_galponItemCount++;
+  cont.insertAdjacentHTML('beforeend',_galponItemRow(i));
+};
+
+window.galponCalcGanancia=function(){
+  const total=parseFloat(document.getElementById('gal_total')?.value)||0;
+  const costo=parseFloat(document.getElementById('gal_costo')?.value)||0;
+  const gan=total-costo;
+  const mg=total>0?(gan/total*100):0;
+  const el=document.getElementById('gal_gan_preview');
+  if(el) el.innerHTML=`Ganancia estimada: <b style="color:${gan>=0?'var(--grn)':'var(--red)'}">${fS(Math.round(gan))}</b> · Margen: <b>${mg.toFixed(1)}%</b>`;
+};
+
+window.galponGuardarPedido=async function(){
+  const msgEl=document.getElementById('gal_save_msg');
+  const gdbCheck=await initGalponFirebase();
+  if(!gdbCheck){ if(msgEl) msgEl.innerHTML='<span style="color:var(--red)">Firebase no conectado</span>'; return; }
+
+  const cliente=(document.getElementById('gal_cliente')?.value||'').trim();
+  const fecha=document.getElementById('gal_fecha')?.value||'';
+  const estado=document.getElementById('gal_estado')?.value||'pendiente';
+  const total=parseFloat(document.getElementById('gal_total')?.value)||0;
+  const costo=parseFloat(document.getElementById('gal_costo')?.value)||0;
+  const nota=(document.getElementById('gal_nota')?.value||'').trim();
+
+  if(!cliente){ if(msgEl) msgEl.innerHTML='<span style="color:var(--red)">Ingresá el nombre del cliente</span>'; return; }
+
+  // Recolectar items
+  const items=[];
+  document.querySelectorAll('.gal-item-row').forEach(row=>{
+    const id=row.id.replace('gal_row_','');
+    const sku=(document.getElementById('gal_sku_'+id)?.value||'').trim();
+    const nombre=(document.getElementById('gal_nombre_'+id)?.value||'').trim();
+    const qty=parseInt(document.getElementById('gal_qty_'+id)?.value)||1;
+    const precio=parseFloat(document.getElementById('gal_precio_'+id)?.value)||0;
+    if(nombre||sku) items.push({sku,nombre,qty,precio});
+  });
+
+  const pedido={cliente,fecha,estado,total,costo,ganancia:total-costo,nota,items,ts:Date.now()};
+  try{
+    const gdb=await initGalponFirebase();
+    await dbPush(dbRef(gdb,'pedidos'),pedido);
+    if(msgEl) msgEl.innerHTML='<span style="color:var(--grn)">✅ Pedido guardado</span>';
+    setTimeout(()=>galponSetTab('pedidos',null),1200);
+  }catch(e){
+    if(msgEl) msgEl.innerHTML=`<span style="color:var(--red)">Error: ${esc(e.message)}</span>`;
+  }
+};
+
+window.galponEditarPedido=async function(id){
+  const p=_galponPedidos.find(x=>x.id===id);
+  if(!p) return;
+  // Ir al tab nuevo y pre-rellenar
+  galponSetTab('nuevo',null);
+  // Esperar render
+  await new Promise(r=>setTimeout(r,100));
+  document.getElementById('gal_cliente')&&(document.getElementById('gal_cliente').value=p.cliente||'');
+  document.getElementById('gal_fecha')&&(document.getElementById('gal_fecha').value=p.fecha||'');
+  document.getElementById('gal_estado')&&(document.getElementById('gal_estado').value=p.estado||'pendiente');
+  document.getElementById('gal_total')&&(document.getElementById('gal_total').value=p.total||p.venta||'');
+  document.getElementById('gal_costo')&&(document.getElementById('gal_costo').value=p.costo||'');
+  document.getElementById('gal_nota')&&(document.getElementById('gal_nota').value=p.nota||p.notas||'');
+  // Items adicionales
+  const cont=document.getElementById('gal_items');
+  if(cont&&p.items?.length){
+    cont.innerHTML='';
+    _galponItemCount=0;
+    p.items.forEach(it=>{
+      const i=_galponItemCount++;
+      cont.insertAdjacentHTML('beforeend',_galponItemRow(i));
+      document.getElementById('gal_sku_'+i)&&(document.getElementById('gal_sku_'+i).value=it.sku||'');
+      document.getElementById('gal_nombre_'+i)&&(document.getElementById('gal_nombre_'+i).value=it.nombre||'');
+      document.getElementById('gal_qty_'+i)&&(document.getElementById('gal_qty_'+i).value=it.qty||1);
+      document.getElementById('gal_precio_'+i)&&(document.getElementById('gal_precio_'+i).value=it.precio||'');
+    });
+  }
+  galponCalcGanancia();
+};
+
+// ── PROMOCIONES ──────────────────────────────────────────────
+let _promoItems=[], _promoScroll=null, _promoTotal=0, _promoSel=new Set(), _promoLoading=false;
+
+async function renderPromociones(el, accounts){
+  const acct = accounts[0];
+  _promoSel = new Set();
+  el.innerHTML=`
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">🏷️ Gestión de Promociones y Descuentos</span></div>
+    <p style="font-size:11px;color:var(--t3);margin-bottom:12px">Aplicá precios tachados a tus publicaciones respetando el margen mínimo. El semáforo muestra si el descuento es viable.</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <label style="font-size:11px;color:var(--t2)">Margen mínimo:</label>
+      <input id="promoMargenMin" class="inp" type="number" value="15" min="0" max="80" style="width:60px;font-size:11px" oninput="promoActualizarSemaforos()"> %
+      <label style="font-size:11px;color:var(--t2);margin-left:12px">Descuento rápido:</label>
+      <input id="promoDescPct" class="inp" type="number" value="10" min="1" max="60" style="width:55px;font-size:11px"> %
+      <button class="btn" onclick="promoAplicarSeleccionados()" style="margin-left:4px">🏷️ Aplicar a seleccionados</button>
+      <button class="btn" style="background:var(--s3)" onclick="promoQuitarSeleccionados()">✖ Quitar descuento</button>
+      <span id="promoSelCount" style="font-size:11px;color:var(--t3)"></span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input id="promoFiltro" class="inp" placeholder="Filtrar por SKU o título..." style="flex:1;font-size:11px" oninput="promoFiltrar()">
+      <select id="promoFiltroEstado" class="inp" style="font-size:11px;padding:4px 8px" onchange="promoFiltrar()">
+        <option value="">Todos</option>
+        <option value="con">Con descuento activo</option>
+        <option value="sin">Sin descuento</option>
+      </select>
+    </div>
+  </div>
+  <div id="promoTabla"></div>
+  <div id="promoMore" style="text-align:center;margin-top:10px;display:none">
+    <button class="btn" onclick="promoCargarMas()">Cargar más publicaciones</button>
+    <span id="promoTotalLabel" style="font-size:11px;color:var(--t3);margin-left:8px"></span>
+  </div>`;
+  await promoCargar(acct, true);
+}
+
+async function promoCargar(acct, reset=false){
+  if(_promoLoading) return;
+  _promoLoading=true;
+  const tabla=document.getElementById('promoTabla');
+  if(reset){ _promoItems=[]; _promoScroll=null; if(tabla) tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Cargando publicaciones...</div>'; }
+  try{
+    const qs=`seller_id=${acct.userId}&limit=50`+(reset?'':(_promoScroll?`&scroll_id=${_promoScroll}`:''));
+    const r=await fetch(PROXY+'/promociones/items?'+qs,{headers:{'x-ml-token':acct.token}});
+    const d=await r.json();
+    if(reset) _promoItems=d.items||[];
+    else _promoItems=[..._promoItems,...(d.items||[])];
+    _promoScroll=d.scroll_id||null;
+    _promoTotal=d.total||_promoItems.length;
+    promoRenderTabla();
+  }catch(e){
+    if(tabla) tabla.innerHTML='<div style="color:var(--red);font-size:12px;padding:16px">Error cargando items: '+e.message+'</div>';
+  }
+  _promoLoading=false;
+}
+
+function promoCargarMas(){
+  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  if(acct) promoCargar(acct,false);
+}
+
+function promoFiltrar(){ promoRenderTabla(); }
+
+function promoActualizarSemaforos(){ promoRenderTabla(); }
+
+function promoRenderTabla(){
+  const tabla=document.getElementById('promoTabla');
+  if(!tabla) return;
+  const margenMin=parseFloat(document.getElementById('promoMargenMin')?.value||15);
+  const filtroTxt=(document.getElementById('promoFiltro')?.value||'').toLowerCase();
+  const filtroEst=document.getElementById('promoFiltroEstado')?.value||'';
+  const descPct=parseFloat(document.getElementById('promoDescPct')?.value||10)/100;
+
+  let items=_promoItems.filter(it=>{
+    if(filtroTxt && !it.titulo.toLowerCase().includes(filtroTxt) && !(it.sku||'').toLowerCase().includes(filtroTxt)) return false;
+    if(filtroEst==='con' && !it.descuento_activo) return false;
+    if(filtroEst==='sin' && it.descuento_activo) return false;
+    return true;
+  });
+
+  // Actualizar contador seleccionados
+  const selCount=document.getElementById('promoSelCount');
+  if(selCount) selCount.textContent=_promoSel.size>0?`${_promoSel.size} seleccionado${_promoSel.size>1?'s':''}` :'';
+
+  // More button
+  const moreDiv=document.getElementById('promoMore');
+  const totalLabel=document.getElementById('promoTotalLabel');
+  if(moreDiv) moreDiv.style.display=(_promoScroll&&_promoItems.length<_promoTotal)?'block':'none';
+  if(totalLabel) totalLabel.textContent=`${_promoItems.length} de ${_promoTotal} publicaciones`;
+
+  if(!items.length){ tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Sin publicaciones que coincidan.</div>'; return; }
+
+  const rows=items.map(it=>{
+    const precioConDesc=Math.round(it.precio*(1-descPct));
+    // Calcular margen aproximado con el descuento propuesto
+    const comisionEst=precioConDesc*0.14;
+    const iibbEst=precioConDesc*0.04;
+    const ivaEst=precioConDesc-(precioConDesc/1.21);
+    const margenConDesc=it.costo!=null&&precioConDesc>0
+      ? Math.round(((precioConDesc-it.costo-comisionEst-iibbEst-ivaEst)/precioConDesc)*100)
+      : null;
+    const viable= margenConDesc==null ? null : margenConDesc>=margenMin;
+    const semaforo= viable==null ? '⚪' : (viable ? '🟢' : '🔴');
+    const sel=_promoSel.has(it.id);
+    const descActualBadge=it.descuento_activo
+      ? `<span style="font-size:9px;padding:2px 6px;border-radius:8px;background:rgba(255,170,0,.15);color:var(--org)">-${it.pct_descuento_actual}% activo</span>`
+      : '';
+    return `<tr style="cursor:pointer;background:${sel?'rgba(77,163,255,.07)':''}">
+      <td onclick="promoToggleSel('${it.id}',this.closest('tr'))">
+        <input type="checkbox" ${sel?'checked':''} style="margin:0;cursor:pointer" onchange="promoToggleSel('${it.id}',this.closest('tr'))" onclick="event.stopPropagation()">
+      </td>
+      <td onclick="promoToggleSel('${it.id}',this.closest('tr'))">
+        <img src="${it.thumbnail||''}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;display:block">
+      </td>
+      <td onclick="promoToggleSel('${it.id}',this.closest('tr'))">
+        <div style="font-size:11px;font-weight:500;line-height:1.3;max-width:280px">${it.titulo}</div>
+        <div style="font-size:10px;color:var(--t3)">${it.sku||it.id} · Stock: ${it.stock}</div>
+        ${descActualBadge}
+      </td>
+      <td class="mono r">${fS(it.precio)}</td>
+      <td class="mono r" style="color:var(--org)">${fS(precioConDesc)}</td>
+      <td style="text-align:center;font-size:13px">${semaforo}</td>
+      <td class="mono r" style="font-size:11px;color:${margenConDesc==null?'var(--t3)':margenConDesc>=margenMin?'var(--grn)':'var(--red)'}">
+        ${margenConDesc!=null?margenConDesc+'%':'—'}
+      </td>
+      <td>
+        <button class="btn-g btn-sm" onclick="promoAplicarUno('${it.id}',${it.precio},event)" style="font-size:10px">Aplicar</button>
+        ${it.descuento_activo?`<button class="btn-g btn-sm" onclick="promoQuitarUno('${it.id}',event)" style="font-size:10px;margin-left:4px">Quitar</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  tabla.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="color:var(--t3);border-bottom:1px solid var(--b2)">
+      <th style="width:28px"><input type="checkbox" id="promoSelAll" onchange="promoToggleTodos(this.checked)" style="cursor:pointer"></th>
+      <th style="width:44px"></th>
+      <th style="text-align:left">Publicación</th>
+      <th class="r">Precio actual</th>
+      <th class="r">Con descuento</th>
+      <th style="text-align:center">Viable</th>
+      <th class="r">Margen</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+window.promoToggleSel=function(id,tr){
+  if(_promoSel.has(id)){ _promoSel.delete(id); if(tr) tr.style.background=''; }
+  else{ _promoSel.add(id); if(tr) tr.style.background='rgba(77,163,255,.07)'; }
+  const cb=tr?.querySelector('input[type=checkbox]');
+  if(cb) cb.checked=_promoSel.has(id);
+  const selCount=document.getElementById('promoSelCount');
+  if(selCount) selCount.textContent=_promoSel.size>0?`${_promoSel.size} seleccionado${_promoSel.size>1?'s':''}` :'';
+};
+
+window.promoToggleTodos=function(checked){
+  const filtroTxt=(document.getElementById('promoFiltro')?.value||'').toLowerCase();
+  const filtroEst=document.getElementById('promoFiltroEstado')?.value||'';
+  const visibles=_promoItems.filter(it=>{
+    if(filtroTxt && !it.titulo.toLowerCase().includes(filtroTxt) && !(it.sku||'').toLowerCase().includes(filtroTxt)) return false;
+    if(filtroEst==='con' && !it.descuento_activo) return false;
+    if(filtroEst==='sin' && it.descuento_activo) return false;
+    return true;
+  });
+  if(checked) visibles.forEach(it=>_promoSel.add(it.id));
+  else _promoSel.clear();
+  promoRenderTabla();
+};
+
+window.promoAplicarUno=async function(itemId, precioActual, ev){
+  ev?.stopPropagation();
+  const descPct=parseFloat(document.getElementById('promoDescPct')?.value||10)/100;
+  const precioNuevo=Math.round(precioActual*(1-descPct));
+  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  if(!acct){toast('Sin cuenta activa','err');return;}
+  toast('Aplicando descuento...','info');
+  try{
+    const r=await fetch(PROXY+'/promociones/precio',{method:'POST',headers:{'x-ml-token':acct.token,'Content-Type':'application/json'},
+      body:JSON.stringify({item_id:itemId,precio_nuevo:precioNuevo,precio_original:precioActual})});
+    const d=await r.json();
+    if(d.ok){
+      toast(`✓ Descuento aplicado — nuevo precio ${fS(d.precio)}`,'ok');
+      const it=_promoItems.find(x=>x.id===itemId);
+      if(it){ it.precio_original=it.precio; it.precio=d.precio; it.descuento_activo=true; it.pct_descuento_actual=Math.round((1-d.precio/it.precio_original)*100); }
+      promoRenderTabla();
+    } else toast('Error: '+(d.error||'ML no respondió'),'err');
+  }catch(e){toast('Error: '+e.message,'err');}
+};
+
+window.promoQuitarUno=async function(itemId, ev){
+  ev?.stopPropagation();
+  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  if(!acct){toast('Sin cuenta activa','err');return;}
+  toast('Quitando descuento...','info');
+  try{
+    const r=await fetch(PROXY+'/promociones/precio/'+itemId,{method:'DELETE',headers:{'x-ml-token':acct.token}});
+    const d=await r.json();
+    if(d.ok){
+      toast('✓ Descuento quitado','ok');
+      const it=_promoItems.find(x=>x.id===itemId);
+      if(it){ it.precio=it.precio_original||it.precio; it.precio_original=null; it.descuento_activo=false; it.pct_descuento_actual=0; }
+      promoRenderTabla();
+    } else toast('Error: '+(d.error||'ML no respondió'),'err');
+  }catch(e){toast('Error: '+e.message,'err');}
+};
+
+window.promoAplicarSeleccionados=async function(){
+  if(!_promoSel.size){toast('Seleccioná al menos una publicación','err');return;}
+  const descPct=parseFloat(document.getElementById('promoDescPct')?.value||10)/100;
+  const margenMin=parseFloat(document.getElementById('promoMargenMin')?.value||15);
+  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  if(!acct){toast('Sin cuenta activa','err');return;}
+  // Solo los viables
+  const items=_promoItems.filter(it=>_promoSel.has(it.id)).map(it=>{
+    const precioNuevo=Math.round(it.precio*(1-descPct));
+    const comEst=precioNuevo*0.14, iibbEst=precioNuevo*0.04, ivaEst=precioNuevo-(precioNuevo/1.21);
+    const margen=it.costo!=null?Math.round(((precioNuevo-it.costo-comEst-iibbEst-ivaEst)/precioNuevo)*100):null;
+    return {item_id:it.id,precio_nuevo:precioNuevo,precio_original:it.precio,margen,viable:margen==null||margen>=margenMin};
+  });
+  const noViables=items.filter(x=>!x.viable);
+  if(noViables.length){
+    const ok=confirm(`⚠ ${noViables.length} publicación(es) quedarían por debajo del margen mínimo (${margenMin}%). ¿Aplicar igual a todos?`);
+    if(!ok){ toast('Cancelado. Desclectá los no viables (🔴) o ajustá el descuento.','info'); return; }
+  }
+  toast(`Aplicando a ${items.length} publicaciones...`,'info');
+  try{
+    const r=await fetch(PROXY+'/promociones/precio-bulk',{method:'POST',headers:{'x-ml-token':acct.token,'Content-Type':'application/json'},
+      body:JSON.stringify({items})});
+    const d=await r.json();
+    if(d.ok){
+      toast(`✓ ${d.exitosos}/${d.total} aplicados correctamente`,'ok');
+      d.resultados.filter(x=>x.ok).forEach(x=>{
+        const it=_promoItems.find(i=>i.id===x.item_id);
+        if(it){ it.precio_original=it.precio; it.precio=x.precio; it.descuento_activo=true; it.pct_descuento_actual=Math.round((1-x.precio/it.precio_original)*100); }
+      });
+      _promoSel.clear();
+      promoRenderTabla();
+    } else toast('Error en bulk: '+(d.error||''),'err');
+  }catch(e){toast('Error: '+e.message,'err');}
+};
+
+window.promoQuitarSeleccionados=async function(){
+  if(!_promoSel.size){toast('Seleccioná al menos una publicación','err');return;}
+  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  if(!acct){toast('Sin cuenta activa','err');return;}
+  const items=[..._promoSel].map(id=>({item_id:id,precio_nuevo:_promoItems.find(x=>x.id===id)?.precio||0}));
+  toast(`Quitando descuento de ${items.length} publicaciones...`,'info');
+  try{
+    const r=await fetch(PROXY+'/promociones/precio-bulk',{method:'POST',headers:{'x-ml-token':acct.token,'Content-Type':'application/json'},
+      body:JSON.stringify({items:items.map(it=>({...it,precio_original:null}))})});
+    const d=await r.json();
+    if(d.ok){
+      toast(`✓ Descuento quitado de ${d.exitosos} publicaciones`,'ok');
+      d.resultados.filter(x=>x.ok).forEach(x=>{
+        const it=_promoItems.find(i=>i.id===x.item_id);
+        if(it){ it.precio=it.precio_original||it.precio; it.precio_original=null; it.descuento_activo=false; it.pct_descuento_actual=0; }
+      });
+      _promoSel.clear();
+      promoRenderTabla();
+    } else toast('Error: '+(d.error||''),'err');
+  }catch(e){toast('Error: '+e.message,'err');}
+};
+
+// ── REPLICAR / PUBLICAR ──────────────────────────────────────
+let _repItem = null; // item importado/cargado
+let _repCuotas = {}; // { cuenta: { precio, sale_terms } } overrides por cuenta
+
+async function renderReplicar(el, accounts){
+  el.innerHTML=`
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">🔁 Replicar / Publicar en todas las cuentas</span></div>
+    <p style="font-size:11px;color:var(--t3);margin-bottom:12px">Buscá un item de ML para importarlo, editá precio y cuotas, y publicalo en todas tus cuentas de una vez.</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="repSearchInput" class="inp" placeholder="URL o ID de publicación (ej: MLA1234567)" style="flex:1;min-width:220px">
+      <button class="btn" onclick="repBuscar()">🔍 Importar</button>
+      <button class="btn" style="background:var(--s3)" onclick="repNuevo()">✏️ Crear desde cero</button>
+    </div>
+  </div>
+  <div id="repForm" style="display:none"></div>
+  <div id="repResultados" style="display:none"></div>`;
+  // Si ya había un item cargado, re-render
+  if(_repItem) repRenderForm();
+}
+
+async function repBuscar(){
+  const raw=(document.getElementById('repSearchInput')?.value||'').trim();
+  if(!raw){toast('Ingresá una URL o ID de publicación','err');return;}
+  // Extraer ID de URL o usar directo
+  let itemId=raw;
+  const m=raw.match(/MLA\d+/i);
+  if(m) itemId=m[0].toUpperCase();
+  else if(/^https?:\/\//i.test(raw)){toast('No se encontró ID de publicación en la URL','err');return;}
+  itemId=itemId.toUpperCase();
+  const token=(S.accounts||[]).find(a=>a.token)?.token||'';
+  const btn=document.querySelector('#repForm')?.parentElement?.querySelector('button');
+  const formEl=document.getElementById('repForm');
+  formEl.style.display='block';
+  formEl.innerHTML='<div class="card"><p style="font-size:12px;color:var(--t3)">⏳ Importando '+itemId+'...</p></div>';
+  try{
+    const r=await fetch(`${PROXY}/replicar/item/${itemId}`,{headers:token?{'x-ml-token':token}:{}});
+    const d=await r.json();
+    if(!r.ok||!d.ok){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+( d.error||'Error al importar')+'</p></div>';return;}
+    _repItem=d;
+    _repCuotas={};
+    repRenderForm();
+  }catch(e){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+e.message+'</p></div>';}
+}
+
+function repNuevo(){
+  _repItem={
+    id:null,titulo:'',categoria:'',precio:0,moneda:'ARS',condicion:'new',
+    listing_type:'gold_special',stock:1,fotos:[],atributos:[],
+    descripcion:'',garantia:'',sale_terms:[],envio:{},cuotas:[]
+  };
+  _repCuotas={};
+  document.getElementById('repForm').style.display='block';
+  repRenderForm();
+}
+
+function repRenderForm(){
+  if(!_repItem) return;
+  const accounts=(S.accounts||[]).filter(a=>a.token);
+  const it=_repItem;
+  const fmtARS=n=>n?.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})||'$0';
+  // Cuotas por cuenta - tabla editable
+  const cuotasRows=accounts.map(a=>{
+    const ov=_repCuotas[a.id]||{};
+    const precio=ov.precio!=null?ov.precio:it.precio;
+    const nCuotas=ov.nCuotas||1;
+    const montoCuota=ov.montoCuota||0;
+    return `<tr>
+      <td style="font-weight:600;color:var(--acc)">${a.id}</td>
+      <td><input class="inp" type="number" id="rep_precio_${a.id}" value="${precio}" style="width:110px" oninput="repUpdateCuota('${a.id}')"></td>
+      <td><input class="inp" type="number" id="rep_ncuotas_${a.id}" value="${nCuotas}" min="1" max="24" style="width:60px" oninput="repUpdateCuota('${a.id}')"></td>
+      <td id="rep_monto_cuota_${a.id}" style="color:var(--t2);font-size:12px">${nCuotas>1?fmtARS(Math.ceil(precio/nCuotas))+'/cuota':'—'}</td>
+    </tr>`;
+  }).join('');
+  const formEl=document.getElementById('repForm');
+  formEl.style.display='block';
+  formEl.innerHTML=`
+  ${it.id?`<div class="card" style="margin-bottom:12px;padding:12px">
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      ${it.fotos?.[0]?`<img src="${it.fotos[0].url}" style="width:80px;height:80px;object-fit:contain;border-radius:4px;background:var(--s2)" onerror="this.style.display='none'">`:'' }
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px">${it.titulo}</div>
+        <div style="font-size:11px;color:var(--t3)">ID: ${it.id} · Categoría: ${it.categoria} · Precio original: ${fmtARS(it.precio)}</div>
+      </div>
+    </div>
+  </div>`:''}
+
+  <div class="card" style="margin-bottom:12px;padding:14px">
+    <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Datos del ítem</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <label class="lbl">Título</label>
+        <input class="inp" id="rep_titulo" value="${(it.titulo||'').replace(/"/g,'&quot;')}" placeholder="Título de la publicación">
+      </div>
+      <div>
+        <label class="lbl">Categoría ML</label>
+        <input class="inp" id="rep_categoria" value="${it.categoria||''}" placeholder="ej: MLA1144">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <label class="lbl">Precio base (ARS)</label>
+        <input class="inp" type="number" id="rep_precio_base" value="${it.precio||0}">
+      </div>
+      <div>
+        <label class="lbl">Stock</label>
+        <input class="inp" type="number" id="rep_stock" value="${it.stock||1}" min="1">
+      </div>
+      <div>
+        <label class="lbl">Condición</label>
+        <select class="inp" id="rep_condicion">
+          <option value="new" ${it.condicion==='new'?'selected':''}>Nuevo</option>
+          <option value="used" ${it.condicion==='used'?'selected':''}>Usado</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <label class="lbl">Descripción</label>
+      <textarea class="inp" id="rep_descripcion" rows="3" style="width:100%;resize:vertical">${it.descripcion||''}</textarea>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;padding:14px">
+    <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Precio y cuotas por cuenta</div>
+    <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Podés poner precio distinto en cada cuenta. Si ponés N cuotas, se agrega el plan de financiación sin interés (el costo es tuyo).</p>
+    <table style="width:100%;font-size:12px;border-collapse:collapse">
+      <thead><tr style="color:var(--t4);font-size:10px;border-bottom:1px solid var(--s4)">
+        <th style="text-align:left;padding:4px">Cuenta</th>
+        <th style="text-align:left;padding:4px">Precio (ARS)</th>
+        <th style="text-align:left;padding:4px">Cuotas s/int</th>
+        <th style="text-align:left;padding:4px">Monto/cuota</th>
+      </tr></thead>
+      <tbody>${cuotasRows}</tbody>
+    </table>
+  </div>
+
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <button class="btn" style="background:var(--grn)" onclick="repPublicarTodas()">🚀 Publicar en todas (${accounts.length} cuentas)</button>
+    <button class="btn" style="background:var(--s3)" onclick="repLimpiar()">✖ Cancelar</button>
+  </div>`;
+}
+
+window.repUpdateCuota=function(acctId){
+  const precio=parseFloat(document.getElementById('rep_precio_'+acctId)?.value)||0;
+  const nCuotas=parseInt(document.getElementById('rep_ncuotas_'+acctId)?.value)||1;
+  if(!_repCuotas[acctId]) _repCuotas[acctId]={};
+  _repCuotas[acctId].precio=precio;
+  _repCuotas[acctId].nCuotas=nCuotas;
+  // Armar sale_terms para cuotas sin interés
+  if(nCuotas>1){
+    const montoCuota=Math.ceil(precio/nCuotas);
+    _repCuotas[acctId].sale_terms=[{id:'TOTAL_AMOUNT',value:{struct:{number:precio,unit:'ARS'}}},{id:'INSTALLMENTS',value:{struct:{number:nCuotas,unit:'installments'}}}];
+    const el=document.getElementById('rep_monto_cuota_'+acctId);
+    if(el) el.textContent=(precio/nCuotas).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'/cuota';
+  }else{
+    _repCuotas[acctId].sale_terms=[];
+    const el=document.getElementById('rep_monto_cuota_'+acctId);
+    if(el) el.textContent='—';
+  }
+};
+
+window.repLimpiar=function(){
+  _repItem=null; _repCuotas={};
+  const f=document.getElementById('repForm');const r=document.getElementById('repResultados');
+  if(f){f.style.display='none';f.innerHTML='';}
+  if(r){r.style.display='none';r.innerHTML='';}
+};
+
+window.repPublicarTodas=async function(){
+  if(!_repItem){toast('No hay ítem cargado','err');return;}
+  const accounts=(S.accounts||[]).filter(a=>a.token);
+  if(!accounts.length){toast('No hay cuentas con token activo','err');return;}
+  // Leer campos editados
+  const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo;
+  const categoria=document.getElementById('rep_categoria')?.value.trim()||_repItem.categoria;
+  const precioBase=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem.precio;
+  const stock=parseInt(document.getElementById('rep_stock')?.value)||_repItem.stock||1;
+  const condicion=document.getElementById('rep_condicion')?.value||_repItem.condicion||'new';
+  const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
+  if(!titulo||!categoria){toast('Título y categoría son obligatorios','err');return;}
+  const itemPayload={...(_repItem),titulo,categoria,stock,condicion,descripcion,precio:precioBase};
+  const cuotas_override=Object.entries(_repCuotas).map(([cuenta,ov])=>({cuenta,precio:ov.precio!=null?ov.precio:precioBase,sale_terms:ov.sale_terms||[]}));
+  // Mostrar progreso
+  const resEl=document.getElementById('repResultados');
+  resEl.style.display='block';
+  resEl.innerHTML=`<div class="card"><p style="font-size:12px;color:var(--t3)">⏳ Publicando en ${accounts.length} cuentas...</p></div>`;
+  try{
+    const r=await fetch(`${PROXY}/replicar/publicar-todas`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        cuentas:accounts.map(a=>({id:a.id,token:a.token})),
+        item:itemPayload,
+        cuotas_override
+      })
+    });
+    const d=await r.json();
+    const resultados=d.resultados||[];
+    const ok=resultados.filter(r=>r.ok).length;
+    const err=resultados.filter(r=>!r.ok).length;
+    resEl.innerHTML=`
+    <div class="card" style="padding:14px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">${ok===accounts.length?'✅':'⚠️'} ${ok}/${accounts.length} publicaciones exitosas</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${resultados.map(r=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);background:${r.ok?'var(--grn)11':'var(--red)11'}">
+          <span style="font-weight:600;color:${r.ok?'var(--grn)':'var(--red)'};width:50px">${r.cuenta}</span>
+          ${r.ok?`<span style="font-size:12px;color:var(--t2)">${r.id}</span>
+          <a href="${r.permalink}" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto">Ver publicación →</a>`
+          :`<span style="font-size:12px;color:var(--red)">${r.error||'Error desconocido'}</span>`}
+        </div>`).join('')}
+      </div>
+      ${ok>0?`<div style="margin-top:12px"><button class="btn" style="background:var(--s3)" onclick="repLimpiar()">✖ Limpiar</button></div>`:''}
+    </div>`;
+    toast(ok===accounts.length?`✅ Publicado en ${ok} cuentas`:`⚠️ ${ok}/${accounts.length} exitosas — ${err} con error`,(ok===accounts.length?'ok':'err'));
+  }catch(e){
+    resEl.innerHTML=`<div class="card"><p style="color:var(--red);font-size:12px">❌ Error: ${e.message}</p></div>`;
+  }
+};
 
 // ── CONVERSIÓN ───────────────────────────────────────────────
 let _convSort = {col:'conv_pct', dir:1}; // menor conversión primero
@@ -13381,7 +14265,24 @@ window.renderCanalesIntegrados = async function(){
     });
   }catch(e){}
 
-  const canales=[ml,may,fj].filter(c=>c.ventas>0||c.ordenes>0);
+  // ── EL GALPÓN — leer _galponPedidos si están disponibles ──
+  let gal={nombre:'El Galpón',color:'#C084FC',icono:'🏚️',ventas:0,ganancia:0,unidades:0,ordenes:0,costo:0};
+  try{
+    const galOrds=window._galponPedidos||[];
+    const galFiltrados=galOrds.filter(o=>{
+      if(!o.fecha) return true;
+      return o.fecha>=_df&&o.fecha<=_dt;
+    });
+    galFiltrados.forEach(o=>{
+      gal.ventas   +=(o.total||o.venta||0);
+      gal.ganancia +=(o.ganancia||0);
+      gal.unidades +=(o.cantidad||o.unidades||1);
+      gal.ordenes  ++;
+      gal.costo    +=(o.costo||0);
+    });
+  }catch(e){}
+
+  const canales=[ml,may,fj,gal].filter(c=>c.ventas>0||c.ordenes>0);
   const totVentas  =canales.reduce((s,c)=>s+c.ventas,0);
   const totGanancia=canales.reduce((s,c)=>s+c.ganancia,0);
   const totUnidades=canales.reduce((s,c)=>s+c.unidades,0);
