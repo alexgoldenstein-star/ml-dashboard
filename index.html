@@ -6041,17 +6041,14 @@ async function promoCargar(acct, reset=false){
   _promoLoading=true;
   const tabla=document.getElementById('promoTabla');
   const uid=acct.userId;
-  if(reset){ _promoData[uid]={items:[],scroll_id:null,total:0}; if(tabla) tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Cargando publicaciones...</div>'; }
-  const prev=_promoData[uid]||{items:[],scroll_id:null,total:0};
+  if(tabla) tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Cargando todas las publicaciones...</div>';
   try{
-    const qs=`seller_id=${uid}&limit=50`+(!reset&&prev.scroll_id?`&scroll_id=${prev.scroll_id}`:'');
-    const r=await fetch(PROXY+'/promociones/items?'+qs,{headers:{'x-ml-token':acct.token}});
+    const r=await fetch(PROXY+'/promociones/items?seller_id='+uid,{headers:{'x-ml-token':acct.token}});
     const d=await r.json();
-    _promoData[uid]={
-      items: reset ? (d.items||[]) : [...prev.items,...(d.items||[])],
-      scroll_id: d.scroll_id||null,
-      total: d.total||prev.total
-    };
+    _promoData[uid]={items:d.items||[],total:d.total||0};
+    // Ocultar botón cargar más
+    const moreEl=document.getElementById('promoMore');
+    if(moreEl) moreEl.style.display='none';
     promoRenderTabla();
   }catch(e){
     if(tabla) tabla.innerHTML='<div style="color:var(--red);font-size:12px;padding:16px">Error: '+e.message+'</div>';
@@ -6094,8 +6091,8 @@ function promoRenderTabla(){
 
   const moreDiv=document.getElementById('promoMore');
   const totalLabel=document.getElementById('promoTotalLabel');
-  if(moreDiv) moreDiv.style.display=(data.scroll_id&&data.items.length<data.total)?'block':'none';
-  if(totalLabel) totalLabel.textContent=`${data.items.length} de ${data.total}`;
+  if(moreDiv) moreDiv.style.display='none';
+  if(totalLabel) totalLabel.textContent=`${data.total} publicaciones activas`;
 
   if(!items.length){ tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Sin publicaciones que coincidan.</div>'; return; }
 
@@ -6208,7 +6205,14 @@ window.promoAplicarUno=async function(itemId, precioActual, ev){
       const it=data.items.find(x=>x.id===itemId);
       if(it){ it.precio_original=it.precio; it.precio=d.precio; it.descuento_activo=true; it.aporte_ml=false; it.pct_descuento_actual=Math.round((1-d.precio/(it.precio_original||d.precio))*100); }
       promoRenderTabla();
-    } else toast('Error: '+(d.error||'ML no respondió'),'err');
+    } else {
+      const errMsg=d.error||'ML no respondió';
+      if(d.unauthorized){
+        toast('⚠️ Token sin permisos — reconectá la cuenta en Cuentas ML','err');
+      } else {
+        toast('Error: '+errMsg,'err');
+      }
+    }
   }catch(e){toast('Error: '+e.message,'err');}
 };
 
@@ -6262,7 +6266,10 @@ window.promoAplicarSeleccionados=async function(){
       });
       _promoSel.clear();
       promoRenderTabla();
-    } else toast('Error en bulk: '+(d.error||''),'err');
+    } else {
+      if(d.unauthorized) toast('⚠️ Token sin permisos — reconectá la cuenta en Cuentas ML','err');
+      else toast('Error en bulk: '+(d.error||''),'err');
+    }
   }catch(e){toast('Error: '+e.message,'err');}
 };
 
@@ -6339,17 +6346,14 @@ window.catSwitchAcct=async function(idx, tabEl){
 async function catCargar(acct, reset=false){
   const tabla=document.getElementById('catTabla');
   const uid=acct.userId;
-  if(reset) _catlogData[uid]={items:[],scroll_id:null,total:0};
-  const prev=_catlogData[uid]||{items:[],scroll_id:null,total:0};
+  if(tabla) tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Cargando todos los catálogos...</div>';
   try{
-    const qs=`seller_id=${uid}&limit=50`+(!reset&&prev.scroll_id?`&scroll_id=${prev.scroll_id}`:'');
-    const r=await fetch(PROXY+'/catalogos/items?'+qs,{headers:{'x-ml-token':acct.token}});
+    const r=await fetch(PROXY+'/catalogos/items?seller_id='+uid,{headers:{'x-ml-token':acct.token}});
     const d=await r.json();
-    _catlogData[uid]={
-      items: reset ? (d.items||[]) : [...prev.items,...(d.items||[])],
-      scroll_id: d.scroll_id||null,
-      total: d.total||prev.total
-    };
+    _catlogData[uid]={items:d.items||[],total:d.total||0,total_activos:d.total_activos||0};
+    // Ocultar botón de cargar más (ya no se necesita, el proxy trae todo)
+    const moreEl=document.getElementById('catMore');
+    if(moreEl) moreEl.style.display='none';
     catRenderTabla();
   }catch(e){
     if(tabla) tabla.innerHTML='<div style="color:var(--red);font-size:12px;padding:16px">Error: '+e.message+'</div>';
@@ -6402,8 +6406,8 @@ function catRenderTabla(){
 
   const moreDiv=document.getElementById('catMore');
   const totalLabel=document.getElementById('catTotalLabel');
-  if(moreDiv) moreDiv.style.display=(data.scroll_id&&data.items.length<data.total)?'block':'none';
-  if(totalLabel) totalLabel.textContent=`${data.items.length} de ${data.total}`;
+  if(moreDiv) moreDiv.style.display='none';
+  if(totalLabel) totalLabel.textContent=data.total_activos?`${data.items.length} en catálogo de ${data.total_activos} activos`:`${data.items.length} en catálogo`;
 
   if(!items.length){ tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Sin publicaciones en catálogo que coincidan.</div>'; return; }
 
@@ -6759,7 +6763,10 @@ window.repPublicarTodas=async function(){
           <span style="font-weight:600;color:${r.ok?'var(--grn)':'var(--red)'};width:50px">${r.cuenta}</span>
           ${r.ok?`<span style="font-size:12px;color:var(--t2)">${r.id}</span>
           <a href="${r.permalink}" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto">Ver publicación →</a>`
-          :`<span style="font-size:12px;color:var(--red)">${r.error||'Error desconocido'}</span>`}
+          :`<div style="display:flex;flex-direction:column;gap:4px;flex:1">
+            <span style="font-size:12px;color:var(--red)">${r.error||'Error desconocido'}</span>
+            ${r.unauthorized?`<span style="font-size:10px;color:var(--org)">⚠️ Token sin permisos de escritura. Andá a <b>Cuentas ML</b> y reconectá esta cuenta.</span>`:''}
+          </div>`}
         </div>`).join('')}
       </div>
       ${ok>0?`<div style="margin-top:12px"><button class="btn" style="background:var(--s3)" onclick="repLimpiar()">✖ Limpiar</button></div>`:''}
