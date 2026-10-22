@@ -6291,7 +6291,7 @@ window.promoQuitarSeleccionados=async function(){
 };
 
 // ── CATÁLOGOS ────────────────────────────────────────────────
-let _catData={}, _catAcctIdx=0;
+let _catlogData={}, _catlogAcctIdx=0;
 
 async function renderCatalogos(el, accounts){
   const accts=accounts.filter(a=>a.token);
@@ -6319,16 +6319,16 @@ async function renderCatalogos(el, accounts){
     <span id="catTotalLabel" style="font-size:11px;color:var(--t3);margin-left:8px"></span>
   </div>`;
   window._catAccts=accts;
-  _catAcctIdx=0;
+  _catlogAcctIdx=0;
   await catCargar(accts[0], true);
 }
 
 window.catSwitchAcct=async function(idx, tabEl){
-  _catAcctIdx=idx;
+  _catlogAcctIdx=idx;
   tabEl.closest('.tabs')?.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===idx));
   const acct=window._catAccts?.[idx];
   if(!acct) return;
-  if(_catData[acct.userId]){
+  if(_catlogData[acct.userId]){
     catRenderTabla();
   } else {
     document.getElementById('catTabla').innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Cargando...</div>';
@@ -6339,13 +6339,13 @@ window.catSwitchAcct=async function(idx, tabEl){
 async function catCargar(acct, reset=false){
   const tabla=document.getElementById('catTabla');
   const uid=acct.userId;
-  if(reset) _catData[uid]={items:[],scroll_id:null,total:0};
-  const prev=_catData[uid]||{items:[],scroll_id:null,total:0};
+  if(reset) _catlogData[uid]={items:[],scroll_id:null,total:0};
+  const prev=_catlogData[uid]||{items:[],scroll_id:null,total:0};
   try{
     const qs=`seller_id=${uid}&limit=50`+(!reset&&prev.scroll_id?`&scroll_id=${prev.scroll_id}`:'');
     const r=await fetch(PROXY+'/catalogos/items?'+qs,{headers:{'x-ml-token':acct.token}});
     const d=await r.json();
-    _catData[uid]={
+    _catlogData[uid]={
       items: reset ? (d.items||[]) : [...prev.items,...(d.items||[])],
       scroll_id: d.scroll_id||null,
       total: d.total||prev.total
@@ -6357,7 +6357,7 @@ async function catCargar(acct, reset=false){
 }
 
 window.catCargarMas=function(){
-  const acct=window._catAccts?.[_catAcctIdx];
+  const acct=window._catAccts?.[_catlogAcctIdx];
   if(acct) catCargar(acct,false);
 };
 
@@ -6366,8 +6366,8 @@ window.catFiltrar=function(){ catRenderTabla(); };
 function catRenderTabla(){
   const tabla=document.getElementById('catTabla');
   if(!tabla) return;
-  const uid=window._catAccts?.[_catAcctIdx]?.userId;
-  const data=_catData[uid]||{items:[],scroll_id:null,total:0};
+  const uid=window._catAccts?.[_catlogAcctIdx]?.userId;
+  const data=_catlogData[uid]||{items:[],scroll_id:null,total:0};
   const filtroTxt=(document.getElementById('catFiltro')?.value||'').toLowerCase();
   const filtroEst=document.getElementById('catFiltroEstado')?.value||'';
 
