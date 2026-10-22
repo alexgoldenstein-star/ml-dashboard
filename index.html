@@ -6473,18 +6473,83 @@ async function renderReplicar(el, accounts){
   el.innerHTML=`
   <div class="card" style="margin-bottom:12px">
     <div class="ch"><span class="ct">🔁 Replicar / Publicar en todas las cuentas</span></div>
-    <p style="font-size:11px;color:var(--t3);margin-bottom:12px">Buscá un item de ML para importarlo, editá precio y cuotas, y publicalo en todas tus cuentas de una vez.</p>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input id="repSearchInput" class="inp" placeholder="SKU, título, ID o URL de publicación (ej: NVK-PE1001, MLA1234567...)" style="flex:1;min-width:220px" onkeydown="if(event.key==='Enter')repBuscar()">
-      <button class="btn" onclick="repBuscar()">🔍 Importar</button>
-      <button class="btn" style="background:var(--s3)" onclick="repNuevo()">✏️ Crear desde cero</button>
+    <p style="font-size:11px;color:var(--t3);margin-bottom:12px">Buscá una publicación propia para replicarla, o importá por ID/URL. Editá precio y cuotas por cuenta antes de publicar.</p>
+    <div style="display:flex;gap:0;margin-bottom:10px;border-bottom:2px solid var(--s4)">
+      <button id="repTabPropias" onclick="repSetTab('propias')" style="font-size:11px;padding:6px 14px;border:none;cursor:pointer;background:none;border-bottom:2px solid var(--acc);margin-bottom:-2px;font-weight:600;color:var(--acc)">📦 Mis publicaciones</button>
+      <button id="repTabImportar" onclick="repSetTab('importar')" style="font-size:11px;padding:6px 14px;border:none;cursor:pointer;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--t3)">🔗 Importar por ID/URL</button>
+    </div>
+    <div id="repPanelPropias">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <select id="repCuentaBuscador" class="inp" style="flex:0 0 auto;min-width:150px">
+          ${(accounts||[]).map(a=>`<option value="${a.userId||a.id}">${a.nickname||a.id}</option>`).join('')}
+        </select>
+        <input id="repBuscadorPropio" class="inp" placeholder="Buscar por título o SKU..." style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')repBuscarPropio()">
+        <button class="btn" onclick="repBuscarPropio()">🔍 Buscar</button>
+      </div>
+      <div id="repResultadosPropios" style="max-height:280px;overflow-y:auto"></div>
+    </div>
+    <div id="repPanelImportar" style="display:none">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="repSearchInput" class="inp" placeholder="ID o URL de publicación (ej: MLA1234567...)" style="flex:1;min-width:220px" onkeydown="if(event.key==='Enter')repBuscar()">
+        <button class="btn" onclick="repBuscar()">🔍 Importar</button>
+        <button class="btn" style="background:var(--s3)" onclick="repNuevo()">✏️ Crear desde cero</button>
+      </div>
     </div>
   </div>
   <div id="repForm" style="display:none"></div>
   <div id="repResultados" style="display:none"></div>`;
   // Si ya había un item cargado, re-render
   if(_repItem) repRenderForm();
+  // Cargar publicaciones propias al inicio
+  setTimeout(()=>repBuscarPropio(),100);
 }
+
+window.repSetTab=function(tab){
+  const panelPropias=document.getElementById('repPanelPropias');
+  const panelImportar=document.getElementById('repPanelImportar');
+  const tabPropias=document.getElementById('repTabPropias');
+  const tabImportar=document.getElementById('repTabImportar');
+  if(tab==='propias'){
+    if(panelPropias) panelPropias.style.display='';
+    if(panelImportar) panelImportar.style.display='none';
+    if(tabPropias){tabPropias.style.borderBottomColor='var(--acc)';tabPropias.style.color='var(--acc)';tabPropias.style.fontWeight='600';}
+    if(tabImportar){tabImportar.style.borderBottomColor='transparent';tabImportar.style.color='var(--t3)';tabImportar.style.fontWeight='normal';}
+  }else{
+    if(panelPropias) panelPropias.style.display='none';
+    if(panelImportar) panelImportar.style.display='';
+    if(tabImportar){tabImportar.style.borderBottomColor='var(--acc)';tabImportar.style.color='var(--acc)';tabImportar.style.fontWeight='600';}
+    if(tabPropias){tabPropias.style.borderBottomColor='transparent';tabPropias.style.color='var(--t3)';tabPropias.style.fontWeight='normal';}
+  }
+};
+
+window.repBuscarPropio=async function(){
+  const q=(document.getElementById('repBuscadorPropio')?.value||'').trim();
+  const cuentaEl=document.getElementById('repCuentaBuscador');
+  const sellerId=cuentaEl?.value||'';
+  const resEl=document.getElementById('repResultadosPropios');
+  if(!resEl) return;
+  const accounts=(S.accounts||[]).filter(a=>a.token);
+  const acct=accounts.find(a=>String(a.userId||a.id)===String(sellerId))||accounts[0];
+  if(!acct){resEl.innerHTML='<p style="font-size:11px;color:var(--red)">No hay cuentas conectadas</p>';return;}
+  resEl.innerHTML='<p style="font-size:11px;color:var(--t3)">⏳ Cargando publicaciones...</p>';
+  try{
+    const url=`${PROXY}/replicar/mis-items?seller_id=${acct.userId||acct.id}&q=${encodeURIComponent(q)}&limit=20`;
+    const r=await fetch(url,{headers:{'x-ml-token':acct.token}});
+    const d=await r.json();
+    const items=d.items||[];
+    if(!items.length){resEl.innerHTML='<p style="font-size:11px;color:var(--t3)">Sin publicaciones encontradas'+(q?' para "'+q+'"':'')+'</p>';return;}
+    const fmtARS=n=>n?.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})||'$0';
+    resEl.innerHTML=items.map(it=>`
+      <div onclick="repSeleccionar('${it.id}')" style="display:flex;gap:10px;align-items:center;padding:7px 8px;cursor:pointer;border-radius:6px;margin-bottom:3px;border:1px solid var(--b2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+        <img src="${it.thumbnail||''}" style="width:38px;height:38px;object-fit:cover;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.titulo||'Sin título'}</div>
+          <div style="font-size:10px;color:var(--t3)">${it.id}${it.sku?' · SKU: '+it.sku:''} · ${fmtARS(it.precio)}</div>
+        </div>
+        <button class="btn" style="font-size:10px;padding:3px 9px;flex-shrink:0">Seleccionar</button>
+      </div>`).join('');
+  }catch(e){resEl.innerHTML='<p style="font-size:11px;color:var(--red)">❌ '+e.message+'</p>';}
+};
 
 async function repBuscar(){
   const raw=(document.getElementById('repSearchInput')?.value||'').trim();
@@ -6573,8 +6638,13 @@ function repRenderForm(){
   const accounts=(S.accounts||[]).filter(a=>a.token);
   const it=_repItem;
   const fmtARS=n=>n?.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})||'$0';
-  // Inicializar cuentas seleccionadas (todas por defecto)
-  if(!window._repCuentasSel) window._repCuentasSel = new Set(accounts.map(a=>a.id));
+  // Detectar si el item pertenece a una de las cuentas conectadas
+  const cuentaOrigen=it.seller_id?accounts.find(a=>String(a.userId)===String(it.seller_id)||String(a.id)===String(it.seller_id)):null;
+  // Inicializar cuentas seleccionadas: todas EXCEPTO la cuenta origen (para evitar duplicados)
+  if(!window._repCuentasSel){
+    window._repCuentasSel = new Set(accounts.map(a=>a.id));
+    if(cuentaOrigen) window._repCuentasSel.delete(cuentaOrigen.id);
+  }
 
   // Cuotas por cuenta - tabla editable con checkbox de selección
   const cuotasRows=accounts.map(a=>{
@@ -6582,13 +6652,14 @@ function repRenderForm(){
     const precio=ov.precio!=null?ov.precio:it.precio;
     const nCuotas=ov.nCuotas||1;
     const sel=window._repCuentasSel.has(a.id);
+    const esOrigen=cuentaOrigen&&(a.id===cuentaOrigen.id);
     // Calcular margen estimado si tenemos el precio
     const comML=0.14; const iibb=0.04;
     const iva=precio-(precio/1.21);
     const margenEst=precio>0?Math.round(((precio - precio*comML - precio*iibb - iva)/precio)*100):null;
     return `<tr id="rep_row_${a.id}" style="${sel?'':'opacity:0.4'}">
       <td style="padding:6px 4px"><input type="checkbox" id="rep_sel_${a.id}" ${sel?'checked':''} onchange="repToggleCuenta('${a.id}')" style="cursor:pointer;width:14px;height:14px"></td>
-      <td style="font-weight:600;color:var(--acc);padding:4px">${a.nickname||a.id}</td>
+      <td style="font-weight:600;color:var(--acc);padding:4px">${a.nickname||a.id}${esOrigen?` <span style="font-size:9px;background:var(--org)33;color:var(--org);padding:1px 5px;border-radius:4px;font-weight:500">origen</span>`:''}</td>
       <td style="padding:4px"><input class="inp" type="number" id="rep_precio_${a.id}" value="${precio}" style="width:110px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
       <td style="padding:4px"><input class="inp" type="number" id="rep_ncuotas_${a.id}" value="${nCuotas}" min="1" max="24" style="width:60px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
       <td id="rep_monto_cuota_${a.id}" style="color:var(--t2);font-size:12px;padding:4px">${nCuotas>1?fmtARS(Math.ceil(precio/nCuotas))+'/cuota':'—'}</td>
@@ -6613,6 +6684,9 @@ function repRenderForm(){
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13px;margin-bottom:4px;line-height:1.3">${it.titulo}</div>
         <div style="font-size:10px;color:var(--t3);margin-bottom:6px">ID: <a href="https://www.mercadolibre.com.ar/p/${it.id}" target="_blank" style="color:var(--acc)">${it.id}</a> · Cat: ${it.categoria} · Precio publicado: ${fmtARS(it.precio)} · Stock: ${it.stock||'—'}</div>
+        ${cuentaOrigen?`<div style="margin-bottom:6px;padding:6px 10px;border-radius:6px;background:var(--org)22;border:1px solid var(--org)44;font-size:11px;color:var(--org);display:flex;align-items:center;gap:6px">
+          <span>⚠️</span><span>Este ítem ya está publicado en <b>${cuentaOrigen.nickname||cuentaOrigen.id}</b>. Esa cuenta fue deseleccionada para evitar duplicados.</span>
+        </div>`:''}
         ${attrImp?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${attrImp}</div>`:''}
         ${fotosHtml?`<div style="display:flex;gap:4px;flex-wrap:wrap">${fotosHtml}</div>`:''}
       </div>
