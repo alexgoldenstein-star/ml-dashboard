@@ -6361,6 +6361,29 @@ window.catCargarMas=function(){
   if(acct) catCargar(acct,false);
 };
 
+window.catBajarPrecio=async function(itemId, nuevoPrecio){
+  const acct=window._catAccts?.[_catlogAcctIdx];
+  if(!acct?.token){toast('Sin token para esta cuenta','err');return;}
+  if(!confirm(`¿Bajar precio de ${itemId} a ${fS(nuevoPrecio)}?`)) return;
+  try{
+    const r=await fetch(`${PROXY}/promociones/precio`,{
+      method:'POST',
+      headers:{...{'Content-Type':'application/json'},'x-ml-token':acct.token},
+      body:JSON.stringify({item_id:itemId,precio_nuevo:nuevoPrecio})
+    });
+    const d=await r.json();
+    if(!r.ok||!d.ok){toast('Error: '+(d.error||'No se pudo actualizar'),'err');return;}
+    toast('✅ Precio actualizado a '+fS(nuevoPrecio),'ok');
+    // Actualizar cache local
+    const uid=acct.userId;
+    if(_catlogData[uid]){
+      const idx=_catlogData[uid].items.findIndex(x=>x.id===itemId);
+      if(idx>=0) _catlogData[uid].items[idx].precio=nuevoPrecio;
+    }
+    catRenderTabla();
+  }catch(e){toast('Error: '+e.message,'err');}
+};
+
 window.catFiltrar=function(){ catRenderTabla(); };
 
 function catRenderTabla(){
@@ -6390,31 +6413,48 @@ function catRenderTabla(){
     return `<span style="font-size:10px;font-weight:600;color:${color}">${label}</span>`;
   };
 
-  const rows=items.map(it=>`
-    <tr>
-      <td><img src="${it.thumbnail||''}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;display:block"></td>
-      <td>
+  const margenColor=m=>m==null?'var(--t3)':m<10?'var(--red)':m<20?'var(--warn)':'var(--grn)';
+
+  const rows=items.map(it=>{
+    const dif=it.precio_ganador&&it.precio>it.precio_ganador?Math.round((it.precio-it.precio_ganador)/it.precio_ganador*100):null;
+    const accion=it.estado_catalogo==='losing'&&it.precio_ganador&&it.margen_ganador!=null
+      ? (it.margen_ganador>=10
+        ? `<button class="btn-g btn-sm" style="font-size:10px;background:var(--acc)11;color:var(--acc);border:1px solid var(--acc)33" onclick="catBajarPrecio('${it.id}',${it.precio_ganador})">⚡ Bajar a ${fS(it.precio_ganador)}</button>`
+        : `<span style="font-size:10px;color:var(--red)">Margen insuficiente</span>`)
+      : '';
+    return `<tr style="border-bottom:1px solid var(--b1)">
+      <td style="padding:6px 4px"><img src="${it.thumbnail||''}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;display:block" onerror="this.style.display='none'"></td>
+      <td style="padding:6px 4px">
         <div style="font-size:11px;font-weight:500;max-width:280px;line-height:1.3">${it.titulo}</div>
-        <div style="font-size:10px;color:var(--t3)">${it.sku||it.id} · Stock: ${it.stock||'—'}</div>
+        <div style="font-size:10px;color:var(--t3)">${it.sku?'SKU: '+it.sku+' · ':''}Stock: ${it.stock||'—'}</div>
         <div style="font-size:10px;color:var(--t3)">Cat: <a href="https://www.mercadolibre.com.ar/p/${it.catalog_product_id}" target="_blank" style="color:var(--acc)">${it.catalog_product_id||'—'}</a></div>
       </td>
-      <td class="mono r" style="font-size:11px">${fS(it.precio)}</td>
-      <td style="font-size:11px">${estadoBadge(it.estado_catalogo)}</td>
-      <td class="mono r" style="font-size:11px;color:var(--t3)">${it.precio_ganador?fS(it.precio_ganador):'—'}</td>
-      <td style="font-size:10px;color:var(--t3);max-width:160px">${it.vendedor_ganador||'—'}</td>
-      <td>
-        <a href="https://www.mercadolibre.com.ar/p/${it.catalog_product_id}" target="_blank" class="btn-g btn-sm" style="font-size:10px;text-decoration:none">Ver catálogo →</a>
+      <td class="mono r" style="font-size:11px;padding:6px 4px">
+        ${fS(it.precio)}
+        ${it.margen_actual!=null?`<div style="font-size:10px;color:${margenColor(it.margen_actual)}">${it.margen_actual}% margen</div>`:''}
       </td>
-    </tr>`).join('');
+      <td style="font-size:11px;padding:6px 4px">${estadoBadge(it.estado_catalogo)}</td>
+      <td class="mono r" style="font-size:11px;padding:6px 4px;color:var(--t2)">
+        ${it.precio_ganador?fS(it.precio_ganador):'—'}
+        ${it.margen_ganador!=null?`<div style="font-size:10px;color:${margenColor(it.margen_ganador)}">${it.margen_ganador}% si bajás</div>`:''}
+        ${dif!=null?`<div style="font-size:10px;color:var(--red)">Tu precio +${dif}% más caro</div>`:''}
+      </td>
+      <td style="font-size:10px;color:var(--t3);max-width:140px;padding:6px 4px">${it.vendedor_ganador||'—'}</td>
+      <td style="padding:6px 4px;white-space:nowrap">
+        ${accion}
+        <a href="https://www.mercadolibre.com.ar/p/${it.catalog_product_id}" target="_blank" class="btn-g btn-sm" style="font-size:10px;text-decoration:none;display:inline-block;margin-top:2px">Ver →</a>
+      </td>
+    </tr>`;
+  }).join('');
 
   tabla.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:11px">
-    <thead><tr style="color:var(--t3);border-bottom:1px solid var(--b2)">
+    <thead><tr style="color:var(--t3);border-bottom:2px solid var(--b2);font-size:10px">
       <th style="width:44px"></th>
-      <th style="text-align:left">Publicación</th>
-      <th class="r">Tu precio</th>
-      <th>Estado</th>
-      <th class="r">Precio ganador</th>
-      <th>Vendedor ganador</th>
+      <th style="text-align:left;padding:4px">Publicación</th>
+      <th class="r" style="padding:4px">Tu precio / margen</th>
+      <th style="padding:4px">Estado</th>
+      <th class="r" style="padding:4px">Precio ganador / margen potencial</th>
+      <th style="padding:4px">Vendedor ganador</th>
       <th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -6474,10 +6514,10 @@ async function repBuscar(){
           <div class="ch"><span class="ct" style="font-size:12px">Seleccioná la publicación a importar</span></div>
           ${ds.items.map(it=>`
             <div onclick="repSeleccionar('${it.id}')" style="display:flex;gap:10px;align-items:center;padding:8px;cursor:pointer;border-radius:6px;margin-bottom:4px;border:1px solid var(--b2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
-              <img src="${it.thumbnail}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">
+              <img src="${it.thumbnail||''}" style="width:40px;height:40px;object-fit:cover;border-radius:4px" onerror="this.style.display='none'">
               <div style="flex:1;min-width:0">
-                <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
-                <div style="font-size:10px;color:var(--t3)">${it.id} · ${it.price?.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})}</div>
+                <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.titulo||it.title||'Sin título'}</div>
+                <div style="font-size:10px;color:var(--t3)">${it.id}${it.sku?' · SKU: '+it.sku:''} · ${(it.precio||it.price||0).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})}</div>
               </div>
               <button class="btn" style="font-size:10px;padding:4px 10px">Importar</button>
             </div>`).join('')}
@@ -6529,28 +6569,48 @@ function repRenderForm(){
   const accounts=(S.accounts||[]).filter(a=>a.token);
   const it=_repItem;
   const fmtARS=n=>n?.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})||'$0';
-  // Cuotas por cuenta - tabla editable
+  // Inicializar cuentas seleccionadas (todas por defecto)
+  if(!window._repCuentasSel) window._repCuentasSel = new Set(accounts.map(a=>a.id));
+
+  // Cuotas por cuenta - tabla editable con checkbox de selección
   const cuotasRows=accounts.map(a=>{
     const ov=_repCuotas[a.id]||{};
     const precio=ov.precio!=null?ov.precio:it.precio;
     const nCuotas=ov.nCuotas||1;
-    const montoCuota=ov.montoCuota||0;
-    return `<tr>
-      <td style="font-weight:600;color:var(--acc)">${a.id}</td>
-      <td><input class="inp" type="number" id="rep_precio_${a.id}" value="${precio}" style="width:110px" oninput="repUpdateCuota('${a.id}')"></td>
-      <td><input class="inp" type="number" id="rep_ncuotas_${a.id}" value="${nCuotas}" min="1" max="24" style="width:60px" oninput="repUpdateCuota('${a.id}')"></td>
-      <td id="rep_monto_cuota_${a.id}" style="color:var(--t2);font-size:12px">${nCuotas>1?fmtARS(Math.ceil(precio/nCuotas))+'/cuota':'—'}</td>
+    const sel=window._repCuentasSel.has(a.id);
+    // Calcular margen estimado si tenemos el precio
+    const comML=0.14; const iibb=0.04;
+    const iva=precio-(precio/1.21);
+    const margenEst=precio>0?Math.round(((precio - precio*comML - precio*iibb - iva)/precio)*100):null;
+    return `<tr id="rep_row_${a.id}" style="${sel?'':'opacity:0.4'}">
+      <td style="padding:6px 4px"><input type="checkbox" id="rep_sel_${a.id}" ${sel?'checked':''} onchange="repToggleCuenta('${a.id}')" style="cursor:pointer;width:14px;height:14px"></td>
+      <td style="font-weight:600;color:var(--acc);padding:4px">${a.nickname||a.id}</td>
+      <td style="padding:4px"><input class="inp" type="number" id="rep_precio_${a.id}" value="${precio}" style="width:110px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
+      <td style="padding:4px"><input class="inp" type="number" id="rep_ncuotas_${a.id}" value="${nCuotas}" min="1" max="24" style="width:60px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
+      <td id="rep_monto_cuota_${a.id}" style="color:var(--t2);font-size:12px;padding:4px">${nCuotas>1?fmtARS(Math.ceil(precio/nCuotas))+'/cuota':'—'}</td>
+      <td id="rep_margen_${a.id}" style="font-size:11px;padding:4px;color:${margenEst!=null&&margenEst<15?'var(--red)':margenEst!=null&&margenEst<25?'var(--warn)':'var(--grn)'}">${margenEst!=null?margenEst+'% aprox':'—'}</td>
     </tr>`;
   }).join('');
+
+  // Fotos del item
+  const fotosHtml=(it.fotos||[]).slice(0,5).map(f=>`<img src="${f.url||f}" style="width:64px;height:64px;object-fit:contain;border-radius:4px;background:var(--s2);cursor:pointer" onclick="window.open('${f.url||f}','_blank')" onerror="this.style.display='none'">`).join('');
+
+  // Atributos principales del item
+  const attrImp=(it.atributos||[]).filter(a=>['BRAND','MODEL','EAN','SELLER_SKU','UNIT_TYPE'].includes(a.id)).map(a=>`<span style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${a.id}: <b>${a.value_name||a.value_id||'—'}</b></span>`).join(' ');
+
   const formEl=document.getElementById('repForm');
   formEl.style.display='block';
   formEl.innerHTML=`
   ${it.id?`<div class="card" style="margin-bottom:12px;padding:12px">
-    <div style="display:flex;gap:12px;align-items:flex-start">
-      ${it.fotos?.[0]?`<img src="${it.fotos[0].url}" style="width:80px;height:80px;object-fit:contain;border-radius:4px;background:var(--s2)" onerror="this.style.display='none'">`:'' }
-      <div style="flex:1">
-        <div style="font-weight:600;font-size:13px;margin-bottom:4px">${it.titulo}</div>
-        <div style="font-size:11px;color:var(--t3)">ID: ${it.id} · Categoría: ${it.categoria} · Precio original: ${fmtARS(it.precio)}</div>
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${it.fotos?.[0]?`<img src="${it.fotos[0].url}" style="width:88px;height:88px;object-fit:contain;border-radius:6px;background:var(--s2)" onerror="this.style.display='none'">`:'' }
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px;line-height:1.3">${it.titulo}</div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:6px">ID: <a href="https://www.mercadolibre.com.ar/p/${it.id}" target="_blank" style="color:var(--acc)">${it.id}</a> · Cat: ${it.categoria} · Precio publicado: ${fmtARS(it.precio)} · Stock: ${it.stock||'—'}</div>
+        ${attrImp?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${attrImp}</div>`:''}
+        ${fotosHtml?`<div style="display:flex;gap:4px;flex-wrap:wrap">${fotosHtml}</div>`:''}
       </div>
     </div>
   </div>`:''}
@@ -6570,7 +6630,7 @@ function repRenderForm(){
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
       <div>
         <label class="lbl">Precio base (ARS)</label>
-        <input class="inp" type="number" id="rep_precio_base" value="${it.precio||0}">
+        <input class="inp" type="number" id="rep_precio_base" value="${it.precio||0}" oninput="repRenderForm()">
       </div>
       <div>
         <label class="lbl">Stock</label>
@@ -6591,21 +6651,26 @@ function repRenderForm(){
   </div>
 
   <div class="card" style="margin-bottom:12px;padding:14px">
-    <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Precio y cuotas por cuenta</div>
-    <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Podés poner precio distinto en cada cuenta. Si ponés N cuotas, se agrega el plan de financiación sin interés (el costo es tuyo).</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">Precio y cuotas por cuenta</div>
+      <span style="font-size:10px;color:var(--t3)">${window._repCuentasSel.size} de ${accounts.length} cuentas seleccionadas</span>
+    </div>
+    <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Elegí en qué cuentas publicar. El margen es estimado (14% comisión + 4% IIBB + IVA).</p>
     <table style="width:100%;font-size:12px;border-collapse:collapse">
       <thead><tr style="color:var(--t4);font-size:10px;border-bottom:1px solid var(--s4)">
+        <th style="width:24px"></th>
         <th style="text-align:left;padding:4px">Cuenta</th>
         <th style="text-align:left;padding:4px">Precio (ARS)</th>
         <th style="text-align:left;padding:4px">Cuotas s/int</th>
         <th style="text-align:left;padding:4px">Monto/cuota</th>
+        <th style="text-align:left;padding:4px">Margen est.</th>
       </tr></thead>
       <tbody>${cuotasRows}</tbody>
     </table>
   </div>
 
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <button class="btn" style="background:var(--grn)" onclick="repPublicarTodas()">🚀 Publicar en todas (${accounts.length} cuentas)</button>
+    <button class="btn" style="background:var(--grn)" onclick="repPublicarTodas()">🚀 Publicar en ${window._repCuentasSel.size} cuenta${window._repCuentasSel.size!==1?'s':''}</button>
     <button class="btn" style="background:var(--s3)" onclick="repLimpiar()">✖ Cancelar</button>
   </div>`;
 }
@@ -6629,8 +6694,24 @@ window.repUpdateCuota=function(acctId){
   }
 };
 
+window.repToggleCuenta=function(acctId){
+  const cb=document.getElementById('rep_sel_'+acctId);
+  const row=document.getElementById('rep_row_'+acctId);
+  if(cb?.checked){ window._repCuentasSel.add(acctId); }
+  else { window._repCuentasSel.delete(acctId); }
+  if(row) row.style.opacity=cb?.checked?'1':'0.4';
+  const inp_p=document.getElementById('rep_precio_'+acctId);
+  const inp_c=document.getElementById('rep_ncuotas_'+acctId);
+  if(inp_p) inp_p.disabled=!cb?.checked;
+  if(inp_c) inp_c.disabled=!cb?.checked;
+  // Update button label
+  const btn=document.querySelector('[onclick="repPublicarTodas()"]');
+  const n=window._repCuentasSel.size;
+  if(btn) btn.textContent=`🚀 Publicar en ${n} cuenta${n!==1?'s':''}`;
+};
+
 window.repLimpiar=function(){
-  _repItem=null; _repCuotas={};
+  _repItem=null; _repCuotas={}; window._repCuentasSel=null;
   const f=document.getElementById('repForm');const r=document.getElementById('repResultados');
   if(f){f.style.display='none';f.innerHTML='';}
   if(r){r.style.display='none';r.innerHTML='';}
@@ -6638,8 +6719,9 @@ window.repLimpiar=function(){
 
 window.repPublicarTodas=async function(){
   if(!_repItem){toast('No hay ítem cargado','err');return;}
-  const accounts=(S.accounts||[]).filter(a=>a.token);
-  if(!accounts.length){toast('No hay cuentas con token activo','err');return;}
+  const allAccts=(S.accounts||[]).filter(a=>a.token);
+  const accounts=allAccts.filter(a=>!window._repCuentasSel||window._repCuentasSel.has(a.id));
+  if(!accounts.length){toast('Seleccioná al menos una cuenta','err');return;}
   // Leer campos editados
   const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo;
   const categoria=document.getElementById('rep_categoria')?.value.trim()||_repItem.categoria;
