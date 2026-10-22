@@ -416,6 +416,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
         <div class="tab"     onclick="sPlatTab('canceladas',this)">❌ Canceladas</div>
         <div class="tab"     onclick="sPlatTab('replicar',this)">🔁 Replicar / Publicar</div>
         <div class="tab"     onclick="sPlatTab('promociones',this)">🏷️ Promociones</div>
+        <div class="tab"     onclick="sPlatTab('catalogos',this)">📚 Catálogos</div>
       </div>
       <div id="platCont" style="margin-top:12px"></div>
     </div>
@@ -5328,6 +5329,7 @@ window.renderPlataforma = function(){
   else if(_platTab==='canceladas') renderCanceladas(el);
   else if(_platTab==='replicar') renderReplicar(el, accounts);
   else if(_platTab==='promociones') renderPromociones(el, accounts);
+  else if(_platTab==='catalogos') renderCatalogos(el, accounts);
 };
 
 window.sPlatTab = function(t,el){
@@ -5653,6 +5655,8 @@ async function galponLoadProductos(){
   }catch(e){ console.warn('galponLoadProductos',e); }
 }
 
+window.galponLoadProductos = (...a) => galponLoadProductos(...a);
+
 // ── Render principal de la página Galpón ──
 function renderGalpon(){
   const el=document.getElementById('page-galpon');
@@ -5971,112 +5975,152 @@ window.galponEditarPedido=async function(id){
 };
 
 // ── PROMOCIONES ──────────────────────────────────────────────
-let _promoItems=[], _promoScroll=null, _promoTotal=0, _promoSel=new Set(), _promoLoading=false;
+let _promoData={}, _promoAcctIdx=0, _promoSel=new Set(), _promoLoading=false;
 
 async function renderPromociones(el, accounts){
-  const acct = accounts[0];
-  _promoSel = new Set();
+  const accts=accounts.filter(a=>a.token);
+  if(!accts.length){el.innerHTML='<div class="card"><p style="color:var(--t3);font-size:12px">Sin cuentas conectadas.</p></div>';return;}
+  _promoSel=new Set();
+  _promoData={};
+  const tabsHtml=accts.map((a,i)=>`<div class="tab ${i===0?'on':''}" onclick="promoSwitchAcct(${i},this)">${a.nickname||a.userId}</div>`).join('');
   el.innerHTML=`
   <div class="card" style="margin-bottom:12px">
     <div class="ch"><span class="ct">🏷️ Gestión de Promociones y Descuentos</span></div>
-    <p style="font-size:11px;color:var(--t3);margin-bottom:12px">Aplicá precios tachados a tus publicaciones respetando el margen mínimo. El semáforo muestra si el descuento es viable.</p>
+    <!-- Tabs por cuenta -->
+    <div class="tabs" style="margin-bottom:12px">${tabsHtml}</div>
+    <!-- Controles -->
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-      <label style="font-size:11px;color:var(--t2)">Margen mínimo:</label>
-      <input id="promoMargenMin" class="inp" type="number" value="15" min="0" max="80" style="width:60px;font-size:11px" oninput="promoActualizarSemaforos()"> %
-      <label style="font-size:11px;color:var(--t2);margin-left:12px">Descuento rápido:</label>
-      <input id="promoDescPct" class="inp" type="number" value="10" min="1" max="60" style="width:55px;font-size:11px"> %
-      <button class="btn" onclick="promoAplicarSeleccionados()" style="margin-left:4px">🏷️ Aplicar a seleccionados</button>
+      <label style="font-size:11px;color:var(--t2)">Margen mín.:</label>
+      <input id="promoMargenMin" class="inp" type="number" value="15" min="0" max="80" style="width:55px;font-size:11px" oninput="promoActualizarSemaforos()"> %
+      <label style="font-size:11px;color:var(--t2);margin-left:8px">Descuento:</label>
+      <input id="promoDescPct" class="inp" type="number" value="10" min="1" max="60" style="width:50px;font-size:11px" oninput="promoActualizarSemaforos()"> %
+      <button class="btn" onclick="promoAplicarSeleccionados()">🏷️ Aplicar a seleccionados</button>
       <button class="btn" style="background:var(--s3)" onclick="promoQuitarSeleccionados()">✖ Quitar descuento</button>
       <span id="promoSelCount" style="font-size:11px;color:var(--t3)"></span>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
       <input id="promoFiltro" class="inp" placeholder="Filtrar por SKU o título..." style="flex:1;font-size:11px" oninput="promoFiltrar()">
       <select id="promoFiltroEstado" class="inp" style="font-size:11px;padding:4px 8px" onchange="promoFiltrar()">
         <option value="">Todos</option>
-        <option value="con">Con descuento activo</option>
+        <option value="ml">🤝 Con aporte ML</option>
+        <option value="propio">🏷️ Descuento propio</option>
         <option value="sin">Sin descuento</option>
       </select>
     </div>
+    <div style="font-size:10px;color:var(--t3);margin-bottom:8px">
+      🤝 <b>Aporte ML</b>: ML comparte el costo del descuento (vos definís el precio final y ML financia la diferencia, no te afecta el margen)
+      &nbsp;·&nbsp; 🏷️ <b>Propio</b>: precio tachado, el costo lo absorbés vos
+    </div>
   </div>
-  <div id="promoTabla"></div>
+  <div id="promoTabla"><div style="color:var(--t3);font-size:12px;padding:16px">Cargando...</div></div>
   <div id="promoMore" style="text-align:center;margin-top:10px;display:none">
-    <button class="btn" onclick="promoCargarMas()">Cargar más publicaciones</button>
+    <button class="btn" onclick="promoCargarMas()">Cargar más</button>
     <span id="promoTotalLabel" style="font-size:11px;color:var(--t3);margin-left:8px"></span>
   </div>`;
-  await promoCargar(acct, true);
+  window._promoAccts=accts;
+  _promoAcctIdx=0;
+  await promoCargar(accts[0], true);
 }
+
+window.promoSwitchAcct=async function(idx, tabEl){
+  _promoAcctIdx=idx;
+  _promoSel=new Set();
+  document.querySelectorAll('#promoTabla').forEach(()=>{});
+  tabEl.closest('.tabs')?.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===idx));
+  const acct=window._promoAccts?.[idx];
+  if(!acct) return;
+  if(_promoData[acct.userId]){
+    promoRenderTabla();
+  } else {
+    await promoCargar(acct, true);
+  }
+};
 
 async function promoCargar(acct, reset=false){
   if(_promoLoading) return;
   _promoLoading=true;
   const tabla=document.getElementById('promoTabla');
-  if(reset){ _promoItems=[]; _promoScroll=null; if(tabla) tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Cargando publicaciones...</div>'; }
+  const uid=acct.userId;
+  if(reset){ _promoData[uid]={items:[],scroll_id:null,total:0}; if(tabla) tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Cargando publicaciones...</div>'; }
+  const prev=_promoData[uid]||{items:[],scroll_id:null,total:0};
   try{
-    const qs=`seller_id=${acct.userId}&limit=50`+(reset?'':(_promoScroll?`&scroll_id=${_promoScroll}`:''));
+    const qs=`seller_id=${uid}&limit=50`+(!reset&&prev.scroll_id?`&scroll_id=${prev.scroll_id}`:'');
     const r=await fetch(PROXY+'/promociones/items?'+qs,{headers:{'x-ml-token':acct.token}});
     const d=await r.json();
-    if(reset) _promoItems=d.items||[];
-    else _promoItems=[..._promoItems,...(d.items||[])];
-    _promoScroll=d.scroll_id||null;
-    _promoTotal=d.total||_promoItems.length;
+    _promoData[uid]={
+      items: reset ? (d.items||[]) : [...prev.items,...(d.items||[])],
+      scroll_id: d.scroll_id||null,
+      total: d.total||prev.total
+    };
     promoRenderTabla();
   }catch(e){
-    if(tabla) tabla.innerHTML='<div style="color:var(--red);font-size:12px;padding:16px">Error cargando items: '+e.message+'</div>';
+    if(tabla) tabla.innerHTML='<div style="color:var(--red);font-size:12px;padding:16px">Error: '+e.message+'</div>';
   }
   _promoLoading=false;
 }
 
 function promoCargarMas(){
-  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  const acct=window._promoAccts?.[_promoAcctIdx];
   if(acct) promoCargar(acct,false);
 }
 
 function promoFiltrar(){ promoRenderTabla(); }
+window.promoFiltrar = promoFiltrar;
 
 function promoActualizarSemaforos(){ promoRenderTabla(); }
+window.promoActualizarSemaforos = promoActualizarSemaforos;
 
 function promoRenderTabla(){
   const tabla=document.getElementById('promoTabla');
   if(!tabla) return;
+  const acct=window._promoAccts?.[_promoAcctIdx];
+  const uid=acct?.userId;
+  const data=_promoData[uid]||{items:[],scroll_id:null,total:0};
   const margenMin=parseFloat(document.getElementById('promoMargenMin')?.value||15);
   const filtroTxt=(document.getElementById('promoFiltro')?.value||'').toLowerCase();
   const filtroEst=document.getElementById('promoFiltroEstado')?.value||'';
   const descPct=parseFloat(document.getElementById('promoDescPct')?.value||10)/100;
 
-  let items=_promoItems.filter(it=>{
+  let items=data.items.filter(it=>{
     if(filtroTxt && !it.titulo.toLowerCase().includes(filtroTxt) && !(it.sku||'').toLowerCase().includes(filtroTxt)) return false;
-    if(filtroEst==='con' && !it.descuento_activo) return false;
+    if(filtroEst==='ml' && !it.aporte_ml) return false;
+    if(filtroEst==='propio' && (!it.descuento_activo||it.aporte_ml)) return false;
     if(filtroEst==='sin' && it.descuento_activo) return false;
     return true;
   });
 
-  // Actualizar contador seleccionados
   const selCount=document.getElementById('promoSelCount');
-  if(selCount) selCount.textContent=_promoSel.size>0?`${_promoSel.size} seleccionado${_promoSel.size>1?'s':''}` :'';
+  if(selCount) selCount.textContent=_promoSel.size>0?`${_promoSel.size} sel.`:'';
 
-  // More button
   const moreDiv=document.getElementById('promoMore');
   const totalLabel=document.getElementById('promoTotalLabel');
-  if(moreDiv) moreDiv.style.display=(_promoScroll&&_promoItems.length<_promoTotal)?'block':'none';
-  if(totalLabel) totalLabel.textContent=`${_promoItems.length} de ${_promoTotal} publicaciones`;
+  if(moreDiv) moreDiv.style.display=(data.scroll_id&&data.items.length<data.total)?'block':'none';
+  if(totalLabel) totalLabel.textContent=`${data.items.length} de ${data.total}`;
 
   if(!items.length){ tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Sin publicaciones que coincidan.</div>'; return; }
 
   const rows=items.map(it=>{
     const precioConDesc=Math.round(it.precio*(1-descPct));
-    // Calcular margen aproximado con el descuento propuesto
-    const comisionEst=precioConDesc*0.14;
-    const iibbEst=precioConDesc*0.04;
-    const ivaEst=precioConDesc-(precioConDesc/1.21);
+    const comisionEst=precioConDesc*0.14, iibbEst=precioConDesc*0.04, ivaEst=precioConDesc-(precioConDesc/1.21);
     const margenConDesc=it.costo!=null&&precioConDesc>0
-      ? Math.round(((precioConDesc-it.costo-comisionEst-iibbEst-ivaEst)/precioConDesc)*100)
-      : null;
-    const viable= margenConDesc==null ? null : margenConDesc>=margenMin;
-    const semaforo= viable==null ? '⚪' : (viable ? '🟢' : '🔴');
+      ? Math.round(((precioConDesc-it.costo-comisionEst-iibbEst-ivaEst)/precioConDesc)*100) : null;
+    const viable=margenConDesc==null?null:margenConDesc>=margenMin;
+    const semaforo=viable==null?'⚪':(viable?'🟢':'🔴');
     const sel=_promoSel.has(it.id);
-    const descActualBadge=it.descuento_activo
-      ? `<span style="font-size:9px;padding:2px 6px;border-radius:8px;background:rgba(255,170,0,.15);color:var(--org)">-${it.pct_descuento_actual}% activo</span>`
+
+    // Badge de tipo de descuento
+    let descBadge='';
+    if(it.aporte_ml){
+      descBadge=`<span style="font-size:9px;padding:2px 6px;border-radius:8px;background:rgba(52,168,83,.15);color:#34a853;font-weight:600">🤝 ML -${it.pct_descuento_actual||'?'}%</span>`;
+    } else if(it.descuento_activo){
+      descBadge=`<span style="font-size:9px;padding:2px 6px;border-radius:8px;background:rgba(255,170,0,.15);color:var(--org)">🏷️ -${it.pct_descuento_actual||'?'}% propio</span>`;
+    }
+
+    // Precio tachado actual
+    const precioTachadoHtml=it.precio_original
+      ? `<span style="font-size:10px;color:var(--t3);text-decoration:line-through">${fS(it.precio_original)}</span> `
       : '';
+
     return `<tr style="cursor:pointer;background:${sel?'rgba(77,163,255,.07)':''}">
       <td onclick="promoToggleSel('${it.id}',this.closest('tr'))">
         <input type="checkbox" ${sel?'checked':''} style="margin:0;cursor:pointer" onchange="promoToggleSel('${it.id}',this.closest('tr'))" onclick="event.stopPropagation()">
@@ -6085,19 +6129,22 @@ function promoRenderTabla(){
         <img src="${it.thumbnail||''}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;display:block">
       </td>
       <td onclick="promoToggleSel('${it.id}',this.closest('tr'))">
-        <div style="font-size:11px;font-weight:500;line-height:1.3;max-width:280px">${it.titulo}</div>
+        <div style="font-size:11px;font-weight:500;line-height:1.3;max-width:260px">${it.titulo}</div>
         <div style="font-size:10px;color:var(--t3)">${it.sku||it.id} · Stock: ${it.stock}</div>
-        ${descActualBadge}
+        ${descBadge}
       </td>
-      <td class="mono r">${fS(it.precio)}</td>
-      <td class="mono r" style="color:var(--org)">${fS(precioConDesc)}</td>
+      <td class="mono r" style="font-size:11px">
+        ${precioTachadoHtml}<span style="font-weight:600">${fS(it.precio)}</span>
+      </td>
+      <td class="mono r" style="color:var(--acc);font-size:11px">${fS(precioConDesc)}</td>
       <td style="text-align:center;font-size:13px">${semaforo}</td>
       <td class="mono r" style="font-size:11px;color:${margenConDesc==null?'var(--t3)':margenConDesc>=margenMin?'var(--grn)':'var(--red)'}">
         ${margenConDesc!=null?margenConDesc+'%':'—'}
       </td>
-      <td>
-        <button class="btn-g btn-sm" onclick="promoAplicarUno('${it.id}',${it.precio},event)" style="font-size:10px">Aplicar</button>
-        ${it.descuento_activo?`<button class="btn-g btn-sm" onclick="promoQuitarUno('${it.id}',event)" style="font-size:10px;margin-left:4px">Quitar</button>`:''}
+      <td style="white-space:nowrap">
+        ${!it.aporte_ml?`<button class="btn-g btn-sm" onclick="promoAplicarUno('${it.id}',${it.precio},event)" style="font-size:10px">Aplicar</button>`:''}
+        ${it.descuento_activo&&!it.aporte_ml?`<button class="btn-g btn-sm" onclick="promoQuitarUno('${it.id}',event)" style="font-size:10px;margin-left:3px">Quitar</button>`:''}
+        ${it.aporte_ml?`<span style="font-size:10px;color:var(--t3);font-style:italic">Gestionado por ML</span>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -6108,7 +6155,7 @@ function promoRenderTabla(){
       <th style="width:44px"></th>
       <th style="text-align:left">Publicación</th>
       <th class="r">Precio actual</th>
-      <th class="r">Con descuento</th>
+      <th class="r">Con -${Math.round(descPct*100)}%</th>
       <th style="text-align:center">Viable</th>
       <th class="r">Margen</th>
       <th></th>
@@ -6127,11 +6174,15 @@ window.promoToggleSel=function(id,tr){
 };
 
 window.promoToggleTodos=function(checked){
+  const uid=window._promoAccts?.[_promoAcctIdx]?.userId;
+  const data=_promoData[uid]||{items:[]};
   const filtroTxt=(document.getElementById('promoFiltro')?.value||'').toLowerCase();
   const filtroEst=document.getElementById('promoFiltroEstado')?.value||'';
-  const visibles=_promoItems.filter(it=>{
+  const visibles=data.items.filter(it=>{
+    if(it.aporte_ml) return false; // no seleccionar los de ML
     if(filtroTxt && !it.titulo.toLowerCase().includes(filtroTxt) && !(it.sku||'').toLowerCase().includes(filtroTxt)) return false;
-    if(filtroEst==='con' && !it.descuento_activo) return false;
+    if(filtroEst==='ml' && !it.aporte_ml) return false;
+    if(filtroEst==='propio' && (!it.descuento_activo||it.aporte_ml)) return false;
     if(filtroEst==='sin' && it.descuento_activo) return false;
     return true;
   });
@@ -6144,7 +6195,7 @@ window.promoAplicarUno=async function(itemId, precioActual, ev){
   ev?.stopPropagation();
   const descPct=parseFloat(document.getElementById('promoDescPct')?.value||10)/100;
   const precioNuevo=Math.round(precioActual*(1-descPct));
-  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  const acct=window._promoAccts?.[_promoAcctIdx];
   if(!acct){toast('Sin cuenta activa','err');return;}
   toast('Aplicando descuento...','info');
   try{
@@ -6153,8 +6204,9 @@ window.promoAplicarUno=async function(itemId, precioActual, ev){
     const d=await r.json();
     if(d.ok){
       toast(`✓ Descuento aplicado — nuevo precio ${fS(d.precio)}`,'ok');
-      const it=_promoItems.find(x=>x.id===itemId);
-      if(it){ it.precio_original=it.precio; it.precio=d.precio; it.descuento_activo=true; it.pct_descuento_actual=Math.round((1-d.precio/it.precio_original)*100); }
+      const uid=acct?.userId; const data=_promoData[uid]||{items:[]};
+      const it=data.items.find(x=>x.id===itemId);
+      if(it){ it.precio_original=it.precio; it.precio=d.precio; it.descuento_activo=true; it.aporte_ml=false; it.pct_descuento_actual=Math.round((1-d.precio/(it.precio_original||d.precio))*100); }
       promoRenderTabla();
     } else toast('Error: '+(d.error||'ML no respondió'),'err');
   }catch(e){toast('Error: '+e.message,'err');}
@@ -6162,7 +6214,7 @@ window.promoAplicarUno=async function(itemId, precioActual, ev){
 
 window.promoQuitarUno=async function(itemId, ev){
   ev?.stopPropagation();
-  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  const acct=window._promoAccts?.[_promoAcctIdx];
   if(!acct){toast('Sin cuenta activa','err');return;}
   toast('Quitando descuento...','info');
   try{
@@ -6170,8 +6222,9 @@ window.promoQuitarUno=async function(itemId, ev){
     const d=await r.json();
     if(d.ok){
       toast('✓ Descuento quitado','ok');
-      const it=_promoItems.find(x=>x.id===itemId);
-      if(it){ it.precio=it.precio_original||it.precio; it.precio_original=null; it.descuento_activo=false; it.pct_descuento_actual=0; }
+      const uid=acct?.userId; const data=_promoData[uid]||{items:[]};
+      const it=data.items.find(x=>x.id===itemId);
+      if(it){ it.precio=it.precio_original||it.precio; it.precio_original=null; it.descuento_activo=false; it.aporte_ml=false; it.pct_descuento_actual=0; }
       promoRenderTabla();
     } else toast('Error: '+(d.error||'ML no respondió'),'err');
   }catch(e){toast('Error: '+e.message,'err');}
@@ -6181,10 +6234,11 @@ window.promoAplicarSeleccionados=async function(){
   if(!_promoSel.size){toast('Seleccioná al menos una publicación','err');return;}
   const descPct=parseFloat(document.getElementById('promoDescPct')?.value||10)/100;
   const margenMin=parseFloat(document.getElementById('promoMargenMin')?.value||15);
-  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  const acct=window._promoAccts?.[_promoAcctIdx];
   if(!acct){toast('Sin cuenta activa','err');return;}
-  // Solo los viables
-  const items=_promoItems.filter(it=>_promoSel.has(it.id)).map(it=>{
+  const uid=acct?.userId;
+  const allItems=(_promoData[uid]||{items:[]}).items;
+  const items=allItems.filter(it=>_promoSel.has(it.id)&&!it.aporte_ml).map(it=>{
     const precioNuevo=Math.round(it.precio*(1-descPct));
     const comEst=precioNuevo*0.14, iibbEst=precioNuevo*0.04, ivaEst=precioNuevo-(precioNuevo/1.21);
     const margen=it.costo!=null?Math.round(((precioNuevo-it.costo-comEst-iibbEst-ivaEst)/precioNuevo)*100):null;
@@ -6203,8 +6257,8 @@ window.promoAplicarSeleccionados=async function(){
     if(d.ok){
       toast(`✓ ${d.exitosos}/${d.total} aplicados correctamente`,'ok');
       d.resultados.filter(x=>x.ok).forEach(x=>{
-        const it=_promoItems.find(i=>i.id===x.item_id);
-        if(it){ it.precio_original=it.precio; it.precio=x.precio; it.descuento_activo=true; it.pct_descuento_actual=Math.round((1-x.precio/it.precio_original)*100); }
+        const it=allItems.find(i=>i.id===x.item_id);
+        if(it){ it.precio_original=it.precio_original||it.precio; it.precio=x.precio; it.descuento_activo=true; it.aporte_ml=false; it.pct_descuento_actual=Math.round((1-x.precio/it.precio_original)*100); }
       });
       _promoSel.clear();
       promoRenderTabla();
@@ -6214,9 +6268,11 @@ window.promoAplicarSeleccionados=async function(){
 
 window.promoQuitarSeleccionados=async function(){
   if(!_promoSel.size){toast('Seleccioná al menos una publicación','err');return;}
-  const acct=(S.accounts||[]).filter(a=>a.token)[0];
+  const acct=window._promoAccts?.[_promoAcctIdx];
   if(!acct){toast('Sin cuenta activa','err');return;}
-  const items=[..._promoSel].map(id=>({item_id:id,precio_nuevo:_promoItems.find(x=>x.id===id)?.precio||0}));
+  const uid=acct.userId;
+  const allItems=(_promoData[uid]||{items:[]}).items;
+  const items=[..._promoSel].filter(id=>{const it=allItems.find(x=>x.id===id);return it&&!it.aporte_ml;}).map(id=>({item_id:id,precio_nuevo:allItems.find(x=>x.id===id)?.precio||0}));
   toast(`Quitando descuento de ${items.length} publicaciones...`,'info');
   try{
     const r=await fetch(PROXY+'/promociones/precio-bulk',{method:'POST',headers:{'x-ml-token':acct.token,'Content-Type':'application/json'},
@@ -6225,14 +6281,145 @@ window.promoQuitarSeleccionados=async function(){
     if(d.ok){
       toast(`✓ Descuento quitado de ${d.exitosos} publicaciones`,'ok');
       d.resultados.filter(x=>x.ok).forEach(x=>{
-        const it=_promoItems.find(i=>i.id===x.item_id);
-        if(it){ it.precio=it.precio_original||it.precio; it.precio_original=null; it.descuento_activo=false; it.pct_descuento_actual=0; }
+        const it=allItems.find(i=>i.id===x.item_id);
+        if(it){ it.precio=it.precio_original||it.precio; it.precio_original=null; it.descuento_activo=false; it.aporte_ml=false; it.pct_descuento_actual=0; }
       });
       _promoSel.clear();
       promoRenderTabla();
     } else toast('Error: '+(d.error||''),'err');
   }catch(e){toast('Error: '+e.message,'err');}
 };
+
+// ── CATÁLOGOS ────────────────────────────────────────────────
+let _catData={}, _catAcctIdx=0;
+
+async function renderCatalogos(el, accounts){
+  const accts=accounts.filter(a=>a.token);
+  if(!accts.length){el.innerHTML='<div class="card"><p style="color:var(--t3);font-size:12px">Sin cuentas conectadas.</p></div>';return;}
+  const tabsHtml=accts.map((a,i)=>`<div class="tab ${i===0?'on':''}" onclick="catSwitchAcct(${i},this)">${a.nickname||a.userId}</div>`).join('');
+  el.innerHTML=`
+  <div class="card" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">📚 Catálogos de MercadoLibre</span></div>
+    <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Tus publicaciones participando en catálogos. Podés ver si estás ganando, perdiendo o empatando la posición de catálogo.</p>
+    <div class="tabs" style="margin-bottom:10px">${tabsHtml}</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input id="catFiltro" class="inp" placeholder="Filtrar por título o SKU..." style="flex:1;font-size:11px" oninput="catFiltrar()">
+      <select id="catFiltroEstado" class="inp" style="font-size:11px;padding:4px 8px" onchange="catFiltrar()">
+        <option value="">Todos los estados</option>
+        <option value="winning">🥇 Ganando</option>
+        <option value="losing">📉 Perdiendo</option>
+        <option value="tied">🤝 Empatado</option>
+        <option value="not_classified">⚪ Sin clasificar</option>
+      </select>
+    </div>
+  </div>
+  <div id="catTabla"><div style="color:var(--t3);font-size:12px;padding:16px">Cargando catálogos...</div></div>
+  <div id="catMore" style="text-align:center;margin-top:10px;display:none">
+    <button class="btn" onclick="catCargarMas()">Cargar más</button>
+    <span id="catTotalLabel" style="font-size:11px;color:var(--t3);margin-left:8px"></span>
+  </div>`;
+  window._catAccts=accts;
+  _catAcctIdx=0;
+  await catCargar(accts[0], true);
+}
+
+window.catSwitchAcct=async function(idx, tabEl){
+  _catAcctIdx=idx;
+  tabEl.closest('.tabs')?.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',i===idx));
+  const acct=window._catAccts?.[idx];
+  if(!acct) return;
+  if(_catData[acct.userId]){
+    catRenderTabla();
+  } else {
+    document.getElementById('catTabla').innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Cargando...</div>';
+    await catCargar(acct, true);
+  }
+};
+
+async function catCargar(acct, reset=false){
+  const tabla=document.getElementById('catTabla');
+  const uid=acct.userId;
+  if(reset) _catData[uid]={items:[],scroll_id:null,total:0};
+  const prev=_catData[uid]||{items:[],scroll_id:null,total:0};
+  try{
+    const qs=`seller_id=${uid}&limit=50`+(!reset&&prev.scroll_id?`&scroll_id=${prev.scroll_id}`:'');
+    const r=await fetch(PROXY+'/catalogos/items?'+qs,{headers:{'x-ml-token':acct.token}});
+    const d=await r.json();
+    _catData[uid]={
+      items: reset ? (d.items||[]) : [...prev.items,...(d.items||[])],
+      scroll_id: d.scroll_id||null,
+      total: d.total||prev.total
+    };
+    catRenderTabla();
+  }catch(e){
+    if(tabla) tabla.innerHTML='<div style="color:var(--red);font-size:12px;padding:16px">Error: '+e.message+'</div>';
+  }
+}
+
+window.catCargarMas=function(){
+  const acct=window._catAccts?.[_catAcctIdx];
+  if(acct) catCargar(acct,false);
+};
+
+window.catFiltrar=function(){ catRenderTabla(); };
+
+function catRenderTabla(){
+  const tabla=document.getElementById('catTabla');
+  if(!tabla) return;
+  const uid=window._catAccts?.[_catAcctIdx]?.userId;
+  const data=_catData[uid]||{items:[],scroll_id:null,total:0};
+  const filtroTxt=(document.getElementById('catFiltro')?.value||'').toLowerCase();
+  const filtroEst=document.getElementById('catFiltroEstado')?.value||'';
+
+  let items=data.items.filter(it=>{
+    if(filtroTxt && !it.titulo.toLowerCase().includes(filtroTxt) && !(it.sku||'').toLowerCase().includes(filtroTxt)) return false;
+    if(filtroEst && it.estado_catalogo!==filtroEst) return false;
+    return true;
+  });
+
+  const moreDiv=document.getElementById('catMore');
+  const totalLabel=document.getElementById('catTotalLabel');
+  if(moreDiv) moreDiv.style.display=(data.scroll_id&&data.items.length<data.total)?'block':'none';
+  if(totalLabel) totalLabel.textContent=`${data.items.length} de ${data.total}`;
+
+  if(!items.length){ tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Sin publicaciones en catálogo que coincidan.</div>'; return; }
+
+  const estadoBadge=e=>{
+    const m={winning:['🥇 Ganando','var(--grn)'],losing:['📉 Perdiendo','var(--red)'],tied:['🤝 Empatado','var(--t2)'],not_classified:['⚪ Sin clasificar','var(--t3)']};
+    const [label,color]=m[e]||['—','var(--t3)'];
+    return `<span style="font-size:10px;font-weight:600;color:${color}">${label}</span>`;
+  };
+
+  const rows=items.map(it=>`
+    <tr>
+      <td><img src="${it.thumbnail||''}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;display:block"></td>
+      <td>
+        <div style="font-size:11px;font-weight:500;max-width:280px;line-height:1.3">${it.titulo}</div>
+        <div style="font-size:10px;color:var(--t3)">${it.sku||it.id} · Stock: ${it.stock||'—'}</div>
+        <div style="font-size:10px;color:var(--t3)">Cat: <a href="https://www.mercadolibre.com.ar/p/${it.catalog_product_id}" target="_blank" style="color:var(--acc)">${it.catalog_product_id||'—'}</a></div>
+      </td>
+      <td class="mono r" style="font-size:11px">${fS(it.precio)}</td>
+      <td style="font-size:11px">${estadoBadge(it.estado_catalogo)}</td>
+      <td class="mono r" style="font-size:11px;color:var(--t3)">${it.precio_ganador?fS(it.precio_ganador):'—'}</td>
+      <td style="font-size:10px;color:var(--t3);max-width:160px">${it.vendedor_ganador||'—'}</td>
+      <td>
+        <a href="https://www.mercadolibre.com.ar/p/${it.catalog_product_id}" target="_blank" class="btn-g btn-sm" style="font-size:10px;text-decoration:none">Ver catálogo →</a>
+      </td>
+    </tr>`).join('');
+
+  tabla.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="color:var(--t3);border-bottom:1px solid var(--b2)">
+      <th style="width:44px"></th>
+      <th style="text-align:left">Publicación</th>
+      <th class="r">Tu precio</th>
+      <th>Estado</th>
+      <th class="r">Precio ganador</th>
+      <th>Vendedor ganador</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
 
 // ── REPLICAR / PUBLICAR ──────────────────────────────────────
 let _repItem = null; // item importado/cargado
@@ -6244,7 +6431,7 @@ async function renderReplicar(el, accounts){
     <div class="ch"><span class="ct">🔁 Replicar / Publicar en todas las cuentas</span></div>
     <p style="font-size:11px;color:var(--t3);margin-bottom:12px">Buscá un item de ML para importarlo, editá precio y cuotas, y publicalo en todas tus cuentas de una vez.</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input id="repSearchInput" class="inp" placeholder="URL o ID de publicación (ej: MLA1234567)" style="flex:1;min-width:220px">
+      <input id="repSearchInput" class="inp" placeholder="SKU, título, ID o URL de publicación (ej: NVK-PE1001, MLA1234567...)" style="flex:1;min-width:220px" onkeydown="if(event.key==='Enter')repBuscar()">
       <button class="btn" onclick="repBuscar()">🔍 Importar</button>
       <button class="btn" style="background:var(--s3)" onclick="repNuevo()">✏️ Crear desde cero</button>
     </div>
@@ -6257,17 +6444,50 @@ async function renderReplicar(el, accounts){
 
 async function repBuscar(){
   const raw=(document.getElementById('repSearchInput')?.value||'').trim();
-  if(!raw){toast('Ingresá una URL o ID de publicación','err');return;}
-  // Extraer ID de URL o usar directo
-  let itemId=raw;
-  const m=raw.match(/MLA\d+/i);
-  if(m) itemId=m[0].toUpperCase();
-  else if(/^https?:\/\//i.test(raw)){toast('No se encontró ID de publicación en la URL','err');return;}
-  itemId=itemId.toUpperCase();
+  if(!raw){toast('Ingresá una URL, ID, SKU o título','err');return;}
   const token=(S.accounts||[]).find(a=>a.token)?.token||'';
-  const btn=document.querySelector('#repForm')?.parentElement?.querySelector('button');
   const formEl=document.getElementById('repForm');
   formEl.style.display='block';
+
+  // Intentar extraer ID directo de URL o texto
+  let itemId=null;
+  const mId=raw.match(/MLA\d+/i);
+  if(mId) itemId=mId[0].toUpperCase();
+
+  // Si no es un ID directo, buscar por SKU o título
+  if(!itemId){
+    formEl.innerHTML='<div class="card"><p style="font-size:12px;color:var(--t3)">🔍 Buscando "'+raw+'"...</p></div>';
+    try{
+      const repAcct=(S.accounts||[]).find(a=>a.token);
+      const repSid=repAcct?.userId||'';
+      const repTok=repAcct?.token||token;
+      const rs=await fetch(`${PROXY}/replicar/buscar?q=${encodeURIComponent(raw)}&seller_id=${repSid}&limit=8`,{headers:repTok?{'x-ml-token':repTok}:{}});
+      const ds=await rs.json();
+      if(!rs.ok||!ds.items?.length){
+        formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ No se encontraron publicaciones para "'+raw+'"</p></div>';return;
+      }
+      if(ds.items.length===1){
+        itemId=ds.items[0].id;
+      } else {
+        // Mostrar lista para elegir
+        formEl.innerHTML=`<div class="card">
+          <div class="ch"><span class="ct" style="font-size:12px">Seleccioná la publicación a importar</span></div>
+          ${ds.items.map(it=>`
+            <div onclick="repSeleccionar('${it.id}')" style="display:flex;gap:10px;align-items:center;padding:8px;cursor:pointer;border-radius:6px;margin-bottom:4px;border:1px solid var(--b2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+              <img src="${it.thumbnail}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.title}</div>
+                <div style="font-size:10px;color:var(--t3)">${it.id} · ${it.price?.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})}</div>
+              </div>
+              <button class="btn" style="font-size:10px;padding:4px 10px">Importar</button>
+            </div>`).join('')}
+        </div>`;
+        return;
+      }
+    }catch(e){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+e.message+'</p></div>';return;}
+  }
+
+  itemId=itemId.toUpperCase();
   formEl.innerHTML='<div class="card"><p style="font-size:12px;color:var(--t3)">⏳ Importando '+itemId+'...</p></div>';
   try{
     const r=await fetch(`${PROXY}/replicar/item/${itemId}`,{headers:token?{'x-ml-token':token}:{}});
@@ -6278,6 +6498,20 @@ async function repBuscar(){
     repRenderForm();
   }catch(e){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+e.message+'</p></div>';}
 }
+
+window.repBuscar=repBuscar;
+window.repNuevo=()=>repNuevo();
+window.repSeleccionar = async function(itemId){
+  const token=(S.accounts||[]).find(a=>a.token)?.token||'';
+  const formEl=document.getElementById('repForm');
+  formEl.innerHTML='<div class="card"><p style="font-size:12px;color:var(--t3)">⏳ Importando '+itemId+'...</p></div>';
+  try{
+    const r=await fetch(`${PROXY}/replicar/item/${itemId}`,{headers:token?{'x-ml-token':token}:{}});
+    const d=await r.json();
+    if(!r.ok||!d.ok){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+(d.error||'Error al importar')+'</p></div>';return;}
+    _repItem=d; _repCuotas={}; repRenderForm();
+  }catch(e){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+e.message+'</p></div>';}
+};
 
 function repNuevo(){
   _repItem={
