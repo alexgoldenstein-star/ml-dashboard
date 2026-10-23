@@ -2603,11 +2603,16 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <button class="btn btn-sm" onclick="window.open(document.getElementById('authLink').href,'_blank')" style="margin-top:8px;width:100%">🔗 Abrir link de autorización</button>
         </div>
         <label class="lbl">Client ID</label>
-        <input class="inp" id="gt_cid" placeholder="App ID" value="4974240011261700" oninput="buildAuthLink()">
+        <input class="inp" id="gt_cid" placeholder="App ID (ej: 357273189698145)" oninput="buildAuthLink()">
         <label class="lbl">Client Secret</label><input class="inp" id="gt_sec" type="password">
         <label class="lbl">Code (de la URL de callback)</label>
         <input class="inp" id="gt_code" placeholder="TG-XXXXXXXXXX" style="margin-bottom:4px">
-        <p style="font-size:10px;color:var(--t3);margin-bottom:12px">Después de autorizar, copiá el parámetro <strong>code=TG-XXXX</strong> de la URL de redirección.</p>
+        <p style="font-size:10px;color:var(--t3);margin-bottom:4px">Después de autorizar, copiá el parámetro <strong>code=TG-XXXX</strong> de la URL de redirección.</p>
+        <div style="background:var(--s3);border-radius:6px;padding:8px;margin-bottom:12px;font-size:10px;color:var(--t2);border:1px solid var(--b1)">
+          ⚠️ <strong>Redirect URI que debe estar registrada en tu app ML:</strong><br>
+          <code style="font-size:9px;color:var(--acc);word-break:break-all">https://alexgoldenstein-star.github.io/ml-dashboard/callback</code><br>
+          <span style="font-size:9px;color:var(--t3)">Verificá que esté exactamente así en ML Developers → tu app → URLs de redireccionamiento</span>
+        </div>
         <button class="btn" onclick="doGetToken()" id="gtBtn">Obtener Token</button>
         <div id="gtResult" style="margin-top:12px;display:none"></div>
       </div>
