@@ -6049,9 +6049,14 @@ async function promoCargar(acct, reset=false){
   const uid=acct.userId;
   if(tabla) tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Cargando todas las publicaciones...</div>';
   try{
-    const r=await fetch(PROXY+'/promociones/items?seller_id='+uid,{headers:{'x-ml-token':acct.token}});
+    // Cargar items y deals ML en paralelo
+    const [r, rDeals]=await Promise.all([
+      fetch(PROXY+'/promociones/items?seller_id='+uid,{headers:{'x-ml-token':acct.token}}),
+      fetch(PROXY+'/promociones/deals?seller_id='+uid,{headers:{'x-ml-token':acct.token}}).catch(()=>null)
+    ]);
     const d=await r.json();
-    _promoData[uid]={items:d.items||[],total:d.total||0};
+    const dDeals=rDeals?.ok?await rDeals.json():{deals:[],promociones:[]};
+    _promoData[uid]={items:d.items||[],total:d.total||0,deals:dDeals.deals||[],promociones_ml:dDeals.promociones||[]};
     // Ocultar botón cargar más
     const moreEl=document.getElementById('promoMore');
     if(moreEl) moreEl.style.display='none';
@@ -6166,7 +6171,39 @@ function promoRenderTabla(){
     </tr>`;
   }).join('');
 
-  tabla.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:11px">
+  // Panel de deals y campañas ofrecidas por ML
+  const deals=data.deals||[];
+  const promos_ml=data.promociones_ml||[];
+  let dealsHtml='';
+  if(deals.length||promos_ml.length){
+    const fFecha=s=>s?new Date(s).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):'?';
+    const dealRows=deals.map(d=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(52,168,83,.07);border:1px solid rgba(52,168,83,.2);margin-bottom:4px">
+        <span style="font-size:18px">${d.estado==='activo'?'🟢':'🟡'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:600">${d.nombre}</div>
+          <div style="font-size:10px;color:var(--t3)">${d.tipo.toUpperCase()} · ${d.estado} · ${fFecha(d.inicio)}–${fFecha(d.fin)}${d.items_count?' · '+d.items_count+' items':''}</div>
+        </div>
+        ${d.descuento_pct?`<span style="font-size:12px;font-weight:700;color:#34a853">-${d.descuento_pct}%</span>`:''}
+        <span style="font-size:9px;background:rgba(52,168,83,.15);color:#34a853;padding:2px 6px;border-radius:8px">🤝 ML</span>
+      </div>`).join('');
+    const promoRows=promos_ml.map(p=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(255,170,0,.07);border:1px solid rgba(255,170,0,.2);margin-bottom:4px">
+        <span style="font-size:18px">📢</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:600">${p.nombre}</div>
+          <div style="font-size:10px;color:var(--t3)">PROMOCIÓN · ${p.estado} · ${fFecha(p.inicio)}–${fFecha(p.fin)}${p.items_count?' · '+p.items_count+' items':''}</div>
+        </div>
+        ${p.descuento_pct?`<span style="font-size:12px;font-weight:700;color:var(--org)">-${p.descuento_pct}%</span>`:''}
+      </div>`).join('');
+    dealsHtml=`<div style="margin-bottom:12px;padding:10px;border-radius:8px;background:var(--s2);border:1px solid var(--b2)">
+      <div style="font-size:11px;font-weight:600;margin-bottom:8px;color:var(--t1)">🤝 Campañas y Deals ofrecidos por MercadoLibre</div>
+      ${dealRows}${promoRows}
+      ${!dealRows&&!promoRows?'<div style="font-size:11px;color:var(--t3)">Sin campañas activas o candidatas en este momento.</div>':''}
+    </div>`;
+  }
+
+  tabla.innerHTML=dealsHtml+`<table style="width:100%;border-collapse:collapse;font-size:11px">
     <thead><tr style="color:var(--t3);border-bottom:1px solid var(--b2)">
       <th style="width:28px"><input type="checkbox" id="promoSelAll" onchange="promoToggleTodos(this.checked)" style="cursor:pointer"></th>
       <th style="width:44px"></th>
@@ -6218,7 +6255,7 @@ window.promoAplicarUno=async function(itemId, precioActual, ev){
   toast('Aplicando descuento...','info');
   try{
     const r=await fetch(PROXY+'/promociones/precio',{method:'POST',headers:{'x-ml-token':acct.token,'Content-Type':'application/json'},
-      body:JSON.stringify({item_id:itemId,precio_nuevo:precioNuevo,precio_original:precioActual})});
+      body:JSON.stringify({item_id:itemId,precio_nuevo:precioNuevo,precio_original:precioActual,seller_id:acct.userId})});
     const d=await r.json();
     if(d.ok){
       toast(`✓ Descuento aplicado — nuevo precio ${fS(d.precio)}`,'ok');
@@ -6277,7 +6314,7 @@ window.promoAplicarSeleccionados=async function(){
   toast(`Aplicando a ${items.length} publicaciones...`,'info');
   try{
     const r=await fetch(PROXY+'/promociones/precio-bulk',{method:'POST',headers:{'x-ml-token':acct.token,'Content-Type':'application/json'},
-      body:JSON.stringify({items})});
+      body:JSON.stringify({items,seller_id:uid})});
     const d=await r.json();
     if(d.ok){
       toast(`✓ ${d.exitosos}/${d.total} aplicados correctamente`,'ok');
