@@ -6088,8 +6088,13 @@ function promoRenderTabla(){
   const filtroEst=document.getElementById('promoFiltroEstado')?.value||'';
   const descPct=parseFloat(document.getElementById('promoDescPct')?.value||10)/100;
 
+  // Buscador por palabras individuales
+  const promoPalabras=filtroTxt.split(/\s+/).filter(Boolean);
   let items=data.items.filter(it=>{
-    if(filtroTxt && !it.titulo.toLowerCase().includes(filtroTxt) && !(it.sku||'').toLowerCase().includes(filtroTxt)) return false;
+    if(promoPalabras.length){
+      const haystack=(it.titulo+' '+(it.sku||'')).toLowerCase();
+      if(!promoPalabras.every(p=>haystack.includes(p))) return false;
+    }
     if(filtroEst==='ml' && !it.aporte_ml) return false;
     if(filtroEst==='propio' && (!it.descuento_activo||it.aporte_ml)) return false;
     if(filtroEst==='sin' && it.descuento_activo) return false;
@@ -6185,9 +6190,10 @@ window.promoToggleTodos=function(checked){
   const data=_promoData[uid]||{items:[]};
   const filtroTxt=(document.getElementById('promoFiltro')?.value||'').toLowerCase();
   const filtroEst=document.getElementById('promoFiltroEstado')?.value||'';
+  const togglePalabras=(filtroTxt||'').split(/\s+/).filter(Boolean);
   const visibles=data.items.filter(it=>{
     if(it.aporte_ml) return false; // no seleccionar los de ML
-    if(filtroTxt && !it.titulo.toLowerCase().includes(filtroTxt) && !(it.sku||'').toLowerCase().includes(filtroTxt)) return false;
+    if(togglePalabras.length){const h=(it.titulo+' '+(it.sku||'')).toLowerCase();if(!togglePalabras.every(p=>h.includes(p))) return false;}
     if(filtroEst==='ml' && !it.aporte_ml) return false;
     if(filtroEst==='propio' && (!it.descuento_activo||it.aporte_ml)) return false;
     if(filtroEst==='sin' && it.descuento_activo) return false;
@@ -6327,6 +6333,8 @@ async function renderCatalogos(el, accounts){
         <option value="losing">📉 Perdiendo</option>
         <option value="tied">🤝 Empatado</option>
         <option value="not_classified">⚪ Sin clasificar</option>
+        <option value="con_descuento">🏷️ Con descuento</option>
+        <option value="ml_desc">🤝 Desc. ML</option>
       </select>
     </div>
   </div>
@@ -6408,9 +6416,16 @@ function catRenderTabla(){
   const filtroTxt=(document.getElementById('catFiltro')?.value||'').toLowerCase();
   const filtroEst=document.getElementById('catFiltroEstado')?.value||'';
 
+  // Buscador por palabras: todas las palabras deben aparecer en título o SKU
+  const palabras=filtroTxt.split(/\s+/).filter(Boolean);
   let items=data.items.filter(it=>{
-    if(filtroTxt && !it.titulo.toLowerCase().includes(filtroTxt) && !(it.sku||'').toLowerCase().includes(filtroTxt)) return false;
-    if(filtroEst && it.estado_catalogo!==filtroEst) return false;
+    if(palabras.length){
+      const haystack=(it.titulo+' '+(it.sku||'')).toLowerCase();
+      if(!palabras.every(p=>haystack.includes(p))) return false;
+    }
+    if(filtroEst==='con_descuento' && !it.descuento_activo) return false;
+    else if(filtroEst==='ml_desc' && !it.aporte_ml) return false;
+    else if(filtroEst && !['con_descuento','ml_desc'].includes(filtroEst) && it.estado_catalogo!==filtroEst) return false;
     return true;
   });
 
@@ -6444,9 +6459,10 @@ function catRenderTabla(){
         <div style="font-size:10px;color:var(--t3)">Cat: <a href="https://www.mercadolibre.com.ar/p/${it.catalog_product_id}" target="_blank" style="color:var(--acc)">${it.catalog_product_id||'—'}</a></div>
       </td>
       <td class="mono r" style="font-size:11px;padding:6px 4px">
-        ${it.descuento_activo&&it.precio_original?`<span style="font-size:10px;color:var(--t3);text-decoration:line-through">${fS(it.precio_original)}</span> `:''}
+        ${it.precio_original?`<span style="font-size:10px;color:var(--t3);text-decoration:line-through">${fS(it.precio_original)}</span> `:''}
         <span style="font-weight:600">${fS(it.precio)}</span>
-        ${it.descuento_activo?`<div><span style="font-size:9px;background:rgba(255,170,0,.15);color:var(--org);padding:1px 5px;border-radius:6px">🏷️ -${it.pct_descuento}% desc.</span></div>`:''}
+        ${it.aporte_ml?`<div><span style="font-size:9px;background:rgba(52,168,83,.15);color:#34a853;padding:1px 5px;border-radius:6px">🤝 Desc. ML</span></div>`:
+          it.descuento_activo?`<div><span style="font-size:9px;background:rgba(255,170,0,.15);color:var(--org);padding:1px 5px;border-radius:6px">🏷️ -${it.pct_descuento}% desc.</span></div>`:''}
         ${it.margen_actual!=null?`<div style="font-size:10px;color:${margenColor(it.margen_actual)}">${it.margen_actual}% margen</div>`:''}
       </td>
       <td style="font-size:11px;padding:6px 4px">${estadoBadge(it.estado_catalogo)}</td>
