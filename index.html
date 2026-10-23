@@ -6868,6 +6868,7 @@ window.repPublicarTodas=async function(){
           :`<div style="display:flex;flex-direction:column;gap:4px;flex:1">
             <span style="font-size:12px;color:var(--red)">${r.error||'Error desconocido'}</span>
             ${r.unauthorized?`<span style="font-size:10px;color:var(--org)">⚠️ Token sin permisos de escritura. Andá a <b>Cuentas ML</b> y reconectá esta cuenta.</span>`:''}
+            ${r.ml_raw?`<details style="font-size:10px;color:var(--t3);margin-top:4px"><summary style="cursor:pointer">Ver detalle ML</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;margin-top:4px">${JSON.stringify(r.ml_raw,null,2)}</pre></details>`:''}
           </div>`}
         </div>`).join('')}
       </div>
