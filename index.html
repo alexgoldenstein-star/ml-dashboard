@@ -7065,7 +7065,9 @@ window.repPublicarTodas=async function(){
         const msg=d.message||d.error||'Error ML';
         const causes=(d.causes||[]).map(cx=>cx.message||cx.code||'').filter(Boolean).join(' | ');
         const isUnauth=r.status===401||r.status===403;
-        return {cuenta:acct.id||acct.nickname,ok:false,error:isUnauth?'Token sin permisos — reconectá la cuenta':causes?`${msg}: ${causes}`:msg,unauthorized:isUnauth,ml_raw:d};
+        // Guardar body enviado para debug
+        const _bodyEnviado=needsFN?{...bodyBase,family_name,_nota:'User Products (sin title)'}:{...bodyBase,_nota:'Legacy (con title)'};
+        return {cuenta:acct.id||acct.nickname,ok:false,error:isUnauth?'Token sin permisos — reconectá la cuenta':causes?`${msg}: ${causes}`:msg,unauthorized:isUnauth,ml_raw:d,_bodyEnviado};
       }
       // Descripción por separado
       if(descripcion){
@@ -7107,7 +7109,19 @@ window.repPublicarTodas=async function(){
                   </div>`).join('')}
                 <button class="btn" style="font-size:12px;margin-top:4px;background:var(--org)" onclick="repReintentarConAtributos('${r.cuenta}',${JSON.stringify(r.attrs_faltantes).replace(/'/g,'&#39;')})">↻ Reintentar con estos atributos</button>
               </div>`:''}
-            ${r.ml_raw?`<details style="font-size:10px;color:var(--t3);margin-top:2px"><summary style="cursor:pointer;color:var(--t3)">Ver detalle técnico ML</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;margin-top:4px;background:var(--s2);padding:6px;border-radius:4px">${JSON.stringify(r.ml_raw,null,2)}</pre></details>`:''}
+            <details style="font-size:10px;color:var(--t3);margin-top:4px" open>
+              <summary style="cursor:pointer;color:var(--org);font-weight:600;font-size:11px">🔍 Debug — qué se mandó y qué respondió ML</summary>
+              <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <div style="font-size:10px;color:var(--t3);margin-bottom:3px">BODY ENVIADO A ML:</div>
+                  <pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;background:var(--s2);padding:6px;border-radius:4px;max-height:200px;overflow-y:auto">${JSON.stringify(r._bodyEnviado||{},null,2)}</pre>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--t3);margin-bottom:3px">RESPUESTA ML (status ${r.status||'?'}):</div>
+                  <pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;background:var(--s2);padding:6px;border-radius:4px;max-height:200px;overflow-y:auto">${JSON.stringify(r.ml_raw||{},null,2)}</pre>
+                </div>
+              </div>
+            </details>
           </div>`}
         </div>`).join('')}
       </div>
