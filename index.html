@@ -6549,14 +6549,14 @@ async function renderReplicar(el, accounts){
       <button id="repTabImportar" onclick="repSetTab('importar')" style="font-size:11px;padding:6px 14px;border:none;cursor:pointer;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--t3)">🔗 Importar por ID/URL</button>
     </div>
     <div id="repPanelPropias">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        <select id="repCuentaBuscador" class="inp" style="flex:0 0 auto;min-width:150px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <select id="repCuentaBuscador" class="inp" style="flex:0 0 auto;min-width:160px;font-size:13px;height:38px" onchange="repBuscarPropio()">
           ${(accounts||[]).map(a=>`<option value="${a.userId||a.id}">${a.nickname||a.id}</option>`).join('')}
         </select>
-        <input id="repBuscadorPropio" class="inp" placeholder="Buscar por título o SKU..." style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')repBuscarPropio()">
-        <button class="btn" onclick="repBuscarPropio()">🔍 Buscar</button>
+        <input id="repBuscadorPropio" class="inp" placeholder="Buscar por título, SKU o ID..." style="flex:1;min-width:200px;font-size:13px;height:38px" onkeydown="if(event.key==='Enter')repBuscarPropio()">
+        <button class="btn" onclick="repBuscarPropio()" style="height:38px;font-size:13px;padding:0 18px">🔍 Buscar</button>
       </div>
-      <div id="repResultadosPropios" style="max-height:280px;overflow-y:auto"></div>
+      <div id="repResultadosPropios" style="max-height:480px;overflow-y:auto;padding-right:2px"></div>
     </div>
     <div id="repPanelImportar" style="display:none">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -6592,6 +6592,9 @@ window.repSetTab=function(tab){
   }
 };
 
+// Caché de items propios para no re-fetchear
+window._repItemsCache=[];
+
 window.repBuscarPropio=async function(){
   const q=(document.getElementById('repBuscadorPropio')?.value||'').trim();
   const cuentaEl=document.getElementById('repCuentaBuscador');
@@ -6600,25 +6603,44 @@ window.repBuscarPropio=async function(){
   if(!resEl) return;
   const accounts=(S.accounts||[]).filter(a=>a.token);
   const acct=accounts.find(a=>String(a.userId||a.id)===String(sellerId))||accounts[0];
-  if(!acct){resEl.innerHTML='<p style="font-size:11px;color:var(--red)">No hay cuentas conectadas</p>';return;}
-  resEl.innerHTML='<p style="font-size:11px;color:var(--t3)">⏳ Cargando publicaciones...</p>';
+  if(!acct){resEl.innerHTML='<p style="font-size:12px;color:var(--red)">No hay cuentas conectadas</p>';return;}
+  resEl.innerHTML='<p style="font-size:12px;color:var(--t3)">⏳ Buscando publicaciones...</p>';
   try{
-    const url=`${PROXY}/replicar/mis-items?seller_id=${acct.userId||acct.id}&q=${encodeURIComponent(q)}&limit=20`;
+    const url=`${PROXY}/replicar/mis-items?seller_id=${acct.userId||acct.id}&q=${encodeURIComponent(q)}&limit=100`;
     const r=await fetch(url,{headers:{'x-ml-token':acct.token}});
     const d=await r.json();
     const items=d.items||[];
-    if(!items.length){resEl.innerHTML='<p style="font-size:11px;color:var(--t3)">Sin publicaciones encontradas'+(q?' para "'+q+'"':'')+'</p>';return;}
-    const fmtARS=n=>n?.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})||'$0';
-    resEl.innerHTML=items.map(it=>`
-      <div onclick="repSeleccionar('${it.id}')" style="display:flex;gap:10px;align-items:center;padding:7px 8px;cursor:pointer;border-radius:6px;margin-bottom:3px;border:1px solid var(--b2)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
-        <img src="${it.thumbnail||''}" style="width:38px;height:38px;object-fit:cover;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.titulo||'Sin título'}</div>
-          <div style="font-size:10px;color:var(--t3)">${it.id}${it.sku?' · SKU: '+it.sku:''} · ${fmtARS(it.precio)}</div>
-        </div>
-        <button class="btn" style="font-size:10px;padding:3px 9px;flex-shrink:0">Seleccionar</button>
-      </div>`).join('');
-  }catch(e){resEl.innerHTML='<p style="font-size:11px;color:var(--red)">❌ '+e.message+'</p>';}
+    window._repItemsCache=items;
+    repRenderListaPropias(items, q);
+  }catch(e){resEl.innerHTML='<p style="font-size:12px;color:var(--red)">❌ '+e.message+'</p>';}
+};
+
+window.repRenderListaPropias=function(items, q){
+  const resEl=document.getElementById('repResultadosPropios');
+  if(!resEl) return;
+  const fmtARS=n=>n?.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})||'$0';
+  if(!items.length){
+    resEl.innerHTML=`<div style="padding:20px;text-align:center;color:var(--t3);font-size:13px">Sin publicaciones encontradas${q?' para "'+q+'"':''}</div>`;
+    return;
+  }
+  resEl.innerHTML=`
+    <div style="font-size:11px;color:var(--t3);margin-bottom:8px;padding:0 2px">${items.length} publicacion${items.length!==1?'es':''} encontrada${items.length!==1?'s':''}</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      ${items.map(it=>`
+        <div style="display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s1);transition:background .15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='var(--s1)'">
+          <img src="${it.thumbnail||''}" style="width:52px;height:52px;object-fit:contain;border-radius:6px;background:var(--s3);flex-shrink:0" onerror="this.style.display='none'">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;line-height:1.3;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(it.titulo||'').replace(/"/g,'&quot;')}">${it.titulo||'Sin título'}</div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <span style="font-size:11px;color:var(--t3)">${it.id}</span>
+              ${it.sku?`<span style="font-size:11px;background:var(--s3);padding:1px 6px;border-radius:4px;color:var(--t2)">SKU: ${it.sku}</span>`:''}
+              <span style="font-size:12px;font-weight:600;color:var(--acc)">${fmtARS(it.precio)}</span>
+              <span style="font-size:11px;padding:1px 7px;border-radius:10px;background:${it.estado==='active'?'var(--grn)22':'var(--s3)'};color:${it.estado==='active'?'var(--grn)':'var(--t3)'}">${it.estado||'—'}</span>
+            </div>
+          </div>
+          <button class="btn" style="font-size:12px;padding:6px 16px;flex-shrink:0;font-weight:600" onclick="event.stopPropagation();repSeleccionar('${it.id}')">Seleccionar →</button>
+        </div>`).join('')}
+    </div>`;
 };
 
 async function repBuscar(){
@@ -6707,86 +6729,111 @@ function repRenderForm(){
   if(!_repItem) return;
   const accounts=(S.accounts||[]).filter(a=>a.token);
   const it=_repItem;
-  const fmtARS=n=>n?.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})||'$0';
-  // Detectar si el item pertenece a una de las cuentas conectadas
+  const fmtARS=n=>n!=null?n.toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}):'$0';
+
+  // Detectar cuenta origen
   const cuentaOrigen=it.seller_id?accounts.find(a=>String(a.userId)===String(it.seller_id)||String(a.id)===String(it.seller_id)):null;
-  // Inicializar cuentas seleccionadas: todas EXCEPTO la cuenta origen (para evitar duplicados)
+
+  // Inicializar selección de cuentas
   if(!window._repCuentasSel){
     window._repCuentasSel = new Set(accounts.map(a=>a.id));
     if(cuentaOrigen) window._repCuentasSel.delete(cuentaOrigen.id);
   }
 
-  // Cuotas por cuenta - tabla editable con checkbox de selección
+  // Leer precio base del campo si ya existe (para recalcular sin perder edición)
+  const precioBaseActual=parseFloat(document.getElementById('rep_precio_base')?.value)||it.precio||0;
+
+  // Tabla de cuentas
   const cuotasRows=accounts.map(a=>{
     const ov=_repCuotas[a.id]||{};
-    const precio=ov.precio!=null?ov.precio:it.precio;
+    const precio=ov.precio!=null?ov.precio:precioBaseActual;
     const nCuotas=ov.nCuotas||1;
     const sel=window._repCuentasSel.has(a.id);
     const esOrigen=cuentaOrigen&&(a.id===cuentaOrigen.id);
-    // Calcular margen estimado si tenemos el precio
     const comML=0.14; const iibb=0.04;
-    const iva=precio-(precio/1.21);
-    const margenEst=precio>0?Math.round(((precio - precio*comML - precio*iibb - iva)/precio)*100):null;
-    return `<tr id="rep_row_${a.id}" style="${sel?'':'opacity:0.4'}">
-      <td style="padding:6px 4px"><input type="checkbox" id="rep_sel_${a.id}" ${sel?'checked':''} onchange="repToggleCuenta('${a.id}')" style="cursor:pointer;width:14px;height:14px"></td>
-      <td style="font-weight:600;color:var(--acc);padding:4px">${a.nickname||a.id}${esOrigen?` <span style="font-size:9px;background:var(--org)33;color:var(--org);padding:1px 5px;border-radius:4px;font-weight:500">origen</span>`:''}</td>
-      <td style="padding:4px"><input class="inp" type="number" id="rep_precio_${a.id}" value="${precio}" style="width:110px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
-      <td style="padding:4px"><input class="inp" type="number" id="rep_ncuotas_${a.id}" value="${nCuotas}" min="1" max="24" style="width:60px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
-      <td id="rep_monto_cuota_${a.id}" style="color:var(--t2);font-size:12px;padding:4px">${nCuotas>1?fmtARS(Math.ceil(precio/nCuotas))+'/cuota':'—'}</td>
-      <td id="rep_margen_${a.id}" style="font-size:11px;padding:4px;color:${margenEst!=null&&margenEst<15?'var(--red)':margenEst!=null&&margenEst<25?'var(--warn)':'var(--grn)'}">${margenEst!=null?margenEst+'% aprox':'—'}</td>
+    const neto=precio/1.21;
+    const margenEst=precio>0?Math.round(((neto - neto*comML - neto*iibb)/neto)*100):null;
+    const colMargen=margenEst==null?'var(--t3)':margenEst<15?'var(--red)':margenEst<25?'var(--org)':'var(--grn)';
+    return `<tr id="rep_row_${a.id}" style="border-bottom:1px solid var(--s3);opacity:${sel?'1':'0.4'}">
+      <td style="padding:8px 6px"><input type="checkbox" id="rep_sel_${a.id}" ${sel?'checked':''} onchange="repToggleCuenta('${a.id}')" style="cursor:pointer;width:15px;height:15px"></td>
+      <td style="padding:8px 6px;font-weight:600;font-size:13px;color:var(--acc)">${a.nickname||a.id}${esOrigen?` <span style="font-size:9px;background:var(--org)33;color:var(--org);padding:1px 6px;border-radius:10px;margin-left:4px">origen</span>`:''}</td>
+      <td style="padding:8px 6px"><input class="inp" type="number" id="rep_precio_${a.id}" value="${precio}" style="width:130px;font-size:13px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
+      <td style="padding:8px 6px"><input class="inp" type="number" id="rep_ncuotas_${a.id}" value="${nCuotas}" min="1" max="24" style="width:70px;font-size:13px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
+      <td id="rep_monto_cuota_${a.id}" style="color:var(--t2);font-size:13px;padding:8px 6px;font-weight:500">${nCuotas>1?fmtARS(Math.ceil(precio/nCuotas))+'/c':'—'}</td>
+      <td id="rep_margen_${a.id}" style="font-size:13px;padding:8px 6px;font-weight:600;color:${colMargen}">${margenEst!=null?margenEst+'%':'—'}</td>
     </tr>`;
   }).join('');
 
-  // Fotos del item
-  const fotosHtml=(it.fotos||[]).slice(0,5).map(f=>`<img src="${f.url||f}" style="width:64px;height:64px;object-fit:contain;border-radius:4px;background:var(--s2);cursor:pointer" onclick="window.open('${f.url||f}','_blank')" onerror="this.style.display='none'">`).join('');
+  // Galería de fotos
+  const fotosHtml=(it.fotos||[]).slice(0,8).map((f,i)=>`
+    <img src="${f.url||f}" style="width:${i===0?'110px':'72px'};height:${i===0?'110px':'72px'};object-fit:contain;border-radius:6px;background:var(--s2);cursor:pointer;border:${i===0?'2px solid var(--acc)':'1px solid var(--b2)'}" onclick="window.open('${f.url||f}','_blank')" onerror="this.style.display='none'" title="Foto ${i+1}">`).join('');
 
-  // Atributos principales del item
-  const attrImp=(it.atributos||[]).filter(a=>['BRAND','MODEL','EAN','SELLER_SKU','UNIT_TYPE'].includes(a.id)).map(a=>`<span style="font-size:10px;background:var(--s2);padding:2px 6px;border-radius:4px">${a.id}: <b>${a.value_name||a.value_id||'—'}</b></span>`).join(' ');
+  // Atributos del item en tabla
+  const atributos=(it.atributos||[]).filter(a=>a.value_name||a.value_id);
+  const attrRows=atributos.map(a=>`<tr>
+    <td style="padding:5px 8px;font-size:11px;color:var(--t3);white-space:nowrap;border-bottom:1px solid var(--s3)">${a.id}</td>
+    <td style="padding:5px 8px;font-size:12px;font-weight:500;border-bottom:1px solid var(--s3)">${a.value_name||a.value_id||'—'}</td>
+  </tr>`).join('');
 
   const formEl=document.getElementById('repForm');
   formEl.style.display='block';
+
   formEl.innerHTML=`
-  ${it.id?`<div class="card" style="margin-bottom:12px;padding:12px">
-    <div style="display:flex;gap:14px;align-items:flex-start">
-      <div style="display:flex;flex-direction:column;gap:4px">
-        ${it.fotos?.[0]?`<img src="${it.fotos[0].url}" style="width:88px;height:88px;object-fit:contain;border-radius:6px;background:var(--s2)" onerror="this.style.display='none'">`:'' }
-      </div>
+  <!-- HEADER DEL PRODUCTO -->
+  ${it.id?`<div class="card" style="margin-bottom:14px;padding:16px">
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <!-- Galería fotos -->
+      ${fotosHtml?`<div style="display:flex;flex-wrap:wrap;gap:4px;flex-shrink:0;align-items:flex-start">${fotosHtml}</div>`:''}
+      <!-- Info principal -->
       <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:13px;margin-bottom:4px;line-height:1.3">${it.titulo}</div>
-        <div style="font-size:10px;color:var(--t3);margin-bottom:6px">ID: <a href="https://www.mercadolibre.com.ar/p/${it.id}" target="_blank" style="color:var(--acc)">${it.id}</a> · Cat: ${it.categoria} · Precio publicado: ${fmtARS(it.precio)} · Stock: ${it.stock||'—'}</div>
-        ${cuentaOrigen?`<div style="margin-bottom:6px;padding:6px 10px;border-radius:6px;background:var(--org)22;border:1px solid var(--org)44;font-size:11px;color:var(--org);display:flex;align-items:center;gap:6px">
-          <span>⚠️</span><span>Este ítem ya está publicado en <b>${cuentaOrigen.nickname||cuentaOrigen.id}</b>. Esa cuenta fue deseleccionada para evitar duplicados.</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:15px;font-weight:700;line-height:1.3;flex:1">${it.titulo}</span>
+          <a href="https://articulo.mercadolibre.com.ar/-_JM${it.id?.replace('MLA','')}-_.html" target="_blank" style="font-size:11px;color:var(--acc);white-space:nowrap;flex-shrink:0">Ver en ML ↗</a>
+        </div>
+        <!-- Chips de info -->
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          <span style="font-size:12px;background:var(--s3);padding:3px 10px;border-radius:10px">ID: <b>${it.id}</b></span>
+          <span style="font-size:12px;background:var(--s3);padding:3px 10px;border-radius:10px">Cat: <b>${it.categoria}</b></span>
+          <span style="font-size:13px;font-weight:700;color:var(--acc);background:var(--acc)15;padding:3px 10px;border-radius:10px">${fmtARS(it.precio)}</span>
+          <span style="font-size:12px;background:var(--s3);padding:3px 10px;border-radius:10px">Stock: <b>${it.stock||'—'}</b></span>
+          <span style="font-size:12px;background:var(--s3);padding:3px 10px;border-radius:10px">Tipo: <b>${it.listing_type||'—'}</b></span>
+          ${it.garantia?`<span style="font-size:12px;background:var(--s3);padding:3px 10px;border-radius:10px">Garantía: <b>${it.garantia}</b></span>`:''}
+          ${it.envio?.free_shipping?`<span style="font-size:12px;background:var(--grn)22;color:var(--grn);padding:3px 10px;border-radius:10px;font-weight:600">🚚 Envío gratis</span>`:''}
+        </div>
+        ${cuentaOrigen?`<div style="padding:8px 12px;border-radius:8px;background:var(--org)15;border:1px solid var(--org)44;font-size:12px;color:var(--org);margin-bottom:8px">
+          ⚠️ Ya publicado en <b>${cuentaOrigen.nickname||cuentaOrigen.id}</b> — esa cuenta fue deseleccionada.
         </div>`:''}
-        ${attrImp?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${attrImp}</div>`:''}
-        ${fotosHtml?`<div style="display:flex;gap:4px;flex-wrap:wrap">${fotosHtml}</div>`:''}
+        <!-- Descripción resumida -->
+        ${it.descripcion?`<div style="font-size:12px;color:var(--t3);line-height:1.5;max-height:60px;overflow:hidden;margin-bottom:4px">${it.descripcion.substring(0,200)}${it.descripcion.length>200?'…':''}</div>`:''}
       </div>
     </div>
   </div>`:''}
 
-  <div class="card" style="margin-bottom:12px;padding:14px">
-    <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Datos del ítem</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+  <!-- DATOS EDITABLES -->
+  <div class="card" style="margin-bottom:14px;padding:16px">
+    <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">✏️ Datos del ítem a publicar</div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
       <div>
         <label class="lbl">Título</label>
-        <input class="inp" id="rep_titulo" value="${(it.titulo||'').replace(/"/g,'&quot;')}" placeholder="Título de la publicación">
+        <input class="inp" id="rep_titulo" value="${(it.titulo||'').replace(/"/g,'&quot;')}" placeholder="Título de la publicación" style="font-size:13px">
       </div>
       <div>
         <label class="lbl">Categoría ML</label>
-        <input class="inp" id="rep_categoria" value="${it.categoria||''}" placeholder="ej: MLA1144">
+        <input class="inp" id="rep_categoria" value="${it.categoria||''}" placeholder="ej: MLA1144" style="font-size:13px">
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
       <div>
         <label class="lbl">Precio base (ARS)</label>
-        <input class="inp" type="number" id="rep_precio_base" value="${it.precio||0}" oninput="repRenderForm()">
+        <input class="inp" type="number" id="rep_precio_base" value="${precioBaseActual}" style="font-size:14px;font-weight:600" oninput="repSyncPrecios()">
       </div>
       <div>
         <label class="lbl">Stock</label>
-        <input class="inp" type="number" id="rep_stock" value="${it.stock||1}" min="1">
+        <input class="inp" type="number" id="rep_stock" value="${it.stock||1}" min="1" style="font-size:13px">
       </div>
       <div>
         <label class="lbl">Condición</label>
-        <select class="inp" id="rep_condicion">
+        <select class="inp" id="rep_condicion" style="font-size:13px">
           <option value="new" ${it.condicion==='new'?'selected':''}>Nuevo</option>
           <option value="used" ${it.condicion==='used'?'selected':''}>Usado</option>
         </select>
@@ -6794,34 +6841,66 @@ function repRenderForm(){
     </div>
     <div>
       <label class="lbl">Descripción</label>
-      <textarea class="inp" id="rep_descripcion" rows="3" style="width:100%;resize:vertical">${it.descripcion||''}</textarea>
+      <textarea class="inp" id="rep_descripcion" rows="4" style="width:100%;resize:vertical;font-size:12px">${it.descripcion||''}</textarea>
     </div>
   </div>
 
-  <div class="card" style="margin-bottom:12px;padding:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-      <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">Precio y cuotas por cuenta</div>
-      <span style="font-size:10px;color:var(--t3)">${window._repCuentasSel.size} de ${accounts.length} cuentas seleccionadas</span>
+  <!-- ATRIBUTOS DEL ITEM -->
+  ${atributos.length?`<div class="card" style="margin-bottom:14px;padding:16px">
+    <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">📋 Atributos del producto</div>
+    <div style="max-height:200px;overflow-y:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:var(--s2)">
+          <th style="text-align:left;padding:5px 8px;font-size:11px;color:var(--t3);font-weight:600">Atributo</th>
+          <th style="text-align:left;padding:5px 8px;font-size:11px;color:var(--t3);font-weight:600">Valor</th>
+        </tr></thead>
+        <tbody>${attrRows}</tbody>
+      </table>
     </div>
-    <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Elegí en qué cuentas publicar. El margen es estimado (14% comisión + 4% IIBB + IVA).</p>
-    <table style="width:100%;font-size:12px;border-collapse:collapse">
-      <thead><tr style="color:var(--t4);font-size:10px;border-bottom:1px solid var(--s4)">
-        <th style="width:24px"></th>
-        <th style="text-align:left;padding:4px">Cuenta</th>
-        <th style="text-align:left;padding:4px">Precio (ARS)</th>
-        <th style="text-align:left;padding:4px">Cuotas s/int</th>
-        <th style="text-align:left;padding:4px">Monto/cuota</th>
-        <th style="text-align:left;padding:4px">Margen est.</th>
-      </tr></thead>
-      <tbody>${cuotasRows}</tbody>
-    </table>
+  </div>`:''}
+
+  <!-- TABLA POR CUENTA -->
+  <div class="card" style="margin-bottom:14px;padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">🏪 Publicar en cuentas</div>
+      <span id="rep_sel_count" style="font-size:12px;color:var(--t3)">${window._repCuentasSel.size}/${accounts.length} seleccionadas</span>
+    </div>
+    <p style="font-size:12px;color:var(--t3);margin-bottom:12px">Margen estimado = precio neto s/IVA menos comisión ML (14%) e IIBB (4%).</p>
+    <div style="overflow-x:auto">
+      <table style="width:100%;font-size:13px;border-collapse:collapse;min-width:500px">
+        <thead><tr style="background:var(--s2);font-size:11px;color:var(--t3)">
+          <th style="width:28px;padding:8px 6px"></th>
+          <th style="text-align:left;padding:8px 6px">Cuenta</th>
+          <th style="text-align:left;padding:8px 6px">Precio (ARS)</th>
+          <th style="text-align:left;padding:8px 6px">Cuotas s/int</th>
+          <th style="text-align:left;padding:8px 6px">$/cuota</th>
+          <th style="text-align:left;padding:8px 6px">Margen est.</th>
+        </tr></thead>
+        <tbody>${cuotasRows}</tbody>
+      </table>
+    </div>
   </div>
 
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <button class="btn" style="background:var(--grn)" onclick="repPublicarTodas()">🚀 Publicar en ${window._repCuentasSel.size} cuenta${window._repCuentasSel.size!==1?'s':''}</button>
-    <button class="btn" style="background:var(--s3)" onclick="repLimpiar()">✖ Cancelar</button>
+  <!-- BOTONES DE ACCIÓN -->
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:4px 0 16px">
+    <button class="btn" style="background:var(--grn);font-size:14px;padding:10px 24px;font-weight:700" onclick="repPublicarTodas()">🚀 Publicar en ${window._repCuentasSel.size} cuenta${window._repCuentasSel.size!==1?'s':''}</button>
+    <button class="btn" style="background:var(--s3);font-size:13px;padding:10px 18px" onclick="repLimpiar()">✖ Cancelar</button>
   </div>`;
 }
+
+// Sincroniza el precio base a todas las cuentas que no tienen precio manual
+window.repSyncPrecios=function(){
+  const base=parseFloat(document.getElementById('rep_precio_base')?.value)||0;
+  const accounts=(S.accounts||[]).filter(a=>a.token);
+  accounts.forEach(a=>{
+    const ov=_repCuotas[a.id];
+    // Solo actualizar si no se editó manualmente
+    if(!ov||ov._manual!==true){
+      const inp=document.getElementById('rep_precio_'+a.id);
+      if(inp){ inp.value=base; repUpdateCuota(a.id); }
+    }
+  });
+};
 
 window.repUpdateCuota=function(acctId){
   const precio=parseFloat(document.getElementById('rep_precio_'+acctId)?.value)||0;
