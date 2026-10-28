@@ -6877,6 +6877,16 @@ function repRenderForm(){
         </select>
       </div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <label class="lbl">Family Name <span style="font-size:10px;color:var(--t3)">(requerido por ML en algunas categorías)</span></label>
+        <input class="inp" id="rep_family_name" value="${(it.titulo||'').substring(0,60).replace(/"/g,'&quot;')}" placeholder="Nombre de familia del producto" style="font-size:13px">
+      </div>
+      <div>
+        <label class="lbl">Garantía</label>
+        <input class="inp" id="rep_garantia" value="${(it.garantia||'').replace(/"/g,'&quot;')}" placeholder="ej: 12 meses" style="font-size:13px">
+      </div>
+    </div>
     <div>
       <label class="lbl">Descripción</label>
       <textarea class="inp" id="rep_descripcion" rows="4" style="width:100%;resize:vertical;font-size:12px">${it.descripcion||''}</textarea>
@@ -6994,8 +7004,10 @@ window.repPublicarTodas=async function(){
   const stock=parseInt(document.getElementById('rep_stock')?.value)||_repItem.stock||1;
   const condicion=document.getElementById('rep_condicion')?.value||_repItem.condicion||'new';
   const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
+  const family_name=document.getElementById('rep_family_name')?.value.trim()||titulo.substring(0,60);
+  const garantia=document.getElementById('rep_garantia')?.value.trim()||_repItem.garantia||'';
   if(!titulo||!categoria){toast('Título y categoría son obligatorios','err');return;}
-  const itemPayload={...(_repItem),titulo,categoria,stock,condicion,descripcion,precio:precioBase};
+  const itemPayload={...(_repItem),titulo,categoria,stock,condicion,descripcion,precio:precioBase,family_name,garantia};
   const cuotas_override=Object.entries(_repCuotas).map(([cuenta,ov])=>({cuenta,precio:ov.precio!=null?ov.precio:precioBase,sale_terms:ov.sale_terms||[]}));
   // Mostrar progreso
   const resEl=document.getElementById('repResultados');
