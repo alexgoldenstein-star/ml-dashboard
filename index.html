@@ -6625,7 +6625,7 @@ window.repRenderListaPropias=function(items, q){
   }
   resEl.innerHTML=`
     <div style="font-size:11px;color:var(--t3);margin-bottom:8px;padding:0 2px">${items.length} publicacion${items.length!==1?'es':''} encontrada${items.length!==1?'s':''}</div>
-    <div style="display:flex;flex-direction:column;gap:4px">
+    <div id="repListaItems" style="display:flex;flex-direction:column;gap:4px">
       ${items.map(it=>`
         <div style="display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s1);transition:background .15s" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='var(--s1)'">
           <img src="${it.thumbnail||''}" style="width:52px;height:52px;object-fit:contain;border-radius:6px;background:var(--s3);flex-shrink:0" onerror="this.style.display='none'">
@@ -6638,9 +6638,20 @@ window.repRenderListaPropias=function(items, q){
               <span style="font-size:11px;padding:1px 7px;border-radius:10px;background:${it.estado==='active'?'var(--grn)22':'var(--s3)'};color:${it.estado==='active'?'var(--grn)':'var(--t3)'}">${it.estado||'—'}</span>
             </div>
           </div>
-          <button class="btn" style="font-size:12px;padding:6px 16px;flex-shrink:0;font-weight:600" onclick="event.stopPropagation();repSeleccionar('${it.id}')">Seleccionar →</button>
+          <button class="btn" data-rep-id="${it.id}" style="font-size:12px;padding:6px 16px;flex-shrink:0;font-weight:600">Seleccionar →</button>
         </div>`).join('')}
     </div>`;
+  // Event delegation: un listener en el contenedor, no inline en cada botón
+  const lista=document.getElementById('repListaItems');
+  if(lista){
+    lista.addEventListener('click',function(e){
+      const btn=e.target.closest('button[data-rep-id]');
+      if(btn){
+        e.stopPropagation();
+        repSeleccionar(btn.dataset.repId);
+      }
+    });
+  }
 };
 
 async function repBuscar(){
@@ -6703,15 +6714,42 @@ async function repBuscar(){
 window.repBuscar=repBuscar;
 window.repNuevo=()=>repNuevo();
 window.repSeleccionar = async function(itemId){
-  const token=(S.accounts||[]).find(a=>a.token)?.token||'';
-  const formEl=document.getElementById('repForm');
-  formEl.innerHTML='<div class="card"><p style="font-size:12px;color:var(--t3)">⏳ Importando '+itemId+'...</p></div>';
+  // Usar token de la cuenta seleccionada en el buscador, o la primera disponible
+  const accounts=(S.accounts||[]).filter(a=>a.token);
+  const sellerId=document.getElementById('repCuentaBuscador')?.value||'';
+  const acct=accounts.find(a=>String(a.userId||a.id)===String(sellerId))||accounts[0];
+  const token=acct?.token||'';
+
+  // Asegurarse que repForm existe (puede no existir si el panel no fue renderizado)
+  let formEl=document.getElementById('repForm');
+  if(!formEl){
+    console.warn('repForm no encontrado, re-renderizando panel');
+    renderReplicar();
+    await new Promise(r=>setTimeout(r,50));
+    formEl=document.getElementById('repForm');
+  }
+  if(!formEl){alert('Error: panel de Replicar no inicializado.');return;}
+
+  formEl.style.display='block';
+  formEl.innerHTML='<div class="card" style="padding:16px"><p style="font-size:13px;color:var(--t3)">⏳ Cargando publicación '+itemId+'...</p></div>';
+
+  // Scroll al form
+  formEl.scrollIntoView({behavior:'smooth',block:'start'});
+
   try{
     const r=await fetch(`${PROXY}/replicar/item/${itemId}`,{headers:token?{'x-ml-token':token}:{}});
     const d=await r.json();
-    if(!r.ok||!d.ok){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+(d.error||'Error al importar')+'</p></div>';return;}
-    _repItem=d; _repCuotas={}; repRenderForm();
-  }catch(e){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+e.message+'</p></div>';}
+    if(!r.ok||!d.ok){
+      formEl.innerHTML='<div class="card" style="padding:16px"><p style="color:var(--red);font-size:13px">❌ '+(d.error||'Error al importar el ítem')+'</p></div>';
+      return;
+    }
+    _repItem=d;
+    _repCuotas={};
+    window._repCuentasSel=null; // reset para re-inicializar con la cuenta origen detectada
+    repRenderForm();
+  }catch(e){
+    formEl.innerHTML='<div class="card" style="padding:16px"><p style="color:var(--red);font-size:13px">❌ '+e.message+'</p></div>';
+  }
 };
 
 function repNuevo(){
