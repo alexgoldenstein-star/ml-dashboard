@@ -7024,10 +7024,25 @@ window.repPublicarTodas=async function(){
           <span style="font-weight:600;color:${r.ok?'var(--grn)':'var(--red)'};width:50px">${r.cuenta}</span>
           ${r.ok?`<span style="font-size:12px;color:var(--t2)">${r.id}</span>
           <a href="${r.permalink}" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto">Ver publicación →</a>`
-          :`<div style="display:flex;flex-direction:column;gap:4px;flex:1">
-            <span style="font-size:12px;color:var(--red)">${r.error||'Error desconocido'}</span>
-            ${r.unauthorized?`<span style="font-size:10px;color:var(--org)">⚠️ Token sin permisos de escritura. Andá a <b>Cuentas ML</b> y reconectá esta cuenta.</span>`:''}
-            ${r.ml_raw?`<details style="font-size:10px;color:var(--t3);margin-top:4px"><summary style="cursor:pointer">Ver detalle ML</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;margin-top:4px">${JSON.stringify(r.ml_raw,null,2)}</pre></details>`:''}
+          :`<div style="display:flex;flex-direction:column;gap:6px;flex:1">
+            <span style="font-size:13px;color:var(--red);font-weight:600">${r.error||'Error desconocido'}</span>
+            ${r.unauthorized?`<span style="font-size:12px;color:var(--org)">⚠️ Token sin permisos de escritura. Reconectá la cuenta en <b>Cuentas ML</b>.</span>`:''}
+            ${(r.attrs_faltantes&&r.attrs_faltantes.length)?`
+              <div style="background:var(--org)15;border:1px solid var(--org)44;border-radius:6px;padding:8px 10px;margin-top:2px">
+                <div style="font-size:12px;font-weight:600;color:var(--org);margin-bottom:6px">⚠️ Atributos requeridos faltantes para esta categoría:</div>
+                ${r.attrs_faltantes.map(a=>`
+                  <div style="margin-bottom:6px">
+                    <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
+                    ${a.values&&a.values.length?
+                      `<select class="inp" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" style="font-size:12px;height:30px">
+                        <option value="">— Seleccionar —</option>
+                        ${a.values.map(v=>`<option value="${v.id}">${v.name}</option>`).join('')}
+                      </select>`
+                    :`<input class="inp" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" placeholder="${a.name}" style="font-size:12px;height:30px">`}
+                  </div>`).join('')}
+                <button class="btn" style="font-size:12px;margin-top:4px;background:var(--org)" onclick="repReintentarConAtributos('${r.cuenta}',${JSON.stringify(r.attrs_faltantes).replace(/'/g,'&#39;')})">↻ Reintentar con estos atributos</button>
+              </div>`:''}
+            ${r.ml_raw?`<details style="font-size:10px;color:var(--t3);margin-top:2px"><summary style="cursor:pointer;color:var(--t3)">Ver detalle técnico ML</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;margin-top:4px;background:var(--s2);padding:6px;border-radius:4px">${JSON.stringify(r.ml_raw,null,2)}</pre></details>`:''}
           </div>`}
         </div>`).join('')}
       </div>
@@ -7037,6 +7052,63 @@ window.repPublicarTodas=async function(){
   }catch(e){
     resEl.innerHTML=`<div class="card"><p style="color:var(--red);font-size:12px">❌ Error: ${e.message}</p></div>`;
   }
+};
+
+window.repReintentarConAtributos=async function(cuentaId, attrsFaltantes){
+  if(!_repItem) return;
+  const allAccts=(S.accounts||[]).filter(a=>a.token);
+  const acct=allAccts.find(a=>a.id===cuentaId||a.nickname===cuentaId);
+  if(!acct){toast('Cuenta no encontrada','err');return;}
+
+  // Leer atributos extra completados por el usuario
+  const attrsExtra=attrsFaltantes.map(a=>{
+    const el=document.getElementById(`attr_${cuentaId}_${a.id}`);
+    const val=el?.value?.trim();
+    if(!val) return null;
+    // Si es select (tiene value_id), armar con value_id; si es input libre, usar value_name
+    const isSelect=el?.tagName==='SELECT';
+    return isSelect?{id:a.id,value_id:val}:{id:a.id,value_name:val};
+  }).filter(Boolean);
+
+  if(attrsFaltantes.length>0 && attrsExtra.length<attrsFaltantes.length){
+    toast('Completá todos los atributos requeridos','err'); return;
+  }
+
+  // Campos del form
+  const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo;
+  const categoria=document.getElementById('rep_categoria')?.value.trim()||_repItem.categoria;
+  const precioBase=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem.precio;
+  const stock=parseInt(document.getElementById('rep_stock')?.value)||_repItem.stock||1;
+  const condicion=document.getElementById('rep_condicion')?.value||_repItem.condicion||'new';
+  const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
+  const ov=_repCuotas[cuentaId]||{};
+  const precio=ov.precio!=null?ov.precio:precioBase;
+
+  // Combinar atributos originales + extras
+  const atributosBase=_repItem.atributos||[];
+  const atributosFinales=[...atributosBase,...attrsExtra];
+
+  toast(`↻ Reintentando en ${acct.nickname||cuentaId}...`,'ok');
+
+  try{
+    const r=await fetch(`${PROXY}/replicar/publicar`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+      body:JSON.stringify({titulo,categoria,precio,condicion,listing_type:_repItem.listing_type||'gold_special',stock,fotos:_repItem.fotos||[],atributos:atributosFinales,descripcion,garantia:_repItem.garantia||'',envio:_repItem.envio||{},sale_terms:ov.sale_terms||[]})
+    });
+    const d=await r.json();
+    if(d.ok){
+      toast(`✅ Publicado en ${acct.nickname||cuentaId}: ${d.id}`,'ok');
+      // Reemplazar la sección de error con éxito
+      const resEl=document.getElementById('repResultados');
+      if(resEl){
+        const row=resEl.querySelector(`[data-cuenta="${cuentaId}"]`);
+        if(row) row.innerHTML=`<span style="font-weight:600;color:var(--grn)">✅ ${acct.nickname||cuentaId}</span><span style="font-size:12px;margin-left:10px">${d.id}</span><a href="${d.permalink}" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto">Ver →</a>`;
+      }
+    } else {
+      toast(`❌ ${acct.nickname||cuentaId}: ${d.error}`,'err');
+    }
+  }catch(e){toast('Error: '+e.message,'err');}
 };
 
 // ── CONVERSIÓN ───────────────────────────────────────────────
