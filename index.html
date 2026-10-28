@@ -7023,59 +7023,32 @@ window.repPublicarTodas=async function(){
       return true;
     }).map(a=>({id:a.id,...(a.value_id?{value_id:a.value_id}:{}),...(a.value_name?{value_name:a.value_name}:{})}));
   }
-  const fotosValidas=(_repItem.fotos||[]).filter(f=>(f.url||f||'').toString().startsWith('http'));
-  const ML_API='https://api.mercadolibre.com';
-
+  // CORS impide llamar a ML directo desde el browser → usamos proxy con family_name
   const resultados=await Promise.all(accounts.map(async acct=>{
     try{
       const override=cuotas_override.find(o=>o.cuenta===acct.id)||{};
-      const bodyBase={
-        title:titulo,
-        category_id:categoria,
-        price:parseFloat(override.precio||precioBase),
-        currency_id:'ARS',
-        available_quantity:stock,
-        buying_mode:'buy_it_now',
-        condition:condicion||'new',
-        listing_type_id:_repItem.listing_type||'gold_special',
-        attributes:limpiarAttrs(_repItem.atributos),
+      const payload={
+        titulo,categoria,
+        precio:override.precio||precioBase,
+        stock,condicion,descripcion,
+        family_name,garantia,
+        fotos:(_repItem.fotos||[]).filter(f=>(f.url||f||'').toString().startsWith('http')),
+        atributos:_repItem.atributos||[],
+        listing_type:_repItem.listing_type||'gold_special',
+        envio:_repItem.envio||null,
+        sale_terms:override.sale_terms||[]
       };
-      if(fotosValidas.length) bodyBase.pictures=fotosValidas.map(f=>({source:f.url||f}));
-      if(override.sale_terms?.length) bodyBase.sale_terms=override.sale_terms;
-      if(garantia) bodyBase.warranty=garantia;
-      if(_repItem.envio?.mode) bodyBase.shipping={mode:_repItem.envio.mode,free_shipping:_repItem.envio.free_shipping||false};
-
-      // Intento 1: legacy con title
-      let r=await fetch(`${ML_API}/items`,{method:'POST',headers:{'Authorization':'Bearer '+acct.token,'Content-Type':'application/json'},body:JSON.stringify(bodyBase)});
-      let d=await r.json();
-      console.log('[REP DIRECT]['+acct.id+'] intento 1:', r.status, JSON.stringify(d));
-
-      // Intento 2: si pide family_name → User Products
-      const needsFN=(!r.ok||d.error)&&((d.causes||[]).some(cx=>(cx.message||'').toLowerCase().includes('family_name'))||(d.message||'').toLowerCase().includes('family_name'));
-      if(needsFN){
-        console.log('[REP DIRECT]['+acct.id+'] retry User Products, family_name:', family_name);
-        const bodyUP={...bodyBase,family_name:family_name};
-        delete bodyUP.title;
-        r=await fetch(`${ML_API}/items`,{method:'POST',headers:{'Authorization':'Bearer '+acct.token,'Content-Type':'application/json'},body:JSON.stringify(bodyUP)});
-        d=await r.json();
-        console.log('[REP DIRECT]['+acct.id+'] intento 2:', r.status, JSON.stringify(d));
-      }
-
-      if(!r.ok||d.error){
-        const msg=d.message||d.error||'Error ML';
-        const causes=(d.causes||[]).map(cx=>cx.message||cx.code||'').filter(Boolean).join(' | ');
-        const isUnauth=r.status===401||r.status===403;
-        // Guardar body enviado para debug
-        const _bodyEnviado=needsFN?{...bodyBase,family_name,_nota:'User Products (sin title)'}:{...bodyBase,_nota:'Legacy (con title)'};
-        return {cuenta:acct.id||acct.nickname,ok:false,error:isUnauth?'Token sin permisos — reconectá la cuenta':causes?`${msg}: ${causes}`:msg,unauthorized:isUnauth,ml_raw:d,_bodyEnviado};
-      }
-      // Descripción por separado
-      if(descripcion){
-        try{ await fetch(`${ML_API}/items/${d.id}/descriptions`,{method:'POST',headers:{'Authorization':'Bearer '+acct.token,'Content-Type':'application/json'},body:JSON.stringify({plain_text:descripcion})}); }catch(e){}
-      }
-      return {cuenta:acct.id||acct.nickname,ok:true,id:d.id,permalink:d.permalink};
+      const r=await fetch(`${PROXY}/replicar/publicar`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+        body:JSON.stringify(payload)
+      });
+      const d=await r.json();
+      console.log('[REP]['+acct.id+']', r.status, JSON.stringify(d));
+      if(d.ok) return {cuenta:acct.id||acct.nickname,ok:true,id:d.id,permalink:d.permalink};
+      return {cuenta:acct.id||acct.nickname,ok:false,error:d.error||'Error desconocido',unauthorized:d.unauthorized,ml_raw:d.ml_raw||d,_bodyEnviado:payload};
     }catch(e){
-      return {cuenta:acct.id||acct.nickname,ok:false,error:e.message};
+      return {cuenta:acct.id||acct.nickname,ok:false,error:'Error de red: '+e.message};
     }
   }));
 
