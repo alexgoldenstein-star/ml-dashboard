@@ -7313,7 +7313,7 @@ window.repPublicarFulljaus=async function(){
   // Fotos
   const fotos=(_repItem.fotos||[]).map(f=>typeof f==='string'?f:(f.url||f.secure_url||'')).filter(Boolean);
 
-  if(!sku){toast('Este ítem no tiene SKU (SELLER_SKU). Completalo antes.','err');return;}
+  // Si no hay SKU, el formulario lo muestra igual con el campo vacío y resaltado para completar manual
 
   // Buscar categoryBranch en Firebase fjCategorias
   const mlCatId=_repItem.categoria||'';
@@ -7333,8 +7333,8 @@ window.repPublicarFulljaus=async function(){
     <div style="font-size:13px;font-weight:700;color:#6C5CE7;margin-bottom:12px">🟣 Confirmar publicación en Fulljaus</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
 
-      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">SKU</div>
-        <input id="fj_sku" value="${sku}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">SKU ${!sku?'<span style="color:#ff5050">⚠ completar</span>':''}</div>
+        <input id="fj_sku" value="${sku}" placeholder="Ingresá el SKU manualmente" style="width:100%;background:var(--s3);border:1px solid ${sku?'var(--b2)':'rgba(255,80,80,.6)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
 
       <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Categoría Fulljaus ${categoryBranch?'<span style="color:#00b894">✓ mapeada</span>':'<span style="color:var(--org)">sin mapeo</span>'}</div>
         <input id="fj_cat_branch" value="${categoryBranch}" placeholder="Ej: Cocina > Vasos (opcional)" style="width:100%;background:var(--s3);border:1px solid ${categoryBranch?'#00b894':'rgba(255,165,0,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
@@ -7414,6 +7414,12 @@ window.repPublicarFulljaus=async function(){
 window.repEnviarFulljaus=async function(){
   const {condicion,marca,modelo,fotos,precioMLOrig}=window._fjPendiente||{};
   const sku=document.getElementById('fj_sku')?.value.trim();
+  if(!sku){
+    const skuInput=document.getElementById('fj_sku');
+    if(skuInput){skuInput.style.border='1.5px solid #ff5050';skuInput.focus();}
+    toast('Completá el SKU antes de publicar','err');
+    return;
+  }
   const ean=document.getElementById('fj_ean')?.value.trim();
   const precioLista=parseFloat(document.getElementById('fj_precio_lista')?.value)||0;
   const precioBase=parseFloat(document.getElementById('fj_precio_base')?.value)||0;
