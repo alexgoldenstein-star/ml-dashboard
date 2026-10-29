@@ -7715,7 +7715,7 @@ window.repPublicarTodas=async function(){
       const d=await r.json();
       console.log('[REP]['+acct.id+']', r.status, JSON.stringify(d));
       if(d.ok) return {cuenta:acct.id||acct.nickname,ok:true,id:d.id,permalink:d.permalink};
-      return {cuenta:acct.id||acct.nickname,ok:false,error:d.error||'Error desconocido',unauthorized:d.unauthorized,ml_raw:d.ml_raw||d,_bodyEnviado:payload};
+      return {cuenta:acct.id||acct.nickname,ok:false,error:d.error||'Error desconocido',unauthorized:d.unauthorized,attrs_faltantes:d.attrs_faltantes||[],ml_raw:d.ml_raw||d,_bodyEnviado:payload};
     }catch(e){
       return {cuenta:acct.id||acct.nickname,ok:false,error:'Error de red: '+e.message};
     }
