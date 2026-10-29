@@ -7199,7 +7199,10 @@ window.repPublicarFulljaus=function(){
 
   // Extraer datos del formulario actual
   const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo||'';
-  const precio=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem.precio||0;
+  // Precio: usar original_price si tiene promo activa (precio real antes del descuento ML)
+  const precioML=_repItem.precio_original||_repItem.precio||parseFloat(document.getElementById('rep_precio_base')?.value)||0;
+  // Precio Fulljaus = precio ML + 10%
+  const precio=Math.round(precioML*1.10);
   const stock=parseInt(document.getElementById('rep_stock')?.value)||_repItem.stock||0;
   const condicion=document.getElementById('rep_condicion')?.value||_repItem.condicion||'new';
   const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
@@ -7212,6 +7215,8 @@ window.repPublicarFulljaus=function(){
   const marca=getAttr('BRAND');
   const modelo=getAttr('MODEL','ALPHANUMERIC_MODEL');
   const sku=getAttr('SELLER_SKU')||_repItem.sku||_repItem.seller_sku||'';
+  // Unidades por paquete desde atributos ML
+  const unidadesPaq=getAttr('UNITS_PER_PACKAGE','PACKAGE_UNITS','PACK_UNITS','UNITS_PACKAGE')||'';
 
   // Medidas de paquete desde atributos ML
   // Los atributos pueden venir como value_name ("1020 g", "28 cm") o como value numérico
@@ -7269,8 +7274,9 @@ window.repPublicarFulljaus=function(){
       <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">EAN / GTIN</div>
         <input id="fj_ean" value="${ean}" placeholder="Sin EAN" style="width:100%;background:var(--s3);border:1px solid ${ean?'var(--b2)':'rgba(255,80,80,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
 
-      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Precio</div>
-        <input id="fj_precio" type="number" value="${precio}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Precio Lista / Base <span style="color:#6C5CE7;font-size:9px">(ML+10%)</span></div>
+        <input id="fj_precio" type="number" value="${precio}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+        <div style="font-size:9px;color:var(--t3);margin-top:2px">ML: $${precioML.toLocaleString('es-AR')}${_repItem.precio_original?` (promo activa, orig $${_repItem.precio_original.toLocaleString('es-AR')})`:''}</div></div>
 
       <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">IVA %</div>
         <select id="fj_iva" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
@@ -7285,6 +7291,19 @@ window.repPublicarFulljaus=function(){
       <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Garantía (meses)</div>
         <input id="fj_warranty" type="number" value="${warrantyMonths}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
 
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Unidades por paquete</div>
+        <input id="fj_unidades_paq" value="${unidadesPaq}" placeholder="Ej: 1" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+
+    </div>
+
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;margin-top:4px">Datos adicionales (fijos)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;background:var(--s2);border-radius:8px;padding:10px 12px">
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">Tipo de producto</div><div style="font-size:12px;color:var(--t1);font-weight:600">Bien físico</div></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">Modalidad de venta</div><div style="font-size:12px;color:var(--t1);font-weight:600">En firme</div></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">Clasificación</div><div style="font-size:12px;color:var(--t1);font-weight:600">Killer</div></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">Embalaje</div><div style="font-size:12px;color:var(--t1);font-weight:600">Caja</div></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">Fabricante / Proveedor</div><div style="font-size:12px;color:var(--t1);font-weight:600">${marca||'—'}</div></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:2px">Origen / Garantía</div><div style="font-size:12px;color:var(--t1);font-weight:600">Argentina · Fabricante</div></div>
     </div>
 
     <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Medidas del paquete</div>
@@ -7316,11 +7335,11 @@ window.repPublicarFulljaus=function(){
     </div>
   </div>`;
   // Guardar datos en variable global para que repEnviarFulljaus los lea
-  window._fjPendiente={condicion,marca,modelo,fotos,descripcion:document.getElementById('rep_descripcion')?.value||_repItem.descripcion||''};
+  window._fjPendiente={condicion,marca,modelo,fotos,descripcion:document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'',precioMLOrig:precioML};
 };
 
 window.repEnviarFulljaus=async function(){
-  const {condicion,marca,modelo,fotos}=window._fjPendiente||{};
+  const {condicion,marca,modelo,fotos,precioMLOrig}=window._fjPendiente||{};
   const sku=document.getElementById('fj_sku')?.value.trim();
   const ean=document.getElementById('fj_ean')?.value.trim();
   const precio=parseFloat(document.getElementById('fj_precio')?.value)||0;
@@ -7337,15 +7356,33 @@ window.repEnviarFulljaus=async function(){
   const confirmBtn=document.querySelector('[onclick^="repEnviarFulljaus"]');
   if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='⏳ Publicando...';}
 
+  const unidadesPaq=document.getElementById('fj_unidades_paq')?.value.trim()||'';
+
   const payload={
-    sku, title:titulo, price:precio, stock, taxes:iva,
+    sku,
+    title:titulo,
+    price:precio,
+    price_list:precio,   // lista = base = ML+10%
+    price_base:precio,
+    stock,
+    taxes:iva,
     condition:condicion==='new'?'NEW':'USED',
     description:descripcion,
     warranty_months:warranty,
+    warranty_type:'Garantía del Fabricante',
     fotos,
-    ...(ean&&{ean}),
-    ...(marca&&{brand:marca}),
+    // Datos adicionales fijos
+    product_type:'Bien físico',
+    sale_mode:'En firme',
+    inventory_classification:'Killer',
+    packaging_type:'Caja',
+    country_of_origin:'Argentina',
+    // Datos de marca (Fabricante y Proveedor = marca ML)
+    ...(marca&&{brand:marca, manufacturer:marca, supplier_name:marca}),
     ...(modelo&&{model:modelo}),
+    ...(ean&&{ean}),
+    ...(unidadesPaq&&{units_per_package:unidadesPaq}),
+    // Medidas
     ...(peso&&{weight:peso}),
     ...(alto&&{height:alto}),    // Fulljaus espera cm
     ...(ancho&&{width:ancho}),
@@ -7368,12 +7405,14 @@ window.repEnviarFulljaus=async function(){
         <div style="font-size:12px;color:var(--t2)">SKU: <b style="color:var(--t1)">${sku}</b></div>
         <div style="font-size:12px;color:var(--t2);margin-top:3px">${titulo.substring(0,60)}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap">
-          <span>💰 $${precio.toLocaleString('es-AR')}</span>
+          <span>💰 Lista/Base: $${precio.toLocaleString('es-AR')}</span>
+          ${precioMLOrig?`<span style="color:var(--t3)">ML orig: $${precioMLOrig.toLocaleString('es-AR')}</span>`:''}
           <span>📦 Stock: ${stock}</span>
           <span>🧾 IVA: ${iva}%</span>
           <span>🛡 Garantía: ${warranty} meses</span>
           ${imgs.length?`<span>🖼 Imágenes: ${imgsOk}/${imgs.length}</span>`:''}
         </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:4px">Bien físico · En firme · Killer · Caja · Origen: Argentina · Garantía del Fabricante</div>
       </div>`;
       toast(`✅ ${d.action==='created'?'Creado':'Actualizado'} en Fulljaus: ${sku}`,'ok');
     }else{
