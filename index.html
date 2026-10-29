@@ -7051,81 +7051,177 @@ window.repLimpiar=function(){
   if(r){r.style.display='none';r.innerHTML='';}
 };
 
-// ── Publicar en Fulljaus ────────────────────────────────────────────────────
-window.repPublicarFulljaus=async function(){
+// ── Publicar en Fulljaus — primero muestra formulario de confirmación ────────
+window.repPublicarFulljaus=function(){
   if(!_repItem){toast('No hay ítem cargado','err');return;}
-  const btn=document.getElementById('btnFJPublicar');
-  if(btn){btn.disabled=true;btn.textContent='⏳ Publicando...';}
+
+  // Extraer datos del formulario actual
+  const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo||'';
+  const precio=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem.precio||0;
+  const stock=parseInt(document.getElementById('rep_stock')?.value)||_repItem.stock||0;
+  const condicion=document.getElementById('rep_condicion')?.value||_repItem.condicion||'new';
+  const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
+  const garantia=document.getElementById('rep_garantia')?.value.trim()||_repItem.garantia||'';
+
+  // Extraer de atributos ML
+  const attrs=_repItem.atributos||[];
+  const getAttr=(...ids)=>{for(const id of ids){const v=(attrs.find(a=>a.id===id)||{}).value_name;if(v&&v!=='-1')return v;}return '';};
+  const ean=getAttr('EAN','GTIN');
+  const marca=getAttr('BRAND');
+  const modelo=getAttr('MODEL','ALPHANUMERIC_MODEL');
+  const sku=getAttr('SELLER_SKU')||_repItem.sku||_repItem.seller_sku||'';
+
+  // Medidas de paquete desde atributos ML
+  const pesoKg=parseFloat(getAttr('SELLER_PACKAGE_WEIGHT','PACKAGE_WEIGHT','WEIGHT_NET'))||0;
+  const altoMm=parseFloat(getAttr('SELLER_PACKAGE_HEIGHT','PACKAGE_HEIGHT','HEIGHT'))||0;
+  const anchoMm=parseFloat(getAttr('SELLER_PACKAGE_WIDTH','PACKAGE_WIDTH','WIDTH'))||0;
+  const profMm=parseFloat(getAttr('SELLER_PACKAGE_LENGTH','SELLER_PACKAGE_DEPTH','PACKAGE_LENGTH','DEPTH'))||0;
+
+  // IVA desde PRODS local
+  let ivaLocal=21;
+  if(sku&&window.PRODS){const p=window.PRODS.find(x=>x.sku===sku||x.sku?.toLowerCase()===sku?.toLowerCase());if(p?.iva)ivaLocal=p.iva;}
+
+  // Warranty en meses
+  let warrantyMonths=0;
+  if(garantia&&!/sin garant/i.test(garantia)){
+    const m=garantia.match(/(\d+)\s*mes/i);const y=garantia.match(/(\d+)\s*a[ñn]/i);
+    if(m)warrantyMonths=parseInt(m[1]);else if(y)warrantyMonths=parseInt(y[1])*12;
+  }
+
+  // Fotos
+  const fotos=(_repItem.fotos||[]).map(f=>typeof f==='string'?f:(f.url||f.secure_url||'')).filter(Boolean);
+
+  if(!sku){toast('Este ítem no tiene SKU (SELLER_SKU). Completalo antes.','err');return;}
+
+  // Mostrar formulario de confirmación
+  const resEl=document.getElementById('repResultados');
+  resEl.style.display='block';
+  resEl.innerHTML=`
+  <div class="card" style="padding:16px;border-left:3px solid #6C5CE7;margin-top:8px">
+    <div style="font-size:13px;font-weight:700;color:#6C5CE7;margin-bottom:12px">🟣 Confirmar publicación en Fulljaus</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">SKU</div>
+        <input id="fj_sku" value="${sku}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">EAN / GTIN</div>
+        <input id="fj_ean" value="${ean}" placeholder="Sin EAN" style="width:100%;background:var(--s3);border:1px solid ${ean?'var(--b2)':'rgba(255,80,80,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Precio</div>
+        <input id="fj_precio" type="number" value="${precio}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">IVA %</div>
+        <select id="fj_iva" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+          <option value="21" ${ivaLocal===21?'selected':''}>21%</option>
+          <option value="10.5" ${ivaLocal===10.5?'selected':''}>10.5%</option>
+          <option value="0" ${ivaLocal===0?'selected':''}>Exento (0%)</option>
+        </select></div>
+
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Stock</div>
+        <input id="fj_stock" type="number" value="${stock}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Garantía (meses)</div>
+        <input id="fj_warranty" type="number" value="${warrantyMonths}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+
+    </div>
+
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Medidas del paquete</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">Peso (kg)</div>
+        <input id="fj_peso" type="number" step="0.01" value="${pesoKg||''}" placeholder="0.00" style="width:100%;background:var(--s3);border:1px solid ${pesoKg?'var(--b2)':'rgba(255,80,80,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">Alto (cm)</div>
+        <input id="fj_alto" type="number" step="0.1" value="${altoMm?altoMm/10:''}" placeholder="0.0" style="width:100%;background:var(--s3);border:1px solid ${altoMm?'var(--b2)':'rgba(255,80,80,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">Ancho (cm)</div>
+        <input id="fj_ancho" type="number" step="0.1" value="${anchoMm?anchoMm/10:''}" placeholder="0.0" style="width:100%;background:var(--s3);border:1px solid ${anchoMm?'var(--b2)':'rgba(255,80,80,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+      <div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">Prof (cm)</div>
+        <input id="fj_prof" type="number" step="0.1" value="${profMm?profMm/10:''}" placeholder="0.0" style="width:100%;background:var(--s3);border:1px solid ${profMm?'var(--b2)':'rgba(255,80,80,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+    </div>
+
+    ${fotos.length?`<div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Imágenes (${fotos.length})</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      ${fotos.slice(0,8).map(u=>`<img src="${u}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid var(--b1)">`).join('')}
+    </div>`:''}
+
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="repEnviarFulljaus('${condicion}','${marca}','${modelo}',${JSON.stringify(fotos).replace(/'/g,"&#39;")},'${descripcion.replace(/'/g,"&#39;").substring(0,0)}')"
+        style="background:#6C5CE7;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+        ✅ Confirmar y publicar
+      </button>
+      <button onclick="document.getElementById('repResultados').style.display='none'"
+        style="background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer;font-family:inherit">
+        Cancelar
+      </button>
+    </div>
+  </div>`;
+};
+
+window.repEnviarFulljaus=async function(condicion,marca,modelo,fotos,_desc){
+  const sku=document.getElementById('fj_sku')?.value.trim();
+  const ean=document.getElementById('fj_ean')?.value.trim();
+  const precio=parseFloat(document.getElementById('fj_precio')?.value)||0;
+  const iva=parseFloat(document.getElementById('fj_iva')?.value)||21;
+  const stock=parseInt(document.getElementById('fj_stock')?.value)||0;
+  const warranty=parseInt(document.getElementById('fj_warranty')?.value)||0;
+  const peso=parseFloat(document.getElementById('fj_peso')?.value)||0;
+  const alto=parseFloat(document.getElementById('fj_alto')?.value)||0;   // en cm
+  const ancho=parseFloat(document.getElementById('fj_ancho')?.value)||0;
+  const prof=parseFloat(document.getElementById('fj_prof')?.value)||0;
+  const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo||'';
+  const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
+
+  const confirmBtn=document.querySelector('[onclick^="repEnviarFulljaus"]');
+  if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='⏳ Publicando...';}
+
+  const payload={
+    sku, title:titulo, price:precio, stock, taxes:iva,
+    condition:condicion==='new'?'NEW':'USED',
+    description:descripcion,
+    warranty_months:warranty,
+    fotos,
+    ...(ean&&{ean}),
+    ...(marca&&{brand:marca}),
+    ...(modelo&&{model:modelo}),
+    ...(peso&&{weight:peso}),
+    ...(alto&&{height:alto}),    // Fulljaus espera cm
+    ...(ancho&&{width:ancho}),
+    ...(prof&&{depth:prof}),
+  };
+
   try{
-    // Leer datos del formulario
-    const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo||'';
-    const precio=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem.precio||0;
-    const stock=parseInt(document.getElementById('rep_stock')?.value)||_repItem.stock||0;
-    const condicion=document.getElementById('rep_condicion')?.value||_repItem.condicion||'new';
-    const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
-    const garantia=document.getElementById('rep_garantia')?.value.trim()||_repItem.garantia||'';
-
-    // Extraer EAN, marca, modelo de atributos
-    const attrs=_repItem.atributos||[];
-    const getAttr=(id)=>(attrs.find(a=>a.id===id)||{}).value_name||'';
-    const ean=getAttr('EAN')||getAttr('GTIN')||'';
-    const marca=getAttr('BRAND')||'';
-    const modelo=getAttr('MODEL')||getAttr('ALPHANUMERIC_MODEL')||'';
-    const sku=getAttr('SELLER_SKU')||_repItem.sku||_repItem.seller_sku||'';
-
-    // Parsear warranty en meses desde texto
-    let warrantyMonths=0;
-    if(garantia&&!/sin garant/i.test(garantia)){
-      const m=garantia.match(/(\d+)\s*mes/i);
-      const y=garantia.match(/(\d+)\s*a[ñn]/i);
-      if(m) warrantyMonths=parseInt(m[1]);
-      else if(y) warrantyMonths=parseInt(y[1])*12;
-    }
-
-    if(!sku){
-      toast('Este ítem no tiene SKU (SELLER_SKU). Completalo antes de publicar en Fulljaus.','err');
-      if(btn){btn.disabled=false;btn.textContent='🟣 Publicar en Fulljaus';}
-      return;
-    }
-
-    const payload={
-      sku, title:titulo, price:precio, stock,
-      condition:condicion==='new'?'NEW':'USED',
-      description:descripcion,
-      warranty_months:warrantyMonths,
-      ...(ean&&{ean}),
-      ...(marca&&{brand:marca}),
-      ...(modelo&&{model:modelo})
-    };
-
     const r=await fetch(`${PROXY}/fulljaus/producto`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload)
     });
     const d=await r.json();
-
     const resEl=document.getElementById('repResultados');
-    resEl.style.display='block';
     if(d.ok){
-      resEl.innerHTML+=`<div class="card" style="margin-top:10px;padding:14px;border-left:3px solid #6C5CE7">
-        <div style="font-size:13px;font-weight:600;color:#6C5CE7;margin-bottom:6px">🟣 ${d.action==='created'?'Creado':'Actualizado'} en Fulljaus</div>
-        <div style="font-size:12px;color:var(--t2)">SKU: <b style="color:var(--t1)">${sku}</b> · ${titulo.substring(0,50)}</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:4px">Precio: $${precio.toLocaleString('es-AR')} · Stock: ${stock} · Garantía: ${warrantyMonths} meses</div>
+      const imgs=d.imagenes||[];
+      const imgsOk=imgs.filter(i=>i.ok).length;
+      resEl.innerHTML=`<div class="card" style="padding:14px;border-left:3px solid #6C5CE7">
+        <div style="font-size:13px;font-weight:700;color:#6C5CE7;margin-bottom:6px">🟣 ${d.action==='created'?'Creado':'Actualizado'} en Fulljaus</div>
+        <div style="font-size:12px;color:var(--t2)">SKU: <b style="color:var(--t1)">${sku}</b></div>
+        <div style="font-size:12px;color:var(--t2);margin-top:3px">${titulo.substring(0,60)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap">
+          <span>💰 $${precio.toLocaleString('es-AR')}</span>
+          <span>📦 Stock: ${stock}</span>
+          <span>🧾 IVA: ${iva}%</span>
+          <span>🛡 Garantía: ${warranty} meses</span>
+          ${imgs.length?`<span>🖼 Imágenes: ${imgsOk}/${imgs.length}</span>`:''}
+        </div>
       </div>`;
-      toast(`✅ ${d.action==='created'?'Creado en Fulljaus':'Actualizado en Fulljaus'}: ${sku}`,'ok');
-    } else {
-      resEl.innerHTML+=`<div class="card" style="margin-top:10px;padding:14px;border-left:3px solid var(--red)">
-        <div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:6px">❌ Error al publicar en Fulljaus</div>
+      toast(`✅ ${d.action==='created'?'Creado':'Actualizado'} en Fulljaus: ${sku}`,'ok');
+    }else{
+      resEl.innerHTML=`<div class="card" style="padding:14px;border-left:3px solid var(--red)">
+        <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:6px">❌ Error Fulljaus</div>
         <div style="font-size:12px;color:var(--t2)">${d.error||'Error desconocido'}</div>
-        ${d.detail?`<pre style="font-size:10px;color:var(--t3);margin-top:6px;white-space:pre-wrap">${JSON.stringify(d.detail,null,2)}</pre>`:''}
+        ${d.detail?`<pre style="font-size:10px;color:var(--t3);margin-top:6px;white-space:pre-wrap;overflow:auto;max-height:120px">${JSON.stringify(d.detail,null,2)}</pre>`:''}
       </div>`;
       toast('Error Fulljaus: '+d.error,'err');
     }
   }catch(e){
     toast('Error: '+e.message,'err');
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent='🟣 Publicar en Fulljaus';}
+    if(confirmBtn){confirmBtn.disabled=false;confirmBtn.textContent='✅ Confirmar y publicar';}
   }
 };
 
