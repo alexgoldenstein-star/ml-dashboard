@@ -7245,7 +7245,7 @@ window.repLimpiar=function(){
 };
 
 // ── Publicar en Fulljaus — primero muestra formulario de confirmación ────────
-window.repPublicarFulljaus=function(){
+window.repPublicarFulljaus=async function(){
   if(!_repItem){toast('No hay ítem cargado','err');return;}
 
   // Extraer datos del formulario actual
