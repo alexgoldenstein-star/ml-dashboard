@@ -1671,6 +1671,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
           <button class="btn-g" id="fjtab_rentabilidad" onclick="fjTab('rentabilidad')" style="font-size:11px">💰 Rentabilidad</button>
           <button class="btn-g" id="fjtab_liquidaciones" onclick="fjTab('liquidaciones')" style="font-size:11px">🧾 Liquidaciones</button>
           <button class="btn-g" id="fjtab_config" onclick="fjTab('config')" style="font-size:11px">⚙ Config costos</button>
+          <button class="btn-g" id="fjtab_categorias" onclick="fjTab('categorias')" style="font-size:11px">🗂 Categorías ML</button>
         </div>
 
         <!-- PANEL RESUMEN -->
@@ -1772,6 +1773,56 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
               </div>
             </div>
             <button class="btn" onclick="fjGuardarConfig()" style="margin-top:12px;font-size:12px">💾 Guardar configuración</button>
+          </div>
+        </div>
+
+        <!-- PANEL CATEGORÍAS ML → FULLJAUS -->
+        <div id="fjpanel_categorias" style="display:none">
+          <div class="card" style="padding:14px;margin-bottom:10px">
+            <div class="ch" style="margin-bottom:10px">
+              <span class="ct">Mapeo de categorías ML → Fulljaus</span>
+              <div style="display:flex;gap:6px;align-items:center">
+                <button class="btn-g btn-sm" onclick="fjCatAgregar()" style="font-size:11px">+ Agregar</button>
+                <button class="btn-g btn-sm" onclick="fjCatRecargar()" style="font-size:11px">↻ Recargar</button>
+              </div>
+            </div>
+            <p style="font-size:11px;color:var(--t3);margin-bottom:12px">
+              Asociá cada categoría de ML con el <b>categoryBranch</b> de Fulljaus. Cuando publicás un ítem, el sistema busca automáticamente su categoría ML acá.
+            </p>
+            <div id="fjcat_tabla" style="font-size:12px;color:var(--t3)">Cargando...</div>
+            <!-- Formulario agregar/editar -->
+            <div id="fjcat_form" style="display:none;margin-top:14px;padding:12px;background:var(--s2);border-radius:8px;border:1px solid var(--b1)">
+              <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px" id="fjcat_form_titulo">Agregar categoría</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div>
+                  <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">ID Categoría ML</div>
+                  <input id="fjcat_in_mlid" placeholder="Ej: MLA1055" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+                  <div style="font-size:9px;color:var(--t3);margin-top:2px">Se ve en la URL de ML o en el ítem importado</div>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Nombre ML (referencia)</div>
+                  <input id="fjcat_in_mlnombre" placeholder="Ej: Vasos" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">categoryBranch Fulljaus</div>
+                  <input id="fjcat_in_branch" placeholder="Ej: Cocina > Vasos" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+                  <div style="font-size:9px;color:var(--t3);margin-top:2px">String exacto que acepta Fulljaus</div>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Notas</div>
+                  <input id="fjcat_in_notas" placeholder="Opcional" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+                </div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button onclick="fjCatGuardar()" style="background:var(--acc);color:#fff;border:none;border-radius:7px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">💾 Guardar</button>
+                <button onclick="document.getElementById('fjcat_form').style.display='none'" style="background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:7px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit">Cancelar</button>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="padding:12px;font-size:11px;color:var(--t3)">
+            <b style="color:var(--t1)">¿Dónde encontrar el categoryBranch?</b> Consultá el endpoint <code style="background:var(--s2);padding:1px 4px;border-radius:3px">GET /fulljaus/categorias</code> desde el proxy para ver los valores exactos que acepta Fulljaus. El sistema lo buscará automáticamente al publicar.
+            <button onclick="fjCatExplorar()" style="margin-top:8px;display:block;background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit">🔍 Explorar categorías disponibles en Fulljaus</button>
+            <div id="fjcat_explorar_res" style="margin-top:8px"></div>
           </div>
         </div>
 
@@ -7264,6 +7315,16 @@ window.repPublicarFulljaus=function(){
 
   if(!sku){toast('Este ítem no tiene SKU (SELLER_SKU). Completalo antes.','err');return;}
 
+  // Buscar categoryBranch en Firebase fjCategorias
+  const mlCatId=_repItem.categoria||'';
+  let categoryBranch='';
+  try{
+    const cats=await fb.get('fjCategorias').catch(()=>null)||{};
+    // Buscar por ID exacto o por nombre (case-insensitive)
+    const cat=cats[mlCatId]||Object.values(cats).find(c=>c.mlNombre&&mlCatId&&c.mlNombre.toLowerCase()===mlCatId.toLowerCase());
+    if(cat) categoryBranch=cat.branch||'';
+  }catch(e){}
+
   // Mostrar formulario de confirmación
   const resEl=document.getElementById('repResultados');
   resEl.style.display='block';
@@ -7274,6 +7335,10 @@ window.repPublicarFulljaus=function(){
 
       <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">SKU</div>
         <input id="fj_sku" value="${sku}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
+
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Categoría Fulljaus ${categoryBranch?'<span style="color:#00b894">✓ mapeada</span>':'<span style="color:var(--org)">sin mapeo</span>'}</div>
+        <input id="fj_cat_branch" value="${categoryBranch}" placeholder="Ej: Cocina > Vasos (opcional)" style="width:100%;background:var(--s3);border:1px solid ${categoryBranch?'#00b894':'rgba(255,165,0,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+        <div style="font-size:9px;color:var(--t3);margin-top:2px">ML: ${mlCatId||'sin categoría'} · <a href="#" onclick="event.preventDefault();fjTab('categorias');document.querySelector('[data-p=fulljaus]')?.click()" style="color:var(--acc)">Gestionar mapeos</a></div></div>
 
       <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">EAN / GTIN</div>
         <input id="fj_ean" value="${ean}" placeholder="Sin EAN" style="width:100%;background:var(--s3);border:1px solid ${ean?'var(--b2)':'rgba(255,80,80,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
@@ -7367,6 +7432,7 @@ window.repEnviarFulljaus=async function(){
   if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='⏳ Publicando...';}
 
   const unidadesPaq=document.getElementById('fj_unidades_paq')?.value.trim()||'';
+  const catBranch=document.getElementById('fj_cat_branch')?.value.trim()||'';
 
   const payload={
     sku,
@@ -7381,6 +7447,8 @@ window.repEnviarFulljaus=async function(){
     warranty_months:warranty,
     warranty_type:'Garantía del Fabricante',
     fotos,
+    // Categoría
+    ...(catBranch&&{category_branch:catBranch}),
     // Datos adicionales fijos
     product_type:'Bien físico',
     sale_mode:'En firme',
@@ -15349,12 +15417,129 @@ window.fjGuardarConfig = async function(){
 // ── TAB / UTILS ───────────────────────────────────────────────────────────────
 window.fjTab = function(tab){
   window._fjTab=tab;
-  ['resumen','ordenes','rentabilidad','liquidaciones','config'].forEach(t=>{
+  ['resumen','ordenes','rentabilidad','liquidaciones','config','categorias'].forEach(t=>{
     const p=document.getElementById('fjpanel_'+t);
     const b=document.getElementById('fjtab_'+t);
     if(p) p.style.display=t===tab?'':'none';
     if(b){b.style.background=t===tab?'var(--acc)':'';b.style.color=t===tab?'#000':'';}
   });
+  if(tab==='categorias') fjCatRecargar();
+};
+
+// ── CATEGORÍAS ML → FULLJAUS ─────────────────────────────────────────────────
+// Firebase path: fjCategorias/{mlId} = { mlId, mlNombre, branch, notas }
+
+let _fjCats={}; // cache local
+
+async function fjCatRecargar(){
+  const el=document.getElementById('fjcat_tabla'); if(!el) return;
+  el.innerHTML='<span style="color:var(--t3)">Cargando...</span>';
+  try{
+    const snap=await fb.get('fjCategorias').catch(()=>null);
+    _fjCats=snap||{};
+    fjCatRender();
+  }catch(e){el.innerHTML='<span style="color:var(--red)">Error: '+e.message+'</span>';}
+}
+window.fjCatRecargar=fjCatRecargar;
+
+function fjCatRender(){
+  const el=document.getElementById('fjcat_tabla'); if(!el) return;
+  const cats=Object.values(_fjCats);
+  if(!cats.length){
+    el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:8px 0">Sin categorías mapeadas. Usá "+ Agregar" para empezar.</div>';
+    return;
+  }
+  el.innerHTML=`
+  <table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="color:var(--t3);text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--b1)">
+      <th style="text-align:left;padding:4px 8px">ID ML</th>
+      <th style="text-align:left;padding:4px 8px">Nombre ML</th>
+      <th style="text-align:left;padding:4px 8px">categoryBranch Fulljaus</th>
+      <th style="text-align:left;padding:4px 8px">Notas</th>
+      <th style="text-align:right;padding:4px 8px"></th>
+    </tr></thead>
+    <tbody>
+      ${cats.map(c=>`<tr style="border-bottom:1px solid var(--b1)">
+        <td style="padding:6px 8px;font-family:monospace;color:var(--acc)">${esc(c.mlId||'')}</td>
+        <td style="padding:6px 8px;color:var(--t1)">${esc(c.mlNombre||'')}</td>
+        <td style="padding:6px 8px;color:var(--t1);font-weight:600">${esc(c.branch||'')}</td>
+        <td style="padding:6px 8px;color:var(--t3)">${esc(c.notas||'')}</td>
+        <td style="padding:6px 8px;text-align:right;white-space:nowrap">
+          <button onclick="fjCatEditar('${esc(c.mlId||'')}')" style="background:none;border:1px solid var(--b1);border-radius:5px;padding:3px 8px;color:var(--t2);font-size:10px;cursor:pointer;font-family:inherit;margin-right:4px">✏ Editar</button>
+          <button onclick="fjCatEliminar('${esc(c.mlId||'')}')" style="background:none;border:1px solid rgba(255,80,80,.3);border-radius:5px;padding:3px 8px;color:var(--red);font-size:10px;cursor:pointer;font-family:inherit">✕</button>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+window.fjCatAgregar=function(){
+  document.getElementById('fjcat_form_titulo').textContent='Agregar categoría';
+  document.getElementById('fjcat_in_mlid').value='';
+  document.getElementById('fjcat_in_mlnombre').value='';
+  document.getElementById('fjcat_in_branch').value='';
+  document.getElementById('fjcat_in_notas').value='';
+  document.getElementById('fjcat_in_mlid').readOnly=false;
+  document.getElementById('fjcat_form').style.display='';
+  document.getElementById('fjcat_in_mlid').focus();
+};
+
+window.fjCatEditar=function(mlId){
+  const c=_fjCats[mlId]; if(!c) return;
+  document.getElementById('fjcat_form_titulo').textContent='Editar categoría';
+  document.getElementById('fjcat_in_mlid').value=c.mlId||'';
+  document.getElementById('fjcat_in_mlnombre').value=c.mlNombre||'';
+  document.getElementById('fjcat_in_branch').value=c.branch||'';
+  document.getElementById('fjcat_in_notas').value=c.notas||'';
+  document.getElementById('fjcat_in_mlid').readOnly=true; // no cambiar el key
+  document.getElementById('fjcat_form').style.display='';
+  document.getElementById('fjcat_in_branch').focus();
+};
+
+window.fjCatGuardar=async function(){
+  const mlId=document.getElementById('fjcat_in_mlid').value.trim().toUpperCase();
+  const mlNombre=document.getElementById('fjcat_in_mlnombre').value.trim();
+  const branch=document.getElementById('fjcat_in_branch').value.trim();
+  const notas=document.getElementById('fjcat_in_notas').value.trim();
+  if(!mlId||!branch){toast('Completá ID ML y categoryBranch','err');return;}
+  const entrada={mlId,mlNombre,branch,notas,updatedAt:new Date().toISOString()};
+  try{
+    // Guardar en Firebase bajo fjCategorias/{mlId}
+    const path='fjCategorias';
+    const actual=await fb.get(path).catch(()=>null)||{};
+    actual[mlId]=entrada;
+    await fb.set(path,actual);
+    _fjCats[mlId]=entrada;
+    fjCatRender();
+    document.getElementById('fjcat_form').style.display='none';
+    toast('Categoría guardada: '+mlId,'ok');
+  }catch(e){toast('Error guardando: '+e.message,'err');}
+};
+
+window.fjCatEliminar=async function(mlId){
+  if(!confirm('¿Eliminar mapeo de categoría '+mlId+'?')) return;
+  try{
+    const actual=await fb.get('fjCategorias').catch(()=>null)||{};
+    delete actual[mlId];
+    await fb.set('fjCategorias',actual);
+    delete _fjCats[mlId];
+    fjCatRender();
+    toast('Categoría eliminada','ok');
+  }catch(e){toast('Error: '+e.message,'err');}
+};
+
+window.fjCatExplorar=async function(){
+  const el=document.getElementById('fjcat_explorar_res'); if(!el) return;
+  el.innerHTML='<span style="color:var(--t3)">Consultando API Fulljaus...</span>';
+  try{
+    const r=await fetch(PROXY+'/fulljaus/categorias');
+    const d=await r.json();
+    if(d.ok){
+      el.innerHTML=`<pre style="font-size:10px;color:var(--t2);background:var(--s2);padding:8px;border-radius:6px;max-height:200px;overflow:auto;white-space:pre-wrap">${JSON.stringify(d.data,null,2)}</pre>`;
+    } else {
+      el.innerHTML=`<div style="color:var(--red);font-size:11px">⚠ ${d.error}</div>`;
+    }
+  }catch(e){el.innerHTML='<span style="color:var(--red)">Error: '+e.message+'</span>';}
 };
 
 function fjPopularSelects(){
