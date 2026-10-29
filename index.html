@@ -7143,7 +7143,7 @@ window.repPublicarFulljaus=function(){
     </div>`:''}
 
     <div style="display:flex;gap:8px;align-items:center">
-      <button onclick="repEnviarFulljaus('${condicion}','${marca}','${modelo}',${JSON.stringify(fotos).replace(/'/g,"&#39;")},'${descripcion.replace(/'/g,"&#39;").substring(0,0)}')"
+      <button id="btnFJConfirmar" onclick="repEnviarFulljaus()"
         style="background:#6C5CE7;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
         ✅ Confirmar y publicar
       </button>
@@ -7153,9 +7153,12 @@ window.repPublicarFulljaus=function(){
       </button>
     </div>
   </div>`;
+  // Guardar datos en variable global para que repEnviarFulljaus los lea
+  window._fjPendiente={condicion,marca,modelo,fotos,descripcion:document.getElementById('rep_descripcion')?.value||_repItem.descripcion||''};
 };
 
-window.repEnviarFulljaus=async function(condicion,marca,modelo,fotos,_desc){
+window.repEnviarFulljaus=async function(){
+  const {condicion,marca,modelo,fotos}=window._fjPendiente||{};
   const sku=document.getElementById('fj_sku')?.value.trim();
   const ean=document.getElementById('fj_ean')?.value.trim();
   const precio=parseFloat(document.getElementById('fj_precio')?.value)||0;
@@ -7167,7 +7170,7 @@ window.repEnviarFulljaus=async function(condicion,marca,modelo,fotos,_desc){
   const ancho=parseFloat(document.getElementById('fj_ancho')?.value)||0;
   const prof=parseFloat(document.getElementById('fj_prof')?.value)||0;
   const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo||'';
-  const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
+  const descripcion=(window._fjPendiente?.descripcion)||_repItem.descripcion||'';
 
   const confirmBtn=document.querySelector('[onclick^="repEnviarFulljaus"]');
   if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent='⏳ Publicando...';}
