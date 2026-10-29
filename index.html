@@ -7724,6 +7724,9 @@ window.repPublicarTodas=async function(){
   try{
     const ok=resultados.filter(r=>r.ok).length;
     const err=resultados.filter(r=>!r.ok).length;
+    // Guardar attrs_faltantes por cuenta en global para evitar problemas de escape en onclick
+    window._repAttrsFaltantes={};
+    resultados.forEach(r=>{if(r.attrs_faltantes&&r.attrs_faltantes.length) window._repAttrsFaltantes[r.cuenta]=r.attrs_faltantes;});
     resEl.innerHTML=`
     <div class="card" style="padding:14px">
       <div style="font-size:13px;font-weight:600;margin-bottom:10px">${ok===accounts.length?'✅':'⚠️'} ${ok}/${accounts.length} publicaciones exitosas</div>
@@ -7749,7 +7752,7 @@ window.repPublicarTodas=async function(){
                       </select>`
                     :`<input class="inp" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" placeholder="${a.name}" style="font-size:12px;height:30px">`}
                   </div>`).join('')}
-                <button class="btn" style="font-size:12px;margin-top:4px;background:var(--org)" onclick="repReintentarConAtributos('${r.cuenta}',${JSON.stringify(r.attrs_faltantes).replace(/'/g,'&#39;')})">↻ Reintentar con estos atributos</button>
+                <button class="btn" style="font-size:12px;margin-top:4px;background:var(--org)" onclick="repReintentarConAtributos('${r.cuenta}')">↻ Reintentar con estos atributos</button>
               </div>`:''}
             <details style="font-size:10px;color:var(--t3);margin-top:4px" open>
               <summary style="cursor:pointer;color:var(--org);font-weight:600;font-size:11px">🔍 Debug — qué se mandó y qué respondió ML</summary>
@@ -7775,11 +7778,13 @@ window.repPublicarTodas=async function(){
   }
 };
 
-window.repReintentarConAtributos=async function(cuentaId, attrsFaltantes){
+window.repReintentarConAtributos=async function(cuentaId, attrsFaltantesArg){
   if(!_repItem) return;
   const allAccts=(S.accounts||[]).filter(a=>a.token);
   const acct=allAccts.find(a=>a.id===cuentaId||a.nickname===cuentaId);
   if(!acct){toast('Cuenta no encontrada','err');return;}
+  // Leer del global guardado al renderizar (evita problemas de escape en onclick)
+  const attrsFaltantes=(window._repAttrsFaltantes&&window._repAttrsFaltantes[cuentaId])||attrsFaltantesArg||[];
 
   // Leer atributos extra completados por el usuario
   const attrsExtra=attrsFaltantes.map(a=>{
