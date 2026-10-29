@@ -5983,11 +5983,12 @@ window.galponEditarPedido=async function(id){
 let _promoData={}, _promoAcctIdx=0, _promoSel=new Set(), _promoLoading=false;
 
 async function renderPromociones(el, accounts){
-  const accts=accounts.filter(a=>a.token);
+  // Enriquecer cada cuenta con userId real (UID map)
+  const accts=accounts.filter(a=>a.token).map(a=>({...a,userId:UID[a.id]||a.userId||a.id}));
   if(!accts.length){el.innerHTML='<div class="card"><p style="color:var(--t3);font-size:12px">Sin cuentas conectadas.</p></div>';return;}
   _promoSel=new Set();
   _promoData={};
-  const tabsHtml=accts.map((a,i)=>`<div class="tab ${i===0?'on':''}" onclick="promoSwitchAcct(${i},this)">${a.nickname||a.userId}</div>`).join('');
+  const tabsHtml=accts.map((a,i)=>`<div class="tab ${i===0?'on':''}" onclick="promoSwitchAcct(${i},this)">${a.nickname||a.id}</div>`).join('');
   el.innerHTML=`
   <div class="card" style="margin-bottom:12px">
     <div class="ch"><span class="ct">🏷️ Gestión de Promociones y Descuentos</span></div>
@@ -6092,18 +6093,17 @@ function promoRenderTabla(){
   if(!tabla) return;
   const acct=window._promoAccts?.[_promoAcctIdx];
   const uid=acct?.userId;
-  const data=_promoData[uid]||{items:[],scroll_id:null,total:0};
+  const data=_promoData[uid]||{items:[],total:0};
   const margenMin=parseFloat(document.getElementById('promoMargenMin')?.value||15);
   const filtroTxt=(document.getElementById('promoFiltro')?.value||'').toLowerCase();
   const filtroEst=document.getElementById('promoFiltroEstado')?.value||'';
   const descPct=parseFloat(document.getElementById('promoDescPct')?.value||10)/100;
 
-  // Buscador por palabras individuales
-  const promoPalabras=filtroTxt.split(/\s+/).filter(Boolean);
+  const palabras=filtroTxt.split(/\s+/).filter(Boolean);
   let items=data.items.filter(it=>{
-    if(promoPalabras.length){
-      const haystack=(it.titulo+' '+(it.sku||'')).toLowerCase();
-      if(!promoPalabras.every(p=>haystack.includes(p))) return false;
+    if(palabras.length){
+      const h=(it.titulo+' '+(it.sku||'')).toLowerCase();
+      if(!palabras.every(p=>h.includes(p))) return false;
     }
     if(filtroEst==='ml' && !it.aporte_ml) return false;
     if(filtroEst==='propio' && (!it.descuento_activo||it.aporte_ml)) return false;
@@ -6111,112 +6111,165 @@ function promoRenderTabla(){
     return true;
   });
 
-  const selCount=document.getElementById('promoSelCount');
-  if(selCount) selCount.textContent=_promoSel.size>0?`${_promoSel.size} sel.`:'';
+  if(document.getElementById('promoSelCount'))
+    document.getElementById('promoSelCount').textContent=_promoSel.size>0?`${_promoSel.size} sel.`:'';
+  if(document.getElementById('promoMore')) document.getElementById('promoMore').style.display='none';
+  if(document.getElementById('promoTotalLabel'))
+    document.getElementById('promoTotalLabel').textContent=`${data.total||items.length} publicaciones activas`;
 
-  const moreDiv=document.getElementById('promoMore');
-  const totalLabel=document.getElementById('promoTotalLabel');
-  if(moreDiv) moreDiv.style.display='none';
-  if(totalLabel) totalLabel.textContent=`${data.total} publicaciones activas`;
-
-  if(!items.length){ tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:16px">Sin publicaciones que coincidan.</div>'; return; }
-
-  const rows=items.map(it=>{
-    const precioConDesc=Math.round(it.precio*(1-descPct));
-    const comisionEst=precioConDesc*0.14, iibbEst=precioConDesc*0.04, ivaEst=precioConDesc-(precioConDesc/1.21);
-    const margenConDesc=it.costo!=null&&precioConDesc>0
-      ? Math.round(((precioConDesc-it.costo-comisionEst-iibbEst-ivaEst)/precioConDesc)*100) : null;
-    const viable=margenConDesc==null?null:margenConDesc>=margenMin;
-    const semaforo=viable==null?'⚪':(viable?'🟢':'🔴');
-    const sel=_promoSel.has(it.id);
-
-    // Badge de tipo de descuento
-    let descBadge='';
-    if(it.aporte_ml){
-      descBadge=`<span style="font-size:9px;padding:2px 6px;border-radius:8px;background:rgba(52,168,83,.15);color:#34a853;font-weight:600">🤝 ML -${it.pct_descuento_actual||'?'}%</span>`;
-    } else if(it.descuento_activo){
-      descBadge=`<span style="font-size:9px;padding:2px 6px;border-radius:8px;background:rgba(255,170,0,.15);color:var(--org)">🏷️ -${it.pct_descuento_actual||'?'}% propio</span>`;
-    }
-
-    // Precio tachado actual
-    const precioTachadoHtml=it.precio_original
-      ? `<span style="font-size:10px;color:var(--t3);text-decoration:line-through">${fS(it.precio_original)}</span> `
-      : '';
-
-    return `<tr style="cursor:pointer;background:${sel?'rgba(77,163,255,.07)':''}">
-      <td onclick="promoToggleSel('${it.id}',this.closest('tr'))">
-        <input type="checkbox" ${sel?'checked':''} style="margin:0;cursor:pointer" onchange="promoToggleSel('${it.id}',this.closest('tr'))" onclick="event.stopPropagation()">
-      </td>
-      <td onclick="promoToggleSel('${it.id}',this.closest('tr'))">
-        <img src="${it.thumbnail||''}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;display:block">
-      </td>
-      <td onclick="promoToggleSel('${it.id}',this.closest('tr'))">
-        <div style="font-size:11px;font-weight:500;line-height:1.3;max-width:260px">${it.titulo}</div>
-        <div style="font-size:10px;color:var(--t3)">${it.sku||it.id} · Stock: ${it.stock}</div>
-        ${descBadge}
-      </td>
-      <td class="mono r" style="font-size:11px">
-        ${precioTachadoHtml}<span style="font-weight:600">${fS(it.precio)}</span>
-      </td>
-      <td class="mono r" style="color:var(--acc);font-size:11px">${fS(precioConDesc)}</td>
-      <td style="text-align:center;font-size:13px">${semaforo}</td>
-      <td class="mono r" style="font-size:11px;color:${margenConDesc==null?'var(--t3)':margenConDesc>=margenMin?'var(--grn)':'var(--red)'}">
-        ${margenConDesc!=null?margenConDesc+'%':'—'}
-      </td>
-      <td style="white-space:nowrap">
-        ${!it.aporte_ml?`<button class="btn-g btn-sm" onclick="promoAplicarUno('${it.id}',${it.precio},event)" style="font-size:10px">Aplicar</button>`:''}
-        ${it.descuento_activo&&!it.aporte_ml?`<button class="btn-g btn-sm" onclick="promoQuitarUno('${it.id}',event)" style="font-size:10px;margin-left:3px">Quitar</button>`:''}
-        ${it.aporte_ml?`<span style="font-size:10px;color:var(--t3);font-style:italic">Gestionado por ML</span>`:''}
-      </td>
-    </tr>`;
-  }).join('');
-
-  // Panel de deals y campañas ofrecidas por ML
-  const deals=data.deals||[];
-  const promos_ml=data.promociones_ml||[];
-  let dealsHtml='';
-  if(deals.length||promos_ml.length){
-    const fFecha=s=>s?new Date(s).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):'?';
-    const dealRows=deals.map(d=>`
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(52,168,83,.07);border:1px solid rgba(52,168,83,.2);margin-bottom:4px">
-        <span style="font-size:18px">${d.estado==='activo'?'🟢':'🟡'}</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:600">${d.nombre}</div>
-          <div style="font-size:10px;color:var(--t3)">${d.tipo.toUpperCase()} · ${d.estado} · ${fFecha(d.inicio)}–${fFecha(d.fin)}${d.items_count?' · '+d.items_count+' items':''}</div>
-        </div>
-        ${d.descuento_pct?`<span style="font-size:12px;font-weight:700;color:#34a853">-${d.descuento_pct}%</span>`:''}
-        <span style="font-size:9px;background:rgba(52,168,83,.15);color:#34a853;padding:2px 6px;border-radius:8px">🤝 ML</span>
-      </div>`).join('');
-    const promoRows=promos_ml.map(p=>`
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:rgba(255,170,0,.07);border:1px solid rgba(255,170,0,.2);margin-bottom:4px">
-        <span style="font-size:18px">📢</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:11px;font-weight:600">${p.nombre}</div>
-          <div style="font-size:10px;color:var(--t3)">PROMOCIÓN · ${p.estado} · ${fFecha(p.inicio)}–${fFecha(p.fin)}${p.items_count?' · '+p.items_count+' items':''}</div>
-        </div>
-        ${p.descuento_pct?`<span style="font-size:12px;font-weight:700;color:var(--org)">-${p.descuento_pct}%</span>`:''}
-      </div>`).join('');
-    dealsHtml=`<div style="margin-bottom:12px;padding:10px;border-radius:8px;background:var(--s2);border:1px solid var(--b2)">
-      <div style="font-size:11px;font-weight:600;margin-bottom:8px;color:var(--t1)">🤝 Campañas y Deals ofrecidos por MercadoLibre</div>
-      ${dealRows}${promoRows}
-      ${!dealRows&&!promoRows?'<div style="font-size:11px;color:var(--t3)">Sin campañas activas o candidatas en este momento.</div>':''}
-    </div>`;
+  if(!items.length){
+    tabla.innerHTML='<div style="color:var(--t3);font-size:12px;padding:24px;text-align:center">Sin publicaciones que coincidan.</div>';
+    return;
   }
 
-  tabla.innerHTML=dealsHtml+`<table style="width:100%;border-collapse:collapse;font-size:11px">
-    <thead><tr style="color:var(--t3);border-bottom:1px solid var(--b2)">
-      <th style="width:28px"><input type="checkbox" id="promoSelAll" onchange="promoToggleTodos(this.checked)" style="cursor:pointer"></th>
-      <th style="width:44px"></th>
-      <th style="text-align:left">Publicación</th>
-      <th class="r">Precio actual</th>
-      <th class="r">Con -${Math.round(descPct*100)}%</th>
-      <th style="text-align:center">Viable</th>
-      <th class="r">Margen</th>
-      <th></th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  // ── Agrupar por SKU ────────────────────────────────────────────────────────
+  const grupos={};// sku → {sku, titulo, thumb, variantes:[]}
+  items.forEach(it=>{
+    const sku=it.sku||it.id;
+    if(!grupos[sku]) grupos[sku]={sku,titulo:it.titulo,thumb:it.thumbnail,variantes:[]};
+    grupos[sku].variantes.push(it);
+  });
+
+  const fmtDescuento=pct=>pct?`-${pct}%`:'';
+
+  const bloques=Object.values(grupos).map(g=>{
+    const variantes=g.variantes;
+    const multiVariante=variantes.length>1;
+    const skuId=g.sku.replace(/[^a-z0-9]/gi,'_');
+
+    // ── Tarjeta agrupada ────────────────────────────────────────────────────
+    const variantesHtml=variantes.map(it=>{
+      const precioConDesc=Math.round(it.precio*(1-descPct));
+      const comision=precioConDesc*0.14, iibb=precioConDesc*0.04, ivaDesc=precioConDesc-(precioConDesc/1.21);
+      const margen=it.costo!=null&&precioConDesc>0
+        ? Math.round(((precioConDesc-it.costo-comision-iibb-ivaDesc)/precioConDesc)*100) : null;
+      const viable=margen==null?null:margen>=margenMin;
+      const semaforoColor=viable==null?'#888':(viable?'#00b894':'#e17055');
+
+      // Etiqueta de cuotas
+      let cuotaLabel='Sin cuotas';
+      const tit=(it.titulo||'').toLowerCase();
+      const m=tit.match(/(\d+)\s*cuotas?/);
+      if(m) cuotaLabel=m[1]+' cuotas';
+
+      // Badge descuento
+      let badge='';
+      if(it.aporte_ml) badge=`<span style="font-size:9px;padding:1px 6px;border-radius:10px;background:#34a85322;color:#34a853;font-weight:700">🤝 ML ${fmtDescuento(it.pct_descuento_actual)}</span>`;
+      else if(it.descuento_activo) badge=`<span style="font-size:9px;padding:1px 6px;border-radius:10px;background:#e17055aa;color:#fff;font-weight:700">🏷️ ${fmtDescuento(it.pct_descuento_actual)} propio</span>`;
+
+      const precioTachado=it.precio_original
+        ? `<span style="font-size:10px;color:var(--t3);text-decoration:line-through;margin-right:4px">${fS(it.precio_original)}</span>` : '';
+
+      const btnAplicar=!it.aporte_ml
+        ? `<button onclick="promoAplicarUno('${it.id}',${it.precio},event)"
+             style="background:#00b894;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">
+             Aplicar ${Math.round(descPct*100)}%</button>` : '';
+      const btnQuitar=it.descuento_activo&&!it.aporte_ml
+        ? `<button onclick="promoQuitarUno('${it.id}',event)"
+             style="background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit;margin-left:4px;white-space:nowrap">
+             Quitar</button>` : '';
+
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--s2);margin-bottom:4px;flex-wrap:wrap">
+        <!-- cuota label -->
+        <div style="min-width:80px;font-size:11px;font-weight:600;color:var(--t2)">${cuotaLabel}</div>
+        <!-- id ml -->
+        <div style="font-size:9px;color:var(--t3);min-width:110px;font-family:monospace">${it.id}</div>
+        <!-- badge -->
+        <div style="min-width:90px">${badge||'<span style="font-size:9px;color:var(--t3)">Sin descuento</span>'}</div>
+        <!-- precio -->
+        <div style="flex:1;text-align:right;min-width:80px">
+          ${precioTachado}<span style="font-size:13px;font-weight:700;color:var(--t1)">${fS(it.precio)}</span>
+        </div>
+        <!-- con desc -->
+        <div style="min-width:70px;text-align:right;font-size:13px;font-weight:700;color:#00b894">${fS(precioConDesc)}</div>
+        <!-- semaforo -->
+        <div style="width:10px;height:10px;border-radius:50%;background:${semaforoColor};flex-shrink:0" title="${margen!=null?margen+'% margen':'Sin costo cargado'}"></div>
+        <!-- margen -->
+        <div style="width:36px;text-align:right;font-size:10px;color:${viable==null?'var(--t3)':viable?'#00b894':'#e17055'}">${margen!=null?margen+'%':'—'}</div>
+        <!-- botones -->
+        <div style="white-space:nowrap">${btnAplicar}${btnQuitar}</div>
+      </div>`;
+    }).join('');
+
+    // Botón "Aplicar a todas las variantes del SKU"
+    const btnTodas=`<button onclick="promoAplicarSKU('${g.sku.replace(/'/g,"\\'")}',event)"
+      style="background:#0984e3;color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">
+      🏷️ Aplicar ${Math.round(descPct*100)}% a todas (${variantes.length})</button>`;
+
+    return `<div class="card" style="margin-bottom:10px;padding:12px 14px">
+      <!-- Cabecera del grupo SKU -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer" onclick="promoToggleGrupo('${skuId}')">
+        <img src="${g.thumb||''}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;line-height:1.3">${g.titulo}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:1px">SKU: <b style="color:var(--t2)">${g.sku}</b> · ${variantes.length} variante${variantes.length>1?'s':''}</div>
+        </div>
+        ${multiVariante?btnTodas:''}
+        <span id="arr_${skuId}" style="color:var(--t3);font-size:14px;margin-left:4px">▾</span>
+      </div>
+      <!-- Variantes -->
+      <div id="grp_${skuId}">
+        <!-- Cabecera columnas -->
+        <div style="display:flex;gap:10px;padding:0 10px 4px;font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:600;flex-wrap:wrap">
+          <div style="min-width:80px">Variante</div>
+          <div style="min-width:110px">ID ML</div>
+          <div style="min-width:90px">Estado</div>
+          <div style="flex:1;text-align:right;min-width:80px">Precio actual</div>
+          <div style="min-width:70px;text-align:right">Con -${Math.round(descPct*100)}%</div>
+          <div style="width:10px"></div>
+          <div style="width:36px;text-align:right">Margen</div>
+          <div style="min-width:80px"></div>
+        </div>
+        ${variantesHtml}
+      </div>
+    </div>`;
+  }).join('');
+
+  tabla.innerHTML=bloques;
 }
+
+window.promoToggleGrupo=function(skuId){
+  const el=document.getElementById('grp_'+skuId);
+  const arr=document.getElementById('arr_'+skuId);
+  if(!el) return;
+  const hidden=el.style.display==='none';
+  el.style.display=hidden?'':'none';
+  if(arr) arr.textContent=hidden?'▾':'▸';
+};
+
+window.promoAplicarSKU=async function(sku,ev){
+  ev?.stopPropagation();
+  const descPct=parseFloat(document.getElementById('promoDescPct')?.value||10);
+  const margenMin=parseFloat(document.getElementById('promoMargenMin')?.value||15);
+  const acct=window._promoAccts?.[_promoAcctIdx];
+  if(!acct){toast('Sin cuenta activa','err');return;}
+  // Calcular fechas: hoy → fin de mes
+  const hoy=new Date();
+  const fin=new Date(hoy.getFullYear(),hoy.getMonth()+2,0);
+  const fmtD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  toast(`Aplicando ${descPct}% a todas las variantes de ${sku}…`,'info');
+  try{
+    const r=await fetch(`${PROXY}/promociones/sku`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+      body:JSON.stringify({sku,seller_id:acct.userId,discount_percent:descPct,start_date:fmtD(hoy)+'T00:00:00.000Z',finish_date:fmtD(fin)+'T23:59:59.000Z'})
+    });
+    const d=await r.json();
+    if(d.ok){
+      toast(`✅ ${d.exitosos}/${d.total} variantes actualizadas con ${descPct}% de descuento`,'ok');
+      // Actualizar cache local
+      const uid=acct.userId;
+      const data=_promoData[uid]||{items:[]};
+      d.resultados.filter(x=>x.ok).forEach(res=>{
+        const it=data.items.find(x=>x.id===res.item_id);
+        if(it){it.precio_original=it.precio;it.precio=res.deal_price;it.descuento_activo=true;it.aporte_ml=false;it.pct_descuento_actual=Math.round(descPct);}
+      });
+      promoRenderTabla();
+    } else {
+      toast('Error: '+(d.error||'desconocido'),'err');
+    }
+  }catch(e){toast('Error: '+e.message,'err');}
+};
 
 window.promoToggleSel=function(id,tr){
   if(_promoSel.has(id)){ _promoSel.delete(id); if(tr) tr.style.background=''; }
