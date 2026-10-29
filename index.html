@@ -7072,13 +7072,30 @@ window.repPublicarFulljaus=function(){
   const sku=getAttr('SELLER_SKU')||_repItem.sku||_repItem.seller_sku||'';
 
   // Medidas de paquete desde atributos ML
-  // ML devuelve peso en gramos → dividir por 1000 para kg
-  // ML devuelve dimensiones en mm → dividir por 10 para cm
-  const pesoG=parseFloat(getAttr('SELLER_PACKAGE_WEIGHT','PACKAGE_WEIGHT','WEIGHT_NET'))||0;
-  const pesoKg=pesoG?pesoG/1000:0;
-  const altoMm=parseFloat(getAttr('SELLER_PACKAGE_HEIGHT','PACKAGE_HEIGHT','HEIGHT'))||0;
-  const anchoMm=parseFloat(getAttr('SELLER_PACKAGE_WIDTH','PACKAGE_WIDTH','WIDTH'))||0;
-  const profMm=parseFloat(getAttr('SELLER_PACKAGE_LENGTH','SELLER_PACKAGE_DEPTH','PACKAGE_LENGTH','DEPTH'))||0;
+  // Los atributos pueden venir como value_name ("1020 g", "28 cm") o como value numérico
+  // Usar value (numérico) cuando esté disponible, sino parsear value_name
+  const getAttrNum=(...ids)=>{
+    for(const id of ids){
+      const a=attrs.find(x=>x.id===id);
+      if(!a) continue;
+      // Preferir value_struct o value numérico
+      if(a.value_struct?.number!=null) return a.value_struct.number;
+      if(typeof a.value==='number') return a.value;
+      const n=parseFloat(String(a.value_name||'').replace(',','.'));
+      if(!isNaN(n)) return n;
+    }
+    return 0;
+  };
+  // ML: peso en gramos, dimensiones en cm
+  const pesoG=getAttrNum('SELLER_PACKAGE_WEIGHT','PACKAGE_WEIGHT','WEIGHT_NET');
+  const pesoKg=pesoG?Math.round(pesoG/1000*1000)/1000:0;
+  const altoCm=getAttrNum('SELLER_PACKAGE_HEIGHT','PACKAGE_HEIGHT','HEIGHT');
+  const anchoCm=getAttrNum('SELLER_PACKAGE_WIDTH','PACKAGE_WIDTH','WIDTH');
+  const profCm=getAttrNum('SELLER_PACKAGE_LENGTH','SELLER_PACKAGE_DEPTH','PACKAGE_LENGTH','DEPTH');
+  // mantener nombres viejos para compatibilidad con el HTML de abajo
+  const altoMm=altoCm*10;  // se divide por 10 en el input → queda altoCm
+  const anchoMm=anchoCm*10;
+  const profMm=profCm*10;
 
   // IVA desde PRODS local
   let ivaLocal=21;
