@@ -7072,7 +7072,10 @@ window.repPublicarFulljaus=function(){
   const sku=getAttr('SELLER_SKU')||_repItem.sku||_repItem.seller_sku||'';
 
   // Medidas de paquete desde atributos ML
-  const pesoKg=parseFloat(getAttr('SELLER_PACKAGE_WEIGHT','PACKAGE_WEIGHT','WEIGHT_NET'))||0;
+  // ML devuelve peso en gramos → dividir por 1000 para kg
+  // ML devuelve dimensiones en mm → dividir por 10 para cm
+  const pesoG=parseFloat(getAttr('SELLER_PACKAGE_WEIGHT','PACKAGE_WEIGHT','WEIGHT_NET'))||0;
+  const pesoKg=pesoG?pesoG/1000:0;
   const altoMm=parseFloat(getAttr('SELLER_PACKAGE_HEIGHT','PACKAGE_HEIGHT','HEIGHT'))||0;
   const anchoMm=parseFloat(getAttr('SELLER_PACKAGE_WIDTH','PACKAGE_WIDTH','WIDTH'))||0;
   const profMm=parseFloat(getAttr('SELLER_PACKAGE_LENGTH','SELLER_PACKAGE_DEPTH','PACKAGE_LENGTH','DEPTH'))||0;
