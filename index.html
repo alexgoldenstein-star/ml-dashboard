@@ -6991,6 +6991,7 @@ function repRenderForm(){
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:4px 0 16px">
     <button class="btn" style="background:var(--grn);font-size:14px;padding:10px 24px;font-weight:700" onclick="repPublicarTodas()">🚀 Publicar en ${window._repCuentasSel.size} cuenta${window._repCuentasSel.size!==1?'s':''}</button>
     <button class="btn" id="btnFJPublicar" style="background:#6C5CE7;font-size:13px;padding:10px 18px;font-weight:600;border:none;color:#fff;cursor:pointer;border-radius:8px" onclick="repPublicarFulljaus()">🟣 Publicar en Fulljaus</button>
+    <button class="btn" style="background:#00b894;font-size:13px;padding:10px 18px;font-weight:600;border:none;color:#fff;cursor:pointer;border-radius:8px" onclick="repMostrarDescuento()">🏷️ Aplicar descuento</button>
     <button class="btn" style="background:var(--s3);font-size:13px;padding:10px 18px" onclick="repLimpiar()">✖ Cancelar</button>
   </div>`;
 }
@@ -7246,6 +7247,154 @@ window.repEnviarFulljaus=async function(){
     toast('Error: '+e.message,'err');
     if(confirmBtn){confirmBtn.disabled=false;confirmBtn.textContent='✅ Confirmar y publicar';}
   }
+};
+
+// ── Aplicar descuento a todas las variantes del SKU ─────────────────────────
+window.repMostrarDescuento=function(){
+  if(!_repItem){toast('No hay ítem cargado','err');return;}
+  const attrs=_repItem.atributos||[];
+  const getAttr=(...ids)=>{for(const id of ids){const v=(attrs.find(a=>a.id===id)||{}).value_name;if(v&&v!=='-1')return v;}return '';};
+  const sku=getAttr('SELLER_SKU')||_repItem.sku||_repItem.seller_sku||'';
+  const precio=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem.precio||0;
+  if(!sku){toast('Este ítem no tiene SKU (SELLER_SKU)','err');return;}
+
+  // Calcular fechas por defecto: hoy → fin de mes que viene
+  const hoy=new Date();
+  const primerDiaMesSig=new Date(hoy.getFullYear(),hoy.getMonth()+1,1);
+  const ultimoDiaMesSig=new Date(hoy.getFullYear(),hoy.getMonth()+2,0);
+  const fmtInput=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+  const resEl=document.getElementById('repResultados');
+  resEl.style.display='block';
+  resEl.innerHTML=`
+  <div class="card" style="padding:16px;border-left:3px solid #00b894;margin-top:8px">
+    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:12px">🏷️ Aplicar descuento a todas las variantes</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:10px">SKU: <b style="color:var(--t1)">${sku}</b> · Precio base: <b style="color:var(--t1)">$${precio.toLocaleString('es-AR')}</b></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Descuento %</div>
+        <input id="desc_pct" type="number" min="5" max="80" value="10" oninput="descActualizarPrecio()"
+          style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:14px;font-weight:700;font-family:inherit">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Desde</div>
+        <input id="desc_desde" type="date" value="${fmtInput(hoy)}"
+          style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Hasta</div>
+        <input id="desc_hasta" type="date" value="${fmtInput(ultimoDiaMesSig)}"
+          style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+      </div>
+    </div>
+
+    <div id="desc_preview" style="background:var(--s2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2)">
+      Con 10% de descuento: <b style="color:var(--t1);font-size:14px">$${Math.round(precio*0.9).toLocaleString('es-AR')}</b>
+      <span style="color:var(--t3);text-decoration:line-through;margin-left:8px">$${precio.toLocaleString('es-AR')}</span>
+    </div>
+
+    <div style="font-size:11px;color:var(--t3);margin-bottom:10px">
+      ℹ️ Se aplicará a <b>todas las variantes</b> del SKU en la cuenta activa (sin cuotas, 3c, 6c, 9c, 12c…)
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="btnDescAplicar" onclick="repAplicarDescuento('${sku}',${precio})"
+        style="background:#00b894;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+        ✅ Aplicar a todas las variantes
+      </button>
+      <button onclick="repAplicarDescuento('${sku}',${precio},true)"
+        style="background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer;font-family:inherit">
+        📅 + Crear igual para el mes siguiente
+      </button>
+      <button onclick="document.getElementById('repResultados').style.display='none'"
+        style="background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer;font-family:inherit">
+        Cancelar
+      </button>
+    </div>
+  </div>`;
+};
+
+window.descActualizarPrecio=function(){
+  const pct=parseFloat(document.getElementById('desc_pct')?.value)||0;
+  const precio=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem?.precio||0;
+  const prev=document.getElementById('desc_preview');
+  if(prev&&precio){
+    const deal=Math.round(precio*(1-pct/100));
+    prev.innerHTML=`Con ${pct}% de descuento: <b style="color:var(--t1);font-size:14px">$${deal.toLocaleString('es-AR')}</b> <span style="color:var(--t3);text-decoration:line-through;margin-left:8px">$${precio.toLocaleString('es-AR')}</span>`;
+  }
+};
+
+window.repAplicarDescuento=async function(sku,precio,conMesSig=false){
+  const pct=parseFloat(document.getElementById('desc_pct')?.value)||0;
+  const desde=document.getElementById('desc_desde')?.value;
+  const hasta=document.getElementById('desc_hasta')?.value;
+  if(pct<5||pct>80){toast('El descuento debe estar entre 5% y 80%','err');return;}
+  if(!desde||!hasta){toast('Ingresá fechas de inicio y fin','err');return;}
+
+  const btn=document.getElementById('btnDescAplicar');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Aplicando...';}
+
+  // Usar token de la cuenta activa
+  const acct=(S.accounts||[]).find(a=>a.token);
+  if(!acct){toast('No hay cuenta conectada','err');if(btn){btn.disabled=false;btn.textContent='✅ Aplicar a todas las variantes';}return;}
+
+  try{
+    const body={
+      sku,
+      seller_id:acct.seller_id||acct.id,
+      discount_percent:pct,
+      start_date:desde+'T00:00:00.000Z',
+      finish_date:hasta+'T23:59:59.000Z'
+    };
+    const r=await fetch(`${PROXY}/promociones/sku`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+      body:JSON.stringify(body)
+    });
+    const d=await r.json();
+    const resEl=document.getElementById('repResultados');
+
+    if(d.ok){
+      const ok=d.resultados.filter(x=>x.ok);
+      const fail=d.resultados.filter(x=>!x.ok);
+
+      let html=`<div class="card" style="padding:14px;border-left:3px solid #00b894">
+        <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:8px">🏷️ Descuento aplicado: ${pct}%</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:8px">SKU: <b>${sku}</b> · ${ok.length} de ${d.total} variantes OK</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${ok.map(x=>`<div style="font-size:11px;color:var(--t3)">✅ ${x.item_id} — $${x.deal_price?.toLocaleString('es-AR')||'?'} (${x.metodo||''})</div>`).join('')}
+          ${fail.map(x=>`<div style="font-size:11px;color:var(--red)">❌ ${x.item_id} — ${x.error||'Error'}</div>`).join('')}
+        </div>`;
+
+      // Si pidió crear para mes siguiente, hacerlo ahora
+      if(conMesSig&&ok.length){
+        const hoy=new Date();
+        const inicio=new Date(hoy.getFullYear(),hoy.getMonth()+1,1);
+        const fin2=new Date(hoy.getFullYear(),hoy.getMonth()+2,0);
+        const fmtI=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const body2={...body,start_date:fmtI(inicio)+'T00:00:00.000Z',finish_date:fmtI(fin2)+'T23:59:59.000Z'};
+        try{
+          const r2=await fetch(`${PROXY}/promociones/sku`,{
+            method:'POST',headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+            body:JSON.stringify(body2)
+          });
+          const d2=await r2.json();
+          html+=`<div style="font-size:11px;color:#00b894;margin-top:8px">📅 Mes siguiente programado: ${d2.exitosos||0}/${d2.total||0} OK (${fmtI(inicio)} → ${fmtI(fin2)})</div>`;
+        }catch(e2){html+=`<div style="font-size:11px;color:var(--red);margin-top:8px">❌ Error mes siguiente: ${e2.message}</div>`;}
+      }
+      html+='</div>';
+      resEl.innerHTML=html;
+      toast(`✅ Descuento ${pct}% aplicado a ${ok.length} variantes de ${sku}`,'ok');
+    }else{
+      resEl.innerHTML=`<div class="card" style="padding:14px;border-left:3px solid var(--red)">
+        <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:6px">❌ Error al aplicar descuento</div>
+        <div style="font-size:12px;color:var(--t2)">${d.error||'Error desconocido'}</div>
+      </div>`;
+      toast('Error: '+d.error,'err');
+    }
+  }catch(e){toast('Error: '+e.message,'err');}
+  finally{if(btn){btn.disabled=false;btn.textContent='✅ Aplicar a todas las variantes';}}
 };
 
 window.repPublicarTodas=async function(){
