@@ -7199,10 +7199,14 @@ window.repPublicarFulljaus=function(){
 
   // Extraer datos del formulario actual
   const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo||'';
-  // Precio: usar original_price si tiene promo activa (precio real antes del descuento ML)
-  const precioML=_repItem.precio_original||_repItem.precio||parseFloat(document.getElementById('rep_precio_base')?.value)||0;
-  // Precio Fulljaus = precio ML + 10%
-  const precio=Math.round(precioML*1.10);
+  // Precio base ML = precio actual (con o sin promo)
+  const precioBaseML=_repItem.precio||parseFloat(document.getElementById('rep_precio_base')?.value)||0;
+  // Precio lista ML = precio original antes de promo (si hay), sino igual al base
+  const precioListaML=_repItem.precio_original||precioBaseML;
+  // Fulljaus: precio base = ML precio actual + 10%, precio lista = ML precio_original + 10%
+  const precioBase=Math.round(precioBaseML*1.10);
+  const precioLista=Math.round(precioListaML*1.10);
+  const tienePromo=!!_repItem.precio_original&&_repItem.precio_original>_repItem.precio;
   const stock=parseInt(document.getElementById('rep_stock')?.value)||_repItem.stock||0;
   const condicion=document.getElementById('rep_condicion')?.value||_repItem.condicion||'new';
   const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
@@ -7274,9 +7278,13 @@ window.repPublicarFulljaus=function(){
       <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">EAN / GTIN</div>
         <input id="fj_ean" value="${ean}" placeholder="Sin EAN" style="width:100%;background:var(--s3);border:1px solid ${ean?'var(--b2)':'rgba(255,80,80,.4)'};border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit"></div>
 
-      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Precio Lista / Base <span style="color:#6C5CE7;font-size:9px">(ML+10%)</span></div>
-        <input id="fj_precio" type="number" value="${precio}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
-        <div style="font-size:9px;color:var(--t3);margin-top:2px">ML: $${precioML.toLocaleString('es-AR')}${_repItem.precio_original?` (promo activa, orig $${_repItem.precio_original.toLocaleString('es-AR')})`:''}</div></div>
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Precio Lista <span style="color:var(--t3);font-size:9px;font-weight:400;text-transform:none">(tachado)</span></div>
+        <input id="fj_precio_lista" type="number" value="${precioLista}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+        <div style="font-size:9px;color:var(--t3);margin-top:2px">ML: $${precioListaML.toLocaleString('es-AR')}${tienePromo?' ✦ orig antes de promo':''} +10%</div></div>
+
+      <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Precio Base <span style="color:var(--t3);font-size:9px;font-weight:400;text-transform:none">(venta real)</span></div>
+        <input id="fj_precio_base" type="number" value="${precioBase}" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
+        <div style="font-size:9px;color:var(--t3);margin-top:2px">ML: $${precioBaseML.toLocaleString('es-AR')}${tienePromo?` ✦ con promo activa`:''} +10%</div></div>
 
       <div><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">IVA %</div>
         <select id="fj_iva" style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
@@ -7335,14 +7343,16 @@ window.repPublicarFulljaus=function(){
     </div>
   </div>`;
   // Guardar datos en variable global para que repEnviarFulljaus los lea
-  window._fjPendiente={condicion,marca,modelo,fotos,descripcion:document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'',precioMLOrig:precioML};
+  window._fjPendiente={condicion,marca,modelo,fotos,descripcion:document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'',precioMLOrig:precioListaML,tienePromo};
 };
 
 window.repEnviarFulljaus=async function(){
   const {condicion,marca,modelo,fotos,precioMLOrig}=window._fjPendiente||{};
   const sku=document.getElementById('fj_sku')?.value.trim();
   const ean=document.getElementById('fj_ean')?.value.trim();
-  const precio=parseFloat(document.getElementById('fj_precio')?.value)||0;
+  const precioLista=parseFloat(document.getElementById('fj_precio_lista')?.value)||0;
+  const precioBase=parseFloat(document.getElementById('fj_precio_base')?.value)||0;
+  const precio=precioBase; // para mostrar en el resumen
   const iva=parseFloat(document.getElementById('fj_iva')?.value)||21;
   const stock=parseInt(document.getElementById('fj_stock')?.value)||0;
   const warranty=parseInt(document.getElementById('fj_warranty')?.value)||0;
@@ -7361,9 +7371,9 @@ window.repEnviarFulljaus=async function(){
   const payload={
     sku,
     title:titulo,
-    price:precio,
-    price_list:precio,   // lista = base = ML+10%
-    price_base:precio,
+    price:precioBase,
+    price_list:precioLista,   // precio tachado (mayor)
+    price_base:precioBase,    // precio de venta real
     stock,
     taxes:iva,
     condition:condicion==='new'?'NEW':'USED',
@@ -7405,8 +7415,8 @@ window.repEnviarFulljaus=async function(){
         <div style="font-size:12px;color:var(--t2)">SKU: <b style="color:var(--t1)">${sku}</b></div>
         <div style="font-size:12px;color:var(--t2);margin-top:3px">${titulo.substring(0,60)}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap">
-          <span>💰 Lista/Base: $${precio.toLocaleString('es-AR')}</span>
-          ${precioMLOrig?`<span style="color:var(--t3)">ML orig: $${precioMLOrig.toLocaleString('es-AR')}</span>`:''}
+          <span>💰 Base: $${precioBase.toLocaleString('es-AR')}</span>
+          <span style="color:var(--t3)">Lista: $${precioLista.toLocaleString('es-AR')}</span>
           <span>📦 Stock: ${stock}</span>
           <span>🧾 IVA: ${iva}%</span>
           <span>🛡 Garantía: ${warranty} meses</span>
