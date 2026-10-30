@@ -7732,7 +7732,7 @@ window.repPublicarTodas=async function(){
       <div style="font-size:13px;font-weight:600;margin-bottom:10px">${ok===accounts.length?'✅':'⚠️'} ${ok}/${accounts.length} publicaciones exitosas</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         ${resultados.map(r=>`
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);background:${r.ok?'var(--grn)11':'var(--red)11'}">
+        <div id="rep_row_${r.cuenta}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);background:${r.ok?'var(--grn)11':'var(--red)11'}">
           <span style="font-weight:600;color:${r.ok?'var(--grn)':'var(--red)'};width:50px">${r.cuenta}</span>
           ${r.ok?`<span style="font-size:12px;color:var(--t2)">${r.id}</span>
           <a href="${r.permalink}" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto">Ver publicación →</a>`
@@ -7740,7 +7740,7 @@ window.repPublicarTodas=async function(){
             <span style="font-size:13px;color:var(--red);font-weight:600">${r.error||'Error desconocido'}</span>
             ${r.unauthorized?`<span style="font-size:12px;color:var(--org)">⚠️ Token sin permisos de escritura. Reconectá la cuenta en <b>Cuentas ML</b>.</span>`:''}
             ${(r.attrs_faltantes&&r.attrs_faltantes.length)?`
-              <div style="background:var(--org)15;border:1px solid var(--org)44;border-radius:6px;padding:8px 10px;margin-top:2px">
+              <div id="rep_attrs_${r.cuenta}" style="background:var(--org)15;border:1px solid var(--org)44;border-radius:6px;padding:8px 10px;margin-top:2px">
                 <div style="font-size:12px;font-weight:600;color:var(--org);margin-bottom:6px">⚠️ Atributos requeridos faltantes para esta categoría:</div>
                 ${r.attrs_faltantes.map(a=>`
                   <div style="margin-bottom:6px">
@@ -7825,14 +7825,39 @@ window.repReintentarConAtributos=async function(cuentaId, attrsFaltantesArg){
     const d=await r.json();
     if(d.ok){
       toast(`✅ Publicado en ${acct.nickname||cuentaId}: ${d.id}`,'ok');
-      // Reemplazar la sección de error con éxito
+      // Reemplazar toda la fila con éxito
       const resEl=document.getElementById('repResultados');
       if(resEl){
-        const row=resEl.querySelector(`[data-cuenta="${cuentaId}"]`);
+        // Buscar el div de la fila por el texto de la cuenta
+        const rows=resEl.querySelectorAll('[id^="rep_row_"]');
+        const row=resEl.querySelector(`#rep_row_${cuentaId}`);
         if(row) row.innerHTML=`<span style="font-weight:600;color:var(--grn)">✅ ${acct.nickname||cuentaId}</span><span style="font-size:12px;margin-left:10px">${d.id}</span><a href="${d.permalink}" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto">Ver →</a>`;
       }
     } else {
       toast(`❌ ${acct.nickname||cuentaId}: ${d.error}`,'err');
+      // Si hay nuevos attrs faltantes, actualizarlos en el global y regenerar el bloque de attrs
+      if(d.attrs_faltantes&&d.attrs_faltantes.length){
+        // Combinar con los anteriores (puede que ya estén algunos resueltos)
+        const yaResueltos=new Set((attrsFaltantes||[]).map(a=>a.id));
+        const nuevos=d.attrs_faltantes.filter(a=>!yaResueltos.has(a.id));
+        const todosAttrs=[...(attrsFaltantes||[]),...nuevos];
+        window._repAttrsFaltantes[cuentaId]=todosAttrs;
+        // Actualizar el bloque de atributos en la UI
+        const bloque=document.getElementById(`rep_attrs_${cuentaId}`);
+        if(bloque){
+          bloque.innerHTML=`<div style="font-size:12px;font-weight:600;color:var(--org);margin-bottom:6px">⚠️ Atributos requeridos faltantes para esta categoría:</div>`+
+            todosAttrs.map(a=>`<div style="margin-bottom:6px">
+              <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
+              ${a.values&&a.values.length?
+                `<select class="inp" id="attr_${cuentaId}_${a.id}" data-attr-id="${a.id}" style="font-size:12px;height:30px">
+                  <option value="">— Seleccionar —</option>
+                  ${a.values.map(v=>`<option value="${v.id}">${v.name}</option>`).join('')}
+                </select>`
+              :`<input class="inp" id="attr_${cuentaId}_${a.id}" data-attr-id="${a.id}" placeholder="${a.name}" style="font-size:12px;height:30px">`}
+            </div>`).join('')+
+            `<button class="btn" style="font-size:12px;margin-top:4px;background:var(--org)" onclick="repReintentarConAtributos('${cuentaId}')">↻ Reintentar con estos atributos</button>`;
+        }
+      }
     }
   }catch(e){toast('Error: '+e.message,'err');}
 };
