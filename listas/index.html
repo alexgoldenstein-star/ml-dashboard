@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NIVIKO — Análisis de Proveedores</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  --bg:#0f0f11;--s1:#16161a;--s2:#1e1e24;--s3:#28282f;
+  --b1:#2a2a33;--b2:#3a3a45;
+  --t1:#f0f0f4;--t2:#a0a0b0;--t3:#606070;
+  --acc:#7c6af7;--grn:#22c55e;--red:#ef4444;--org:#f97316;--yel:#eab308;
+  --r:8px;--r2:12px;
+}
+[data-theme="light"]{
+  --bg:#f5f5f7;--s1:#ffffff;--s2:#f0f0f5;--s3:#e5e5ea;
+  --b1:#d0d0da;--b2:#c0c0cc;
+  --t1:#1a1a2e;--t2:#4a4a6a;--t3:#8a8a9a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--t1);font-size:13px;min-height:100vh}
+.tb{height:50px;background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 16px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-weight:900;font-size:14px;color:var(--acc);letter-spacing:.5px}
+.tb-title{font-size:12px;color:var(--t3)}
+.content{max-width:1400px;margin:0 auto;padding:16px}
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r2);padding:16px;margin-bottom:14px}
+.ct{font-weight:700;font-size:13px}
+.inp{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:7px 10px;color:var(--t1);font-size:12px;font-family:inherit;outline:none;width:100%}
+.inp:focus{border-color:var(--acc)}
+.btn{background:var(--acc);color:#fff;border:none;border-radius:var(--r);padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-g{background:var(--s2);border:1px solid var(--b1);color:var(--t1);border-radius:var(--r);padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-g:hover{border-color:var(--acc);color:var(--acc)}
+.lbl{font-size:11px;color:var(--t3);margin-bottom:4px;display:block;font-weight:500}
+select.inp{cursor:pointer}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{background:var(--s2);color:var(--t3);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;text-align:left;border-bottom:2px solid var(--b1)}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--b1);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(124,106,247,.04)}
+.mono{font-family:"DM Mono",ui-monospace,monospace;font-size:11px}
+.badge{display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600}
+.badge-grn{background:rgba(34,197,94,.15);color:var(--grn)}
+.badge-yel{background:rgba(234,179,8,.15);color:var(--yel)}
+.badge-red{background:rgba(239,68,68,.15);color:var(--red)}
+.badge-gry{background:var(--s3);color:var(--t3)}
+.drop-zone{border:2px dashed var(--b2);border-radius:var(--r2);padding:40px;text-align:center;cursor:pointer;transition:all .2s;background:var(--s2)}
+.drop-zone:hover,.drop-zone.over{border-color:var(--acc);background:rgba(124,106,247,.06)}
+.drop-icon{font-size:32px;margin-bottom:10px}
+.progress-bar{height:4px;background:var(--s3);border-radius:2px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;background:var(--acc);border-radius:2px;transition:width .3s}
+.stat-box{background:var(--s2);border-radius:var(--r);padding:12px;text-align:center}
+.stat-n{font-size:20px;font-weight:700;font-family:"Syne",sans-serif}
+.stat-l{font-size:10px;color:var(--t3);text-transform:uppercase;margin-top:2px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;border:1px solid var(--b1);background:var(--s2);font-size:11px;color:var(--t2);cursor:pointer;user-select:none}
+.chip.on{border-color:var(--acc);background:rgba(124,106,247,.12);color:var(--acc)}
+.tooltip{position:relative;cursor:help}
+.tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:110%;left:50%;transform:translateX(-50%);background:#000;color:#fff;border-radius:6px;padding:5px 8px;font-size:10px;white-space:nowrap;z-index:999;pointer-events:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .8s linear infinite;display:inline-block}
+</style>
+</head>
+<body>
+
+<div class="tb">
+  <div class="logo">NIVIKO</div>
+  <div class="tb-title">Análisis de Lista de Precios — Proveedores</div>
+  <div style="flex:1"></div>
+  <button class="btn-g" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  <button class="btn-g" onclick="exportarCSV()" id="btnExport" style="display:none">⬇ Exportar CSV</button>
+</div>
+
+<div class="content">
+
+  <!-- Config -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span class="ct">⚙️ Configuración de costos</span>
+      <button class="btn-g" onclick="toggleConfig()">Editar</button>
+    </div>
+    <div id="configDisplay" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--t2)">
+      <!-- resumen visible -->
+    </div>
+    <div id="configPanel" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:12px">
+        <div>
+          <label class="lbl">Comisión ML %</label>
+          <select class="inp" id="cfg_com" onchange="renderConfigDisplay()">
+            <option value="16">16% — General</option>
+            <option value="14">14% — Muebles/Hogar</option>
+            <option value="12">12% — Electrónica</option>
+            <option value="10">10% — Computación</option>
+            <option value="13">13% — Otros</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl">IVA del proveedor</label>
+          <select class="inp" id="cfg_iva" onchange="renderConfigDisplay()">
+            <option value="21">21% — General</option>
+            <option value="10.5">10.5% — Electrónica</option>
+            <option value="0">0% — Exento</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl">IIBB %</label>
+          <input class="inp" id="cfg_iibb" type="number" value="4" step="0.5" oninput="renderConfigDisplay()">
+        </div>
+        <div>
+          <label class="lbl">SIRTAC / Retenciones %</label>
+          <input class="inp" id="cfg_ret" type="number" value="1.2" step="0.1" disabled style="opacity:.6">
+        </div>
+        <div>
+          <label class="lbl">Publicidad ML %</label>
+          <input class="inp" id="cfg_pub" type="number" value="5" step="0.5" oninput="renderConfigDisplay()">
+        </div>
+        <div>
+          <label class="lbl">Logística Flex Cordón 3 ($)</label>
+          <input class="inp" id="cfg_flex_c3" type="number" value="6600" oninput="renderConfigDisplay()">
+        </div>
+        <div>
+          <label class="lbl">Logística Despacho ($)</label>
+          <input class="inp" id="cfg_despacho" type="number" value="0" oninput="renderConfigDisplay()">
+        </div>
+        <div>
+          <label class="lbl">Margen mínimo aceptable %</label>
+          <input class="inp" id="cfg_margen_min" type="number" value="15" oninput="renderConfigDisplay()">
+        </div>
+        <div>
+          <label class="lbl">Margen crítico %</label>
+          <input class="inp" id="cfg_margen_crit" type="number" value="10" oninput="renderConfigDisplay()">
+        </div>
+        <div>
+          <label class="lbl">Modalidad de envío</label>
+          <select class="inp" id="cfg_modal" onchange="renderConfigDisplay()">
+            <option value="flex">Flex Cordón 3</option>
+            <option value="despacho">Correo/Despacho</option>
+            <option value="full">Full</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl">Umbral envío gratis ($)</label>
+          <input class="inp" id="cfg_umbral" type="number" value="33000" oninput="renderConfigDisplay()">
+        </div>
+        <div>
+          <label class="lbl">Token ML (opcional)</label>
+          <input class="inp" id="cfg_token" type="text" placeholder="APP_USR-...">
+          <div style="font-size:10px;color:var(--t3);margin-top:3px">Para buscar productos en ML</div>
+        </div>
+      </div>
+
+      <!-- Descuentos del proveedor -->
+      <div style="border-top:1px solid var(--b1);margin-top:14px;padding-top:14px">
+        <div style="font-weight:600;font-size:12px;margin-bottom:10px;color:var(--t2)">🏷️ Descuentos del proveedor</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
+          <div>
+            <label class="lbl">Descuentos encadenados</label>
+            <input class="inp" id="cfg_desc_cadena" type="text" placeholder="Ej: 10+5+5" oninput="actualizarDescuentoReal()">
+            <div style="font-size:10px;color:var(--t3);margin-top:3px">Desc. real: <span id="desc_cadena_real" style="color:var(--acc);font-weight:600">0%</span></div>
+          </div>
+          <div>
+            <label class="lbl">Condición de pago</label>
+            <select class="inp" id="cfg_cond_pago" onchange="actualizarDescuentoReal()">
+              <option value="0">Contado — sin adicional</option>
+              <option value="2">Contado 10 días — +2%</option>
+              <option value="0" data-custom="1">Plazo 30 días — 0%</option>
+              <option value="-2">Plazo 60 días — −2%</option>
+              <option value="-4">Plazo 90 días — −4%</option>
+              <option value="custom">✏ Personalizado</option>
+            </select>
+            <input class="inp" id="cfg_cond_pago_custom" type="number" placeholder="% desc. adicional (neg=recargo)" style="margin-top:4px;display:none" oninput="actualizarDescuentoReal()">
+          </div>
+          <div>
+            <label class="lbl">Descuento por volumen (unid.→%)</label>
+            <input class="inp" id="cfg_vol_1" type="text" placeholder="Ej: 50→3, 100→5, 200→8">
+            <div style="font-size:10px;color:var(--t3);margin-top:3px">Ingresá pares cantidad→descuento% separados por coma</div>
+          </div>
+          <div style="background:var(--s3);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:600">Descuento total sobre lista</div>
+            <div style="font-size:22px;font-weight:700;color:var(--acc)" id="desc_total_pct">0%</div>
+            <div style="font-size:10px;color:var(--t3)">Cadena + condición de pago<br>Volumen se aplica por producto según cant.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;text-align:right">
+        <button class="btn" onclick="guardarConfig()">Guardar configuración</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="ct" style="margin-bottom:12px">📂 Cargar lista de precios</div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="drop-icon">📋</div>
+      <div style="font-weight:600;margin-bottom:4px">Arrastrá o hacé clic para subir</div>
+      <div style="font-size:11px;color:var(--t3)">Excel (.xlsx, .xls) o PDF — cualquier formato de proveedor</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.pdf,.csv" style="display:none" onchange="handleFile(this.files[0])">
+    </div>
+    <div id="uploadStatus" style="margin-top:10px;display:none">
+      <div id="uploadMsg" style="font-size:12px;color:var(--t3)"></div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- Previsualización de columnas -->
+  <div class="card" id="colMapCard" style="display:none">
+    <div class="ct" style="margin-bottom:12px">🗂️ Mapear columnas</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Identificá qué columna de tu archivo corresponde a cada dato</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px" id="colMapGrid"></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn" onclick="procesarConMapeo()">🔍 Buscar en Mercado Libre</button>
+      <div id="mapStatus" style="font-size:11px;color:var(--t3)"></div>
+    </div>
+  </div>
+
+  <!-- Resumen estadísticas -->
+  <div class="card" id="statsCard" style="display:none">
+    <div class="ct" style="margin-bottom:12px">📊 Resumen</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px" id="statsGrid"></div>
+  </div>
+
+  <!-- Filtros -->
+  <div id="filtrosCard" style="margin-bottom:14px;display:none">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:11px;color:var(--t3)">Filtrar:</span>
+      <div class="chip on" onclick="toggleFiltro(this,'todos')" data-f="todos">Todos</div>
+      <div class="chip" onclick="toggleFiltro(this,'verde')" data-f="verde">🟢 Rentable</div>
+      <div class="chip" onclick="toggleFiltro(this,'amarillo')" data-f="amarillo">🟡 Bajo margen</div>
+      <div class="chip" onclick="toggleFiltro(this,'rojo')" data-f="rojo">🔴 No rentable</div>
+      <div class="chip" onclick="toggleFiltro(this,'sinml')" data-f="sinml">❓ Sin publicación ML</div>
+      <div style="flex:1"></div>
+      <input class="inp" placeholder="Buscar producto..." oninput="filtrarTexto(this.value)" style="max-width:220px">
+    </div>
+  </div>
+
+  <!-- Tabla de resultados -->
+  <div class="card" id="resultadosCard" style="display:none;padding:0;overflow:hidden">
+    <table class="tbl" id="tblResultados">
+      <thead>
+        <tr>
+          <th style="width:32px">#</th>
+          <th>Producto proveedor</th>
+          <th>SKU / EAN</th>
+          <th>Lista</th>
+          <th>Desc.</th>
+          <th>Costo neto</th>
+          <th>Pub. ML encontrada</th>
+          <th>Precio ML</th>
+          <th>Comisión</th>
+          <th>IVA</th>
+          <th>IIBB</th>
+          <th>Ret. 1.2%</th>
+          <th>Publicidad</th>
+          <th>Logística</th>
+          <th>Ganancia</th>
+          <th>Margen</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tblBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+// ── pdfjsLib setup ──
+if(typeof pdfjsLib !== 'undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+const PROXY = 'https://niviko-proxy-weld.vercel.app';
+
+// ── Estado global ──
+let rawRows = []; // filas del archivo
+let colHeaders = []; // headers detectados
+let resultados = []; // resultados finales con ML + cálculo
+let filtroActivo = 'todos';
+let textoFiltro = '';
+
+// ── Config ──
+function getCfg(){
+  return {
+    com: parseFloat(document.getElementById('cfg_com').value)||16,
+    iva: parseFloat(document.getElementById('cfg_iva').value)||21,
+    iibb: parseFloat(document.getElementById('cfg_iibb').value)||4,
+    ret: 1.2,
+    pub: parseFloat(document.getElementById('cfg_pub').value)||5,
+    flex_c3: parseFloat(document.getElementById('cfg_flex_c3').value)||6600,
+    despacho: parseFloat(document.getElementById('cfg_despacho').value)||0,
+    modal: document.getElementById('cfg_modal').value||'flex',
+    umbral: parseFloat(document.getElementById('cfg_umbral').value)||33000,
+    margen_min: parseFloat(document.getElementById('cfg_margen_min').value)||15,
+    margen_crit: parseFloat(document.getElementById('cfg_margen_crit').value)||10,
+    token: document.getElementById('cfg_token').value.trim(),
+  };
+}
+
+function renderConfigDisplay(){
+  const c = getCfg();
+  const modal_label = c.modal==='flex'?`Flex C3 ($${c.flex_c3.toLocaleString('es-AR')})`
+    : c.modal==='despacho'?`Despacho ($${c.despacho.toLocaleString('es-AR')})`:'Full';
+  const descTotal = getDescTotal();
+  const descStr = descTotal > 0 ? `Desc. proveedor <b style="color:var(--grn)">−${descTotal.toFixed(2)}%</b>` : 'Sin desc.';
+  const condPagoEl = document.getElementById('cfg_cond_pago');
+  const condPagoLabel = condPagoEl ? condPagoEl.options[condPagoEl.selectedIndex]?.text?.split('—')[0]?.trim() : '';
+  document.getElementById('configDisplay').innerHTML = `
+    <span>Comisión <b>${c.com}%</b></span>·
+    <span>IVA <b>${c.iva}%</b></span>·
+    <span>IIBB <b>${c.iibb}%</b></span>·
+    <span>Ret. <b>1.2%</b></span>·
+    <span>Pub. <b>${c.pub}%</b></span>·
+    <span>Logística: <b>${modal_label}</b></span>·
+    <span>${descStr}</span>·
+    ${condPagoLabel?`<span>Pago: <b>${condPagoLabel}</b></span>·`:''}
+    <span>Semáforo: verde ≥<b>${c.margen_min}%</b>, crítico &lt;<b>${c.margen_crit}%</b></span>
+  `.replace(/·/g,'<span style="color:var(--t3)">·</span>');
+}
+
+function toggleConfig(){
+  const p = document.getElementById('configPanel');
+  p.style.display = p.style.display==='none'?'block':'none';
+  renderConfigDisplay();
+}
+
+function guardarConfig(){
+  document.getElementById('configPanel').style.display='none';
+  renderConfigDisplay();
+  // Recalcular si hay resultados
+  if(resultados.length) { calcularTodo(); renderTabla(); }
+}
+
+// ── Theme ──
+function toggleTheme(){
+  const l = document.documentElement.getAttribute('data-theme')==='light';
+  document.documentElement.setAttribute('data-theme', l?'':'light');
+  document.getElementById('themeBtn').textContent = l?'🌙':'☀️';
+}
+
+// ── Drag & drop ──
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', ()=> dz.classList.remove('over'));
+dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('over'); handleFile(e.dataTransfer.files[0]); });
+
+// ── File handler ──
+async function handleFile(file){
+  if(!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  setUploadStatus(`Leyendo ${file.name}...`, 10);
+  try {
+    if(ext==='pdf'){
+      rawRows = await parsePDF(file);
+    } else if(['xlsx','xls','csv'].includes(ext)){
+      rawRows = await parseExcel(file);
+    } else {
+      alert('Formato no soportado. Usá Excel o PDF.');
+      return;
+    }
+    setUploadStatus(`${rawRows.length} filas detectadas`, 100);
+    if(rawRows.length===0){ alert('No se detectaron filas en el archivo'); return; }
+    showColMapper();
+  } catch(e){
+    setUploadStatus('Error al leer el archivo: '+e.message, 0);
+    console.error(e);
+  }
+}
+
+function setUploadStatus(msg, pct){
+  const s = document.getElementById('uploadStatus');
+  s.style.display = 'block';
+  document.getElementById('uploadMsg').textContent = msg;
+  document.getElementById('progressFill').style.width = pct+'%';
+}
+
+// ── Excel parser ──
+async function parseExcel(file){
+  return new Promise((res, rej)=>{
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, {type:'binary'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        // Buscar primera fila con contenido significativo (header)
+        let headerIdx = 0;
+        for(let i=0;i<Math.min(10, data.length);i++){
+          if(data[i].filter(c=>c!=='').length >= 3){ headerIdx = i; break; }
+        }
+        colHeaders = data[headerIdx].map(h => String(h).trim());
+        const rows = [];
+        for(let i=headerIdx+1; i<data.length; i++){
+          if(data[i].filter(c=>c!=='').length < 2) continue;
+          const row = {};
+          colHeaders.forEach((h,j) => row[h] = data[i][j]);
+          rows.push(row);
+        }
+        res(rows);
+      } catch(er){ rej(er); }
+    };
+    reader.onerror = rej;
+    reader.readAsBinaryString(file);
+  });
+}
+
+// ── PDF parser ──
+async function parsePDF(file){
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+  let allText = '';
+  for(let i=1; i<=pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const tc = await page.getTextContent();
+    // Reconstruir líneas por posición Y
+    const items = tc.items.map(item=>({x:item.transform[4], y:item.transform[5], str:item.str}));
+    items.sort((a,b)=> b.y-a.y || a.x-b.x);
+    let lastY = null;
+    for(const item of items){
+      if(lastY===null || Math.abs(item.y-lastY)>3) allText += '\n';
+      else allText += ' ';
+      allText += item.str;
+      lastY = item.y;
+    }
+  }
+  // Intentar parsear como tabla: split por líneas, detectar columnas por tabs/múltiples espacios
+  const lines = allText.split('\n').map(l=>l.trim()).filter(Boolean);
+
+  // Detectar delimitador
+  const rows = [];
+  const headerCandidates = lines.slice(0, 15);
+  let headerIdx = 0;
+
+  // Buscar línea con palabras clave típicas de listas de precios
+  const kw = /sku|cod|codigo|descripcion|precio|costo|articulo|producto|ean|barcode|marca/i;
+  for(let i=0;i<headerCandidates.length;i++){
+    if(kw.test(headerCandidates[i])){ headerIdx = i; break; }
+  }
+
+  // Separar por múltiples espacios o tabs
+  const splitLine = l => l.split(/\t|\s{2,}/).map(s=>s.trim()).filter(Boolean);
+  colHeaders = splitLine(lines[headerIdx]);
+  if(colHeaders.length < 2) colHeaders = ['Descripcion','Precio'];
+
+  for(let i=headerIdx+1; i<lines.length; i++){
+    const parts = splitLine(lines[i]);
+    if(parts.length < 2) continue;
+    const row = {};
+    colHeaders.forEach((h,j)=> row[h] = parts[j]||'');
+    rows.push(row);
+  }
+  return rows;
+}
+
+// ── Column mapper ──
+const COL_ROLES = [
+  { id:'nombre', label:'Nombre/Descripción', keywords:['descripcion','nombre','articulo','producto','detalle','item','denominacion','desc'] },
+  { id:'sku', label:'SKU / Código', keywords:['sku','codigo','cod','code','referencia','ref','parte','part'] },
+  { id:'ean', label:'EAN / Código de barras', keywords:['ean','barcode','barra','gtin','upc','codigo barra'] },
+  { id:'precio', label:'Precio de lista (costo)', keywords:['precio','costo','importe','valor','unit','price','pvp','cost','lista','neto'] },
+  { id:'cantidad', label:'Cantidad (para desc. volumen)', keywords:['cantidad','cant','qty','unidades','stock','units'] },
+  { id:'marca', label:'Marca', keywords:['marca','brand','fabricante','manufacturer'] },
+];
+
+function autoDetectRole(header){
+  const h = header.toLowerCase().replace(/[^a-z0-9 ]/g,'');
+  for(const role of COL_ROLES){
+    if(role.keywords.some(k => h.includes(k))) return role.id;
+  }
+  return '';
+}
+
+function showColMapper(){
+  const card = document.getElementById('colMapCard');
+  card.style.display = 'block';
+  const grid = document.getElementById('colMapGrid');
+  grid.innerHTML = COL_ROLES.map(role => {
+    const autoMatch = colHeaders.findIndex(h => autoDetectRole(h)===role.id);
+    const opts = ['<option value="">— No está —</option>',
+      ...colHeaders.map((h,i)=>`<option value="${i}" ${i===autoMatch?'selected':''}>${h}</option>`)
+    ].join('');
+    return `<div>
+      <label class="lbl">${role.label}</label>
+      <select class="inp" id="map_${role.id}">${opts}</select>
+    </div>`;
+  }).join('');
+  // Preview de primeras 3 filas
+  const preview = rawRows.slice(0,3).map(r=>`<tr>${colHeaders.map(h=>`<td style="padding:4px 8px;border:1px solid var(--b1);font-size:10px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r[h]}">${r[h]||''}</td>`).join('')}</tr>`).join('');
+  grid.innerHTML += `<div style="grid-column:1/-1;overflow-x:auto;margin-top:8px">
+    <div style="font-size:10px;color:var(--t3);margin-bottom:4px">Vista previa (3 filas):</div>
+    <table style="border-collapse:collapse;font-size:11px">
+      <thead><tr>${colHeaders.map(h=>`<th style="padding:4px 8px;border:1px solid var(--b1);background:var(--s3);font-size:10px;white-space:nowrap">${h}</th>`).join('')}</tr></thead>
+      <tbody>${preview}</tbody>
+    </table>
+  </div>`;
+}
+
+function getMapeo(){
+  const m = {};
+  COL_ROLES.forEach(r=>{
+    const sel = document.getElementById('map_'+r.id);
+    if(sel && sel.value!=='') m[r.id] = colHeaders[parseInt(sel.value)];
+  });
+  return m;
+}
+
+// ── Buscar en ML ──
+async function buscarEnML(query, token, tipo='titulo'){
+  try {
+    const headers = token ? {'Authorization':'Bearer '+token} : {};
+    let url;
+    if(tipo==='ean'){
+      url = `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(query)}&limit=3`;
+    } else {
+      url = `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(query)}&limit=3`;
+    }
+    const r = await fetch(url, {headers});
+    if(!r.ok) return null;
+    const d = await r.json();
+    const results = d.results || [];
+    if(!results.length) return null;
+    // Tomar el primero con precio válido
+    const best = results.find(r=>r.price>0) || results[0];
+    return {
+      id: best.id,
+      titulo: best.title,
+      precio: best.price,
+      link: best.permalink,
+      thumbnail: best.thumbnail,
+      seller: best.seller?.nickname||'',
+      categoria: best.category_id||'',
+    };
+  } catch(e){ return null; }
+}
+
+// ── Cálculo de rentabilidad ──
+function calcRentabilidad(costoSinIva, precioML){
+  const cfg = getCfg();
+  const ivaPct = cfg.iva;
+  const comPct = cfg.com;
+  const iibbPct = cfg.iibb;
+  const pubPct = cfg.pub;
+
+  // IVA contenido en el precio ML
+  const iva = Math.round(precioML - precioML/(1+ivaPct/100));
+  const ventaSinIva = precioML - iva;
+
+  // Comisión ML sobre precio total con IVA
+  const comision = Math.round(precioML * comPct/100);
+
+  // IIBB sobre precio sin IVA
+  const iibb = Math.round(ventaSinIva * iibbPct/100);
+
+  // Publicidad
+  const pub = Math.round(precioML * pubPct/100);
+
+  // Retenciones ML (SIRTAC) — siempre 1.2% fijo
+  const ret = Math.round(precioML * 0.012);
+
+  // Logística
+  let logistica = 0;
+  const sobreUmbral = precioML >= cfg.umbral;
+  if(cfg.modal === 'flex'){
+    const c3 = cfg.flex_c3;
+    if(!sobreUmbral){
+      // Fee logístico ML por unidad (tabla oficial)
+      if(precioML <= 15999) logistica = 1255;
+      else if(precioML <= 23999) logistica = 2500;
+      else logistica = 3030;
+    }
+    // Bonificación Flex (ingreso del comprador) - costo cordón
+    // Para simplificar: neto logístico = costoCordon - bonif
+    // Si sobre umbral: bonif pequeña ($449/$649/$849), si bajo umbral: bonif grande ($4490/$6490/$8490)
+    const bonif = sobreUmbral ? 849 : 8490; // C3 por defecto
+    const netLogFlex = c3 - bonif; // puede ser negativo (beneficio)
+    logistica = logistica + netLogFlex;
+  } else if(cfg.modal === 'despacho'){
+    logistica = !sobreUmbral ? 0 : cfg.despacho;
+  }
+  // full: ML lo cobra directo, difícil estimar sin datos históricos → usar costo configurado
+
+  // Ganancia neta
+  const ganancia = precioML - comision - iva - pub - iibb - ret - costoSinIva - logistica;
+  const margen = precioML > 0 ? ganancia/precioML*100 : 0;
+
+  return { comision, iva, iibb, pub, ret, logistica, ganancia, margen };
+}
+
+function semaforo(margen){
+  const cfg = getCfg();
+  if(margen >= cfg.margen_min) return { color:'verde', badge:'verde', label:`🟢 ${margen.toFixed(1)}%` };
+  if(margen >= cfg.margen_crit) return { color:'amarillo', badge:'yel', label:`🟡 ${margen.toFixed(1)}%` };
+  if(margen < 0) return { color:'rojo', badge:'red', label:`🔴 ${margen.toFixed(1)}%` };
+  return { color:'rojo', badge:'red', label:`🔴 ${margen.toFixed(1)}%` };
+}
+
+// ── Procesar con mapeo ──
+async function procesarConMapeo(){
+  const mapeo = getMapeo();
+  if(!mapeo.nombre && !mapeo.sku && !mapeo.ean){
+    document.getElementById('mapStatus').textContent = '⚠ Necesitás mapear al menos Nombre o SKU/EAN';
+    return;
+  }
+  if(!mapeo.precio){
+    document.getElementById('mapStatus').textContent = '⚠ Necesitás mapear el campo Precio/Costo';
+    return;
+  }
+
+  const cfg = getCfg();
+  const token = cfg.token;
+
+  resultados = [];
+  document.getElementById('colMapCard').style.display='none';
+  document.getElementById('statsCard').style.display='none';
+  document.getElementById('filtrosCard').style.display='none';
+  document.getElementById('resultadosCard').style.display='none';
+  setUploadStatus(`Buscando ${rawRows.length} productos en Mercado Libre...`, 5);
+
+  for(let i=0; i<rawRows.length; i++){
+    const row = rawRows[i];
+    const nombre = mapeo.nombre ? String(row[mapeo.nombre]||'').trim() : '';
+    const sku = mapeo.sku ? String(row[mapeo.sku]||'').trim() : '';
+    const ean = mapeo.ean ? String(row[mapeo.ean]||'').trim() : '';
+
+    // Parsear precio — puede venir como "$1.234,56" o "1234.56" etc.
+    const precioRaw = mapeo.precio ? String(row[mapeo.precio]||'0') : '0';
+    const precioLista = parseFloat(precioRaw.replace(/[^0-9,.]/g,'').replace(/\./g,'').replace(',','.')) || 0;
+
+    // Cantidad (para descuento por volumen)
+    const cantRaw = mapeo.cantidad ? String(row[mapeo.cantidad]||'0') : '0';
+    const cantidad = parseFloat(cantRaw.replace(/[^0-9,.]/g,'').replace(',','.')) || 0;
+
+    if(!precioLista || (!nombre && !sku && !ean)){ continue; }
+
+    // Aplicar descuentos del proveedor al precio de lista
+    const descTotalPct = getDescTotal();
+    const descVolPct = calcDescVolumen(document.getElementById('cfg_vol_1')?.value||'', cantidad);
+    const factorDesc = (1 - descTotalPct/100) * (1 - descVolPct/100);
+    const precioNum = precioLista * factorDesc; // costo real neto
+
+    let mlResult = null;
+
+    // 1. Buscar por EAN si existe
+    if(ean && ean.length >= 8){
+      mlResult = await buscarEnML(ean, token, 'ean');
+    }
+    // 2. Si no encontró, buscar por SKU
+    if(!mlResult && sku){
+      mlResult = await buscarEnML(sku, token, 'sku');
+    }
+    // 3. Si no encontró, buscar por nombre
+    if(!mlResult && nombre){
+      mlResult = await buscarEnML(nombre, token, 'titulo');
+    }
+
+    let calc = null;
+    if(mlResult && mlResult.precio > 0){
+      calc = calcRentabilidad(precioNum, mlResult.precio);
+    }
+
+    resultados.push({
+      idx: i+1,
+      nombre: nombre || sku || ean || `Fila ${i+1}`,
+      sku, ean,
+      marca: mapeo.marca ? String(row[mapeo.marca]||'').trim() : '',
+      costoLista: precioLista,       // precio de lista sin descuentos
+      costoSinIva: precioNum,        // costo real después de todos los descuentos
+      descTotalPct,                  // % descuento cadena + pago
+      descVolPct,                    // % descuento por volumen
+      cantidad,
+      ml: mlResult,
+      calc,
+    });
+
+    setUploadStatus(
+      `Procesando ${i+1}/${rawRows.length}...`,
+      Math.round((i+1)/rawRows.length*100)
+    );
+    // Rate limit suave
+    if(i % 5 === 4) await new Promise(r=>setTimeout(r, 300));
+  }
+
+  setUploadStatus(`Análisis completo — ${resultados.length} productos`, 100);
+  renderStats();
+  renderTabla();
+  document.getElementById('btnExport').style.display='';
+}
+
+function calcularTodo(){
+  resultados.forEach(r=>{
+    if(r.ml && r.ml.precio > 0){
+      r.calc = calcRentabilidad(r.costoSinIva, r.ml.precio);
+    }
+  });
+}
+
+// ── Estadísticas ──
+function renderStats(){
+  const total = resultados.length;
+  const conML = resultados.filter(r=>r.ml).length;
+  const cfg = getCfg();
+  const conCalc = resultados.filter(r=>r.calc).length;
+  const verdes = resultados.filter(r=>r.calc&&r.calc.margen>=cfg.margen_min).length;
+  const amarillos = resultados.filter(r=>r.calc&&r.calc.margen>=cfg.margen_crit&&r.calc.margen<cfg.margen_min).length;
+  const rojos = resultados.filter(r=>r.calc&&r.calc.margen<cfg.margen_crit).length;
+  const avgMargen = conCalc>0 ? resultados.filter(r=>r.calc).reduce((s,r)=>s+r.calc.margen,0)/conCalc : 0;
+
+  document.getElementById('statsCard').style.display='block';
+  document.getElementById('filtrosCard').style.display='block';
+  document.getElementById('statsGrid').innerHTML = [
+    {n:total, l:'Total productos'},
+    {n:conML, l:'Encontrados en ML', c: conML<total?'var(--yel)':'var(--grn)'},
+    {n:verdes, l:'🟢 Rentables', c:'var(--grn)'},
+    {n:amarillos, l:'🟡 Bajo margen', c:'var(--yel)'},
+    {n:rojos, l:'🔴 No rentables', c:'var(--red)'},
+    {n:`${avgMargen.toFixed(1)}%`, l:'Margen promedio'},
+  ].map(s=>`<div class="stat-box"><div class="stat-n" ${s.c?`style="color:${s.c}"`:''}>${s.n}</div><div class="stat-l">${s.l}</div></div>`).join('');
+}
+
+// ── Tabla ──
+function renderTabla(){
+  const cfg = getCfg();
+  let filas = resultados.filter(r=>{
+    if(filtroActivo==='verde') return r.calc&&r.calc.margen>=cfg.margen_min;
+    if(filtroActivo==='amarillo') return r.calc&&r.calc.margen>=cfg.margen_crit&&r.calc.margen<cfg.margen_min;
+    if(filtroActivo==='rojo') return r.calc&&r.calc.margen<cfg.margen_crit;
+    if(filtroActivo==='sinml') return !r.ml;
+    return true;
+  }).filter(r=>{
+    if(!textoFiltro) return true;
+    const t = textoFiltro.toLowerCase();
+    return r.nombre.toLowerCase().includes(t)||(r.sku||'').toLowerCase().includes(t)||(r.ml?.titulo||'').toLowerCase().includes(t);
+  });
+
+  const fF = n => typeof n==='number' ? n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0}) : n;
+
+  document.getElementById('tblBody').innerHTML = filas.map(r=>{
+    const sem = r.calc ? semaforo(r.calc.margen) : null;
+    return `<tr data-f="${sem?.color||'sinml'}">
+      <td class="mono" style="color:var(--t3)">${r.idx}</td>
+      <td>
+        <div style="font-weight:500;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.nombre}">${r.nombre}</div>
+        ${r.marca?`<div style="font-size:10px;color:var(--t3)">${r.marca}</div>`:''}
+      </td>
+      <td class="mono" style="color:var(--t3)">${r.sku||r.ean||'—'}</td>
+      <td class="mono" style="color:var(--t3);text-decoration:${r.descTotalPct>0||r.descVolPct>0?'line-through':''}">${r.costoLista>0?'$'+fF(r.costoLista):'—'}</td>
+      <td class="mono" style="color:var(--grn)">
+        ${(r.descTotalPct||0)+(r.descVolPct||0)>0
+          ? `<span title="Cadena: ${(r.descTotalPct||0).toFixed(1)}% + Vol: ${(r.descVolPct||0).toFixed(1)}%">−${((r.descTotalPct||0)+(r.descVolPct||0)-(r.descTotalPct||0)*(r.descVolPct||0)/100).toFixed(1)}%</span>`
+          : '—'}
+      </td>
+      <td class="mono" style="font-weight:600">${r.costoSinIva>0?'$'+fF(r.costoSinIva):'—'}</td>
+      <td>
+        ${r.ml ? `
+          <div style="display:flex;align-items:center;gap:6px">
+            ${r.ml.thumbnail?`<img src="${r.ml.thumbnail}" style="width:24px;height:24px;object-fit:contain;border-radius:4px;background:white">`:''}
+            <div>
+              <a href="${r.ml.link}" target="_blank" style="color:var(--acc);text-decoration:none;font-size:11px;display:block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.ml.titulo}">${r.ml.titulo}</a>
+              <div style="font-size:10px;color:var(--t3)">${r.ml.seller}</div>
+            </div>
+          </div>
+        ` : `<span style="color:var(--t3);font-size:11px">❓ No encontrado</span>`}
+      </td>
+      <td class="mono">${r.ml?.precio?'$'+fF(r.ml.precio):'—'}</td>
+      <td class="mono" style="color:var(--red)">${r.calc?'-$'+fF(r.calc.comision):'—'}</td>
+      <td class="mono" style="color:var(--red)">${r.calc?'-$'+fF(r.calc.iva):'—'}</td>
+      <td class="mono" style="color:var(--red)">${r.calc?'-$'+fF(r.calc.iibb):'—'}</td>
+      <td class="mono" style="color:var(--red)">${r.calc?'-$'+fF(r.calc.ret):'—'}</td>
+      <td class="mono" style="color:var(--red)">${r.calc?'-$'+fF(r.calc.pub):'—'}</td>
+      <td class="mono" style="color:var(--red)">${r.calc?'-$'+fF(r.calc.logistica):'—'}</td>
+      <td class="mono" style="font-weight:700;color:${r.calc?(r.calc.ganancia>=0?'var(--grn)':'var(--red)'):'var(--t3)'}">${r.calc?(r.calc.ganancia>=0?'+':'')+('$'+fF(r.calc.ganancia)):'—'}</td>
+      <td>
+        ${sem ? `<span class="badge badge-${sem.badge}">${sem.label}</span>` : `<span class="badge badge-gry">Sin ML</span>`}
+      </td>
+      <td>
+        ${r.ml ? `<button class="btn-g" onclick="verDesglose(${r.idx-1})" style="font-size:10px;padding:4px 8px">📊</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('resultadosCard').style.display = 'block';
+}
+
+// ── Desglose modal ──
+window.verDesglose = function(idx){
+  const r = resultados[idx];
+  if(!r||!r.calc) return;
+  const fF = n => typeof n==='number' ? n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0}) : n;
+  const c = r.calc;
+  const cfg = getCfg();
+  const overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML = `<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:20px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px">📊 Desglose — ${r.nombre}</div>
+      <button onclick="this.closest('.overlay-modal').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--t2)">✕</button>
+    </div>
+    <a href="${r.ml?.link||'#'}" target="_blank" style="color:var(--acc);font-size:12px;display:block;margin-bottom:12px">${r.ml?.titulo||''}</a>
+    ${(r.descTotalPct||0)+(r.descVolPct||0)>0 ? `
+    <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px">
+      <div style="font-weight:600;color:var(--grn);margin-bottom:6px">🏷️ Descuentos aplicados</div>
+      ${r.costoLista>0?`<div style="display:flex;justify-content:space-between"><span style="color:var(--t2)">Precio de lista</span><span>$${fF(r.costoLista)}</span></div>`:''}
+      ${(r.descTotalPct||0)>0?`<div style="display:flex;justify-content:space-between"><span style="color:var(--t2)">Desc. cadena + pago</span><span style="color:var(--grn)">−${(r.descTotalPct||0).toFixed(2)}%</span></div>`:''}
+      ${(r.descVolPct||0)>0?`<div style="display:flex;justify-content:space-between"><span style="color:var(--t2)">Desc. por volumen (${r.cantidad} u.)</span><span style="color:var(--grn)">−${(r.descVolPct||0).toFixed(1)}%</span></div>`:''}
+      <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(34,197,94,.2);margin-top:6px;padding-top:6px;font-weight:700"><span>Costo neto</span><span style="color:var(--grn)">$${fF(r.costoSinIva)}</span></div>
+    </div>` : ''}
+    ${[
+      ['Precio ML (c/IVA)', r.ml?.precio||0, false],
+      ['— Comisión ML '+cfg.com+'%', c.comision, true],
+      ['— IVA '+cfg.iva+'% (contenido)', c.iva, true],
+      ['— Publicidad '+cfg.pub+'%', c.pub, true],
+      ['— IIBB '+cfg.iibb+'%', c.iibb, true],
+      ['— Retenciones ML 1.2%', c.ret, true],
+      ['— Logística', c.logistica, true],
+      ['— Costo neto proveedor', r.costoSinIva, true],
+    ].map(([l,v,neg])=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--b1);font-size:12px">
+      <span style="color:var(--t2)">${l}</span>
+      <span style="font-weight:500;color:${neg?'var(--red)':'var(--t1)'}">${neg?'−':''}$${fF(v)}</span>
+    </div>`).join('')}
+    <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:14px;font-weight:700">
+      <span>= Ganancia neta</span>
+      <span style="color:${c.ganancia>=0?'var(--grn)':'var(--red)'}">${c.ganancia>=0?'+':''}$${fF(c.ganancia)}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+      <div style="background:var(--s2);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--t3)">Margen s/venta</div>
+        <div style="font-size:18px;font-weight:700;color:${c.margen>=cfg.margen_min?'var(--grn)':c.margen>=cfg.margen_crit?'var(--yel)':'var(--red)'}">${c.margen.toFixed(1)}%</div>
+      </div>
+      <div style="background:var(--s2);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--t3)">ROI s/costo</div>
+        <div style="font-size:18px;font-weight:700">${r.costoSinIva>0?(c.ganancia/r.costoSinIva*100).toFixed(1):'—'}%</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;text-align:right">
+      <button onclick="this.closest('.overlay-modal').remove()" class="btn">Cerrar</button>
+    </div>
+  </div>`;
+  overlay.classList.add('overlay-modal');
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+};
+
+// ── Filtros ──
+function toggleFiltro(el, filtro){
+  document.querySelectorAll('[data-f]').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  filtroActivo = filtro;
+  renderTabla();
+}
+
+function filtrarTexto(v){
+  textoFiltro = v;
+  renderTabla();
+}
+
+// ── Export CSV ──
+function exportarCSV(){
+  if(!resultados.length) return;
+  const cfg = getCfg();
+  const fF = n=>typeof n==='number'?n:0;
+  const headers = ['#','Nombre','SKU','EAN','Marca','Costo s/IVA','Precio ML','Comision','IVA','IIBB','Ret 1.2%','Publicidad','Logistica','Ganancia','Margen %','Semaforo','Titulo ML','Link ML'];
+  const rows = resultados.map(r=>[
+    r.idx, r.nombre, r.sku||'', r.ean||'', r.marca||'',
+    r.costoSinIva,
+    r.ml?.precio||'',
+    r.calc?fF(r.calc.comision):'',
+    r.calc?fF(r.calc.iva):'',
+    r.calc?fF(r.calc.iibb):'',
+    r.calc?fF(r.calc.ret):'',
+    r.calc?fF(r.calc.pub):'',
+    r.calc?fF(r.calc.logistica):'',
+    r.calc?fF(r.calc.ganancia):'',
+    r.calc?r.calc.margen.toFixed(2):'',
+    r.calc?(r.calc.margen>=cfg.margen_min?'Verde':r.calc.margen>=cfg.margen_crit?'Amarillo':'Rojo'):'Sin ML',
+    r.ml?.titulo||'',
+    r.ml?.link||'',
+  ]);
+  const csv = [headers, ...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='niviko_proveedores.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Lógica de descuentos ──
+
+// Calcula descuento encadenado tipo "10+5+5"
+// Fórmula: precio_final = lista × (1 - d1/100) × (1 - d2/100) × ...
+// Descuento real = 1 - precio_final/lista
+function calcDescCadena(str){
+  if(!str || !str.trim()) return 0;
+  const partes = str.split('+').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
+  if(!partes.length) return 0;
+  let factor = 1;
+  partes.forEach(d => factor *= (1 - d/100));
+  return (1 - factor) * 100; // % total real
+}
+
+// Descuento por volumen: "50→3, 100→5, 200→8" → dado cant, devuelve %
+function calcDescVolumen(str, cantidad){
+  if(!str || !str.trim() || !cantidad) return 0;
+  const tramos = str.split(',').map(s => {
+    const [q, d] = s.split('→').map(x => parseFloat(x.trim()));
+    return { q: q||0, d: d||0 };
+  }).filter(t => !isNaN(t.q) && !isNaN(t.d)).sort((a,b)=>b.q-a.q);
+  for(const t of tramos){
+    if(cantidad >= t.q) return t.d;
+  }
+  return 0;
+}
+
+// Descuento condición de pago
+function getDescCondPago(){
+  const sel = document.getElementById('cfg_cond_pago');
+  if(!sel) return 0;
+  if(sel.value === 'custom'){
+    return parseFloat(document.getElementById('cfg_cond_pago_custom')?.value||0)||0;
+  }
+  return parseFloat(sel.value)||0;
+}
+
+// Descuento total (sin volumen — ese es por producto)
+function getDescTotal(){
+  const cadena = calcDescCadena(document.getElementById('cfg_desc_cadena')?.value||'');
+  const pago = getDescCondPago();
+  // Encadenar: precio × (1 - cadena/100) × (1 - pago/100) si pago>0, × (1 + |pago|/100) si pago<0
+  if(pago === 0) return cadena;
+  const factorCadena = 1 - cadena/100;
+  const factorPago = pago >= 0 ? (1 - pago/100) : (1 + Math.abs(pago)/100);
+  return (1 - factorCadena * factorPago) * 100;
+}
+
+// Aplica todos los descuentos al precio de lista
+function aplicarDescuentos(precioLista, cantidad){
+  const descTotal = getDescTotal();
+  const descVol = calcDescVolumen(document.getElementById('cfg_vol_1')?.value||'', cantidad);
+  // Encadenar descuento total + volumen
+  const factor = (1 - descTotal/100) * (1 - descVol/100);
+  return precioLista * factor;
+}
+
+function actualizarDescuentoReal(){
+  const sel = document.getElementById('cfg_cond_pago');
+  const customWrap = document.getElementById('cfg_cond_pago_custom');
+  if(sel && customWrap) customWrap.style.display = sel.value==='custom'?'block':'none';
+
+  const cadena = calcDescCadena(document.getElementById('cfg_desc_cadena')?.value||'');
+  const pago = getDescCondPago();
+  const total = getDescTotal();
+
+  const elCadena = document.getElementById('desc_cadena_real');
+  if(elCadena) elCadena.textContent = cadena.toFixed(2)+'%';
+  const elTotal = document.getElementById('desc_total_pct');
+  if(elTotal) elTotal.textContent = total.toFixed(2)+'%';
+  renderConfigDisplay();
+}
+
+// ── Init ──
+renderConfigDisplay();
+</script>
+</body>
+</html>
