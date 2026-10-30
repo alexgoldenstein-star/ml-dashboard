@@ -7742,16 +7742,34 @@ window.repPublicarTodas=async function(){
             ${(r.attrs_faltantes&&r.attrs_faltantes.length)?`
               <div id="rep_attrs_${r.cuenta}" style="background:var(--org)15;border:1px solid var(--org)44;border-radius:6px;padding:8px 10px;margin-top:2px">
                 <div style="font-size:12px;font-weight:600;color:var(--org);margin-bottom:6px">⚠️ Atributos requeridos faltantes para esta categoría:</div>
-                ${r.attrs_faltantes.map(a=>`
+                ${r.attrs_faltantes.map(a=>{
+                  const isDim=/width|height|length|largo|alto|ancho|profundidad|depth|weight|peso|grosor|thickness/i.test(a.name+' '+a.id);
+                  const dimUnits=isDim?(/peso|weight/i.test(a.name+' '+a.id)?['kg','g','lb']:['cm','mm','m','in']):[];
+                  if(a.values&&a.values.length) return `
                   <div style="margin-bottom:6px">
                     <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
-                    ${a.values&&a.values.length?
-                      `<select class="inp" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" style="font-size:12px;height:30px">
-                        <option value="">— Seleccionar —</option>
-                        ${a.values.map(v=>`<option value="${v.id}">${v.name}</option>`).join('')}
-                      </select>`
-                    :`<input class="inp" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" placeholder="${a.name}" style="font-size:12px;height:30px">`}
-                  </div>`).join('')}
+                    <select class="inp" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" style="font-size:12px;height:30px">
+                      <option value="">— Seleccionar —</option>
+                      ${a.values.map(v=>`<option value="${v.id}">${v.name}</option>`).join('')}
+                    </select>
+                  </div>`;
+                  if(dimUnits.length) return `
+                  <div style="margin-bottom:6px">
+                    <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
+                    <div style="display:flex;gap:4px">
+                      <input class="inp" id="attr_${r.cuenta}_${a.id}_num" placeholder="Valor" style="font-size:12px;height:30px;flex:1">
+                      <select class="inp" id="attr_${r.cuenta}_${a.id}_unit" style="font-size:12px;height:30px;width:70px">
+                        ${dimUnits.map(u=>`<option value="${u}">${u}</option>`).join('')}
+                      </select>
+                      <input type="hidden" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" data-dim="1">
+                    </div>
+                  </div>`;
+                  return `
+                  <div style="margin-bottom:6px">
+                    <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
+                    <input class="inp" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" placeholder="${a.name}" style="font-size:12px;height:30px">
+                  </div>`;
+                }).join('')}
                 <button class="btn" style="font-size:12px;margin-top:4px;background:var(--org)" onclick="repReintentarConAtributos('${r.cuenta}')">↻ Reintentar con estos atributos</button>
               </div>`:''}
             <details style="font-size:10px;color:var(--t3);margin-top:4px" open>
@@ -7789,9 +7807,18 @@ window.repReintentarConAtributos=async function(cuentaId, attrsFaltantesArg){
   // Leer atributos extra completados por el usuario
   const attrsExtra=attrsFaltantes.map(a=>{
     const el=document.getElementById(`attr_${cuentaId}_${a.id}`);
+    if(!el) return null;
+    // Detectar si es campo de dimensión (num + unidad)
+    if(el.dataset.dim==='1'){
+      const numEl=document.getElementById(`attr_${cuentaId}_${a.id}_num`);
+      const unitEl=document.getElementById(`attr_${cuentaId}_${a.id}_unit`);
+      const num=numEl?.value?.trim();
+      const unit=unitEl?.value?.trim();
+      if(!num) return null;
+      return {id:a.id,value_name:`${num} ${unit||'cm'}`};
+    }
     const val=el?.value?.trim();
     if(!val) return null;
-    // Si es select (tiene value_id), armar con value_id; si es input libre, usar value_name
     const isSelect=el?.tagName==='SELECT';
     return isSelect?{id:a.id,value_id:val}:{id:a.id,value_name:val};
   }).filter(Boolean);
@@ -7846,15 +7873,28 @@ window.repReintentarConAtributos=async function(cuentaId, attrsFaltantesArg){
         const bloque=document.getElementById(`rep_attrs_${cuentaId}`);
         if(bloque){
           bloque.innerHTML=`<div style="font-size:12px;font-weight:600;color:var(--org);margin-bottom:6px">⚠️ Atributos requeridos faltantes para esta categoría:</div>`+
-            todosAttrs.map(a=>`<div style="margin-bottom:6px">
-              <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
-              ${a.values&&a.values.length?
-                `<select class="inp" id="attr_${cuentaId}_${a.id}" data-attr-id="${a.id}" style="font-size:12px;height:30px">
+            todosAttrs.map(a=>{
+              const isDim=/width|height|length|largo|alto|ancho|profundidad|depth|weight|peso|grosor|thickness/i.test(a.name+' '+a.id);
+              const dimUnits=isDim?(/peso|weight/i.test(a.name+' '+a.id)?['kg','g','lb']:['cm','mm','m','in']):[];
+              if(a.values&&a.values.length) return `<div style="margin-bottom:6px">
+                <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
+                <select class="inp" id="attr_${cuentaId}_${a.id}" data-attr-id="${a.id}" style="font-size:12px;height:30px">
                   <option value="">— Seleccionar —</option>
                   ${a.values.map(v=>`<option value="${v.id}">${v.name}</option>`).join('')}
-                </select>`
-              :`<input class="inp" id="attr_${cuentaId}_${a.id}" data-attr-id="${a.id}" placeholder="${a.name}" style="font-size:12px;height:30px">`}
-            </div>`).join('')+
+                </select></div>`;
+              if(dimUnits.length) return `<div style="margin-bottom:6px">
+                <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
+                <div style="display:flex;gap:4px">
+                  <input class="inp" id="attr_${cuentaId}_${a.id}_num" placeholder="Valor" style="font-size:12px;height:30px;flex:1">
+                  <select class="inp" id="attr_${cuentaId}_${a.id}_unit" style="font-size:12px;height:30px;width:70px">
+                    ${dimUnits.map(u=>`<option value="${u}">${u}</option>`).join('')}
+                  </select>
+                  <input type="hidden" id="attr_${cuentaId}_${a.id}" data-attr-id="${a.id}" data-dim="1">
+                </div></div>`;
+              return `<div style="margin-bottom:6px">
+                <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
+                <input class="inp" id="attr_${cuentaId}_${a.id}" data-attr-id="${a.id}" placeholder="${a.name}" style="font-size:12px;height:30px"></div>`;
+            }).join('')+
             `<button class="btn" style="font-size:12px;margin-top:4px;background:var(--org)" onclick="repReintentarConAtributos('${cuentaId}')">↻ Reintentar con estos atributos</button>`;
         }
       }
