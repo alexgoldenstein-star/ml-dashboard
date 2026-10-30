@@ -96,12 +96,19 @@ select.inp{cursor:pointer}
           </select>
         </div>
         <div>
-          <label class="lbl">IVA del proveedor</label>
-          <select class="inp" id="cfg_iva" onchange="renderConfigDisplay()">
-            <option value="21">21% — General</option>
-            <option value="10.5">10.5% — Electrónica</option>
-            <option value="0">0% — Exento</option>
-          </select>
+          <label class="lbl">IVA de la lista</label>
+          <div style="display:flex;gap:6px;margin-bottom:5px">
+            <button type="button" id="btn_iva_inc" onclick="setIvaMode('incluido')" style="flex:1;padding:5px 4px;border-radius:6px;border:1px solid var(--acc);background:rgba(124,106,247,.18);color:var(--acc);font-size:11px;font-weight:600;cursor:pointer">✓ IVA incluido</button>
+            <button type="button" id="btn_iva_exc" onclick="setIvaMode('excluido')" style="flex:1;padding:5px 4px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-size:11px;font-weight:600;cursor:pointer">+ IVA aparte</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="inp" id="cfg_iva" type="number" value="21" step="0.5" min="0" max="100" oninput="renderConfigDisplay()" style="width:70px">
+            <span style="font-size:11px;color:var(--t3)">%</span>
+            <button type="button" onclick="document.getElementById('cfg_iva').value=21;renderConfigDisplay()" style="padding:4px 7px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t3);font-size:10px;cursor:pointer">21%</button>
+            <button type="button" onclick="document.getElementById('cfg_iva').value=10.5;renderConfigDisplay()" style="padding:4px 7px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t3);font-size:10px;cursor:pointer">10.5%</button>
+            <button type="button" onclick="document.getElementById('cfg_iva').value=0;renderConfigDisplay()" style="padding:4px 7px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t3);font-size:10px;cursor:pointer">Exento</button>
+          </div>
+          <div style="font-size:10px;color:var(--t3);margin-top:3px" id="iva_mode_label">Lista con IVA incluido</div>
         </div>
         <div>
           <label class="lbl">IIBB %</label>
@@ -282,10 +289,24 @@ let filtroActivo = 'todos';
 let textoFiltro = '';
 
 // ── Config ──
+let ivaMode = 'incluido'; // 'incluido' | 'excluido'
+function setIvaMode(mode){
+  ivaMode = mode;
+  document.getElementById('btn_iva_inc').style.cssText = mode==='incluido'
+    ? 'flex:1;padding:5px 4px;border-radius:6px;border:1px solid var(--acc);background:rgba(124,106,247,.18);color:var(--acc);font-size:11px;font-weight:600;cursor:pointer'
+    : 'flex:1;padding:5px 4px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-size:11px;font-weight:600;cursor:pointer';
+  document.getElementById('btn_iva_exc').style.cssText = mode==='excluido'
+    ? 'flex:1;padding:5px 4px;border-radius:6px;border:1px solid var(--acc);background:rgba(124,106,247,.18);color:var(--acc);font-size:11px;font-weight:600;cursor:pointer'
+    : 'flex:1;padding:5px 4px;border-radius:6px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-size:11px;font-weight:600;cursor:pointer';
+  document.getElementById('iva_mode_label').textContent = mode==='incluido' ? 'Lista con IVA incluido' : 'Lista sin IVA — se suma al costo';
+  renderConfigDisplay();
+}
+
 function getCfg(){
   return {
     com: parseFloat(document.getElementById('cfg_com').value)||16,
     iva: parseFloat(document.getElementById('cfg_iva').value)||21,
+    ivaIncluido: ivaMode === 'incluido',
     iibb: parseFloat(document.getElementById('cfg_iibb').value)||4,
     ret: 1.2,
     pub: parseFloat(document.getElementById('cfg_pub').value)||5,
@@ -309,7 +330,7 @@ function renderConfigDisplay(){
   const condPagoLabel = condPagoEl ? condPagoEl.options[condPagoEl.selectedIndex]?.text?.split('—')[0]?.trim() : '';
   document.getElementById('configDisplay').innerHTML = `
     <span>Comisión <b>${c.com}%</b></span>·
-    <span>IVA <b>${c.iva}%</b></span>·
+    <span>IVA <b>${c.iva}%</b> <span style="color:var(--t3);font-size:10px">(${c.ivaIncluido?'incluido':'+ aparte'})</span></span>·
     <span>IIBB <b>${c.iibb}%</b></span>·
     <span>Ret. <b>1.2%</b></span>·
     <span>Pub. <b>${c.pub}%</b></span>·
@@ -509,20 +530,32 @@ function getMapeo(){
 // ── Buscar en ML ──
 async function buscarEnML(query, token, tipo='titulo'){
   try {
-    const headers = token ? {'Authorization':'Bearer '+token} : {};
+    const headers = {};
+    if(token) headers['Authorization'] = 'Bearer '+token;
     let url;
     if(tipo==='ean'){
-      url = `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(query)}&limit=3`;
+      // Búsqueda por código EAN/barcode
+      url = `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(query)}&limit=5`;
+    } else if(tipo==='sku'){
+      // SKU: buscar tal cual
+      url = `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(query)}&limit=5`;
     } else {
-      url = `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(query)}&limit=3`;
+      // Título: limpiar códigos alfanuméricos cortos que confunden la búsqueda
+      const queryLimpio = query
+        .replace(/\b[A-Z]{1,3}[-]?\d{3,}[A-Z0-9]*\b/g, '') // quitar códigos tipo AN-2200, FR7300
+        .replace(/\s{2,}/g,' ').trim()
+        .slice(0, 80); // ML no procesa bien queries muy largos
+      url = `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(queryLimpio||query)}&limit=5`;
     }
     const r = await fetch(url, {headers});
     if(!r.ok) return null;
     const d = await r.json();
     const results = d.results || [];
     if(!results.length) return null;
-    // Tomar el primero con precio válido
-    const best = results.find(r=>r.price>0) || results[0];
+    // Preferir el de mayor número de ventas con precio válido
+    const validos = results.filter(r=>r.price>0);
+    if(!validos.length) return null;
+    const best = validos.sort((a,b)=>(b.sold_quantity||0)-(a.sold_quantity||0))[0];
     return {
       id: best.id,
       titulo: best.title,
@@ -638,7 +671,10 @@ async function procesarConMapeo(){
     const descTotalPct = getDescTotal();
     const descVolPct = calcDescVolumen(document.getElementById('cfg_vol_1')?.value||'', cantidad);
     const factorDesc = (1 - descTotalPct/100) * (1 - descVolPct/100);
-    const precioNum = precioLista * factorDesc; // costo real neto
+    const precioConDesc = precioLista * factorDesc;
+    // Si la lista viene sin IVA → el costo real es precio + IVA
+    const ivaFactor = cfg.ivaIncluido ? 1 : (1 + cfg.iva/100);
+    const precioNum = precioConDesc * ivaFactor; // costo real (siempre con IVA incluido para el cálculo)
 
     let mlResult = null;
 
