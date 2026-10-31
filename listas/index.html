@@ -274,7 +274,8 @@ select.inp{cursor:pointer}
           <th>Publicidad</th>
           <th>Logística</th>
           <th>Ganancia</th>
-          <th>Margen</th>
+          <th>M.Venta</th>
+          <th>M.Costo</th>
           <th></th>
         </tr>
       </thead>
@@ -356,16 +357,15 @@ async function testML(){
   const st = document.getElementById('mapStatus');
   st.textContent = '⏳ Probando conexión con ML...';
   try {
-    const r = await fetch('https://api.mercadolibre.com/sites/MLA/search?q=anafe&limit=1');
+    const r = await fetch(`${ML_BASE}/sites/MLA/search?q=anafe&limit=1`);
     if(r.ok){
       const d = await r.json();
-      const n = d.results?.length || 0;
-      st.innerHTML = `✅ ML responde OK — encontró ${d.paging?.total||0} resultados para "anafe". Búsqueda funciona.`;
+      st.innerHTML = `✅ ML responde OK — encontró ${d.paging?.total||0} resultados. Búsqueda lista.`;
     } else {
       st.textContent = `❌ ML respondió error ${r.status}`;
     }
   } catch(e){
-    st.textContent = `❌ No se pudo conectar a ML: ${e.message}`;
+    st.textContent = `❌ No se pudo conectar: ${e.message}`;
   }
 }
 
@@ -577,7 +577,7 @@ function getMapeo(){
 }
 
 // ── Buscar en ML ──
-const ML_BASE = 'https://api.mercadolibre.com';
+const ML_BASE = 'https://niviko-proxy-weld.vercel.app/ml';
 
 function limpiarQueryML(nombre){
   // Quitar código de modelo al inicio (ej: "AN-2200 ", "FR7300 ", "AN-E604 ")
@@ -669,9 +669,11 @@ function calcRentabilidad(costoSinIva, precioML){
 
   // Ganancia neta
   const ganancia = precioML - comision - iva - pub - iibb - ret - costoSinIva - logistica;
-  const margen = precioML > 0 ? ganancia/precioML*100 : 0;
+  const margenVenta = precioML > 0 ? ganancia/precioML*100 : 0;      // sobre precio de venta
+  const margenCosto = costoSinIva > 0 ? ganancia/costoSinIva*100 : 0; // sobre costo del producto
+  const margen = margenVenta; // alias para semáforo
 
-  return { comision, iva, iibb, pub, ret, logistica, ganancia, margen };
+  return { comision, iva, iibb, pub, ret, logistica, ganancia, margen, margenVenta, margenCosto };
 }
 
 function semaforo(margen){
@@ -725,9 +727,12 @@ async function procesarConMapeo(){
     const descVolPct = calcDescVolumen(document.getElementById('cfg_vol_1')?.value||'', cantidad);
     const factorDesc = (1 - descTotalPct/100) * (1 - descVolPct/100);
     const precioConDesc = precioLista * factorDesc;
-    // Si la lista viene sin IVA → el costo real es precio + IVA
-    const ivaFactor = cfg.ivaIncluido ? 1 : (1 + cfg.iva/100);
-    const precioNum = precioConDesc * ivaFactor; // costo real (siempre con IVA incluido para el cálculo)
+    // costoSinIva = costo neto del producto sin IVA (base imponible del costo)
+    // Si lista trae IVA incluido: costoSinIva = precioConDesc / (1 + iva%)
+    // Si lista es precio neto (sin IVA): costoSinIva = precioConDesc directamente
+    const precioNum = cfg.ivaIncluido
+      ? precioConDesc / (1 + cfg.iva/100)
+      : precioConDesc;
 
     let mlResult = null;
 
@@ -862,6 +867,9 @@ function renderTabla(){
       <td class="mono" style="font-weight:700;color:${r.calc?(r.calc.ganancia>=0?'var(--grn)':'var(--red)'):'var(--t3)'}">${r.calc?(r.calc.ganancia>=0?'+':'')+('$'+fF(r.calc.ganancia)):'—'}</td>
       <td>
         ${sem ? `<span class="badge badge-${sem.badge}">${sem.label}</span>` : `<span class="badge badge-gry">Sin ML</span>`}
+      </td>
+      <td class="mono" style="font-size:11px;color:${r.calc?(r.calc.margenCosto>=0?'var(--grn)':'var(--red)'):'var(--t3)'}">
+        ${r.calc ? r.calc.margenCosto.toFixed(1)+'%' : '—'}
       </td>
       <td>
         ${r.ml ? `<button class="btn-g" onclick="verDesglose(${r.idx-1})" style="font-size:10px;padding:4px 8px">📊</button>` : ''}
