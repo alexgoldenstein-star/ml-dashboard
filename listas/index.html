@@ -356,13 +356,16 @@ function getCfg(){
 async function testML(){
   const st = document.getElementById('mapStatus');
   st.textContent = '⏳ Probando conexión con ML...';
+  const token = document.getElementById('cfg_token').value.trim();
+  const headers = {};
+  if(token) headers['Authorization'] = 'Bearer '+token;
   try {
-    const r = await fetch(`${ML_BASE}/sites/MLA/search?q=anafe&limit=1`);
+    const r = await fetch(`${ML_BASE}/sites/MLA/search?q=anafe&limit=1`, {headers});
     if(r.ok){
       const d = await r.json();
       st.innerHTML = `✅ ML responde OK — encontró ${d.paging?.total||0} resultados. Búsqueda lista.`;
     } else {
-      st.textContent = `❌ ML respondió error ${r.status}`;
+      st.textContent = `❌ ML respondió error ${r.status}${r.status===403?' — cargá el Token ML en configuración':''}`;
     }
   } catch(e){
     st.textContent = `❌ No se pudo conectar: ${e.message}`;
@@ -577,7 +580,7 @@ function getMapeo(){
 }
 
 // ── Buscar en ML ──
-const ML_BASE = 'https://niviko-proxy-weld.vercel.app/ml';
+const ML_BASE = 'https://api.mercadolibre.com';
 
 function limpiarQueryML(nombre){
   // Quitar código de modelo al inicio (ej: "AN-2200 ", "FR7300 ", "AN-E604 ")
