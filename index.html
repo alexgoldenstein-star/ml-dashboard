@@ -7165,16 +7165,16 @@ function repRenderForm(){
       <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">🏪 Publicar en cuentas</div>
       <span id="rep_sel_count" style="font-size:12px;color:var(--t3)">${window._repCuentasSel.size}/${accounts.length} seleccionadas</span>
     </div>
-    <!-- CUOTAS GLOBALES -->
+    <!-- CUOTAS GLOBALES — ML soporta 1/3/6/9/12 cuotas sin interés (gold_pro) -->
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;background:var(--s2);border-radius:8px;margin-bottom:12px">
       <span style="font-size:11px;color:var(--t3);font-weight:600;white-space:nowrap">Cuotas s/int para todas:</span>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
-        ${[1,3,6,9,12,18,24].map(n=>`<button onclick="repSetCuotasGlobal(${n})" id="rep_cuotas_g_${n}"
+        ${[1,3,6,9,12].map(n=>`<button onclick="repSetCuotasGlobal(${n})" id="rep_cuotas_g_${n}"
           style="padding:4px 10px;border-radius:6px;border:1px solid var(--b2);font-size:11px;font-weight:600;cursor:pointer;
           background:${n===1?'var(--acc)':'var(--s3)'};color:${n===1?'#fff':'var(--t2)'};font-family:inherit;transition:all .15s"
           >${n===1?'Sin cuotas':n+'c'}</button>`).join('')}
       </div>
-      <span style="font-size:10px;color:var(--t3);margin-left:4px">(podés ajustar por cuenta abajo)</span>
+      <span style="font-size:10px;color:var(--t3);margin-left:4px">3/6/9/12c = gold_pro con tag de campaña ML</span>
     </div>
     <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Margen estimado = precio neto s/IVA menos comisión ML (14%) e IIBB (4%).</p>
     <div style="overflow-x:auto">
@@ -7203,14 +7203,12 @@ function repRenderForm(){
 
 // Aplica cuotas globales a TODAS las cuentas seleccionadas
 window.repSetCuotasGlobal=function(n){
-  // Resaltar botón activo
-  [1,3,6,9,12,18,24].forEach(x=>{
+  [1,3,6,9,12].forEach(x=>{
     const btn=document.getElementById('rep_cuotas_g_'+x);
     if(!btn) return;
     if(x===n){btn.style.background='var(--acc)';btn.style.color='#fff';}
     else{btn.style.background='var(--s3)';btn.style.color='var(--t2)';}
   });
-  // Aplicar a cada cuenta
   const accounts=(S.accounts||[]).filter(a=>a.token);
   accounts.forEach(a=>{
     const inp=document.getElementById('rep_ncuotas_'+a.id);
@@ -7232,23 +7230,32 @@ window.repSyncPrecios=function(){
   });
 };
 
+// Mapeo cuotas → tag + listing_type según API ML oficial
+// 1c = sin tag, gold_special
+// 3c = 3x_campaign, gold_pro
+// 6c = sin tag extra, gold_pro
+// 9c = 9x_campaign, gold_pro
+// 12c = 12x_campaign, gold_pro
+const _cuotasMap={
+  1:{tag:null,listing_type:'gold_special',label:'Sin cuotas'},
+  3:{tag:'3x_campaign',listing_type:'gold_pro',label:'3 cuotas s/int'},
+  6:{tag:null,listing_type:'gold_pro',label:'6 cuotas s/int'},
+  9:{tag:'9x_campaign',listing_type:'gold_pro',label:'9 cuotas s/int'},
+  12:{tag:'12x_campaign',listing_type:'gold_pro',label:'12 cuotas s/int'},
+};
+
 window.repUpdateCuota=function(acctId){
   const precio=parseFloat(document.getElementById('rep_precio_'+acctId)?.value)||0;
   const nCuotas=parseInt(document.getElementById('rep_ncuotas_'+acctId)?.value)||1;
   if(!_repCuotas[acctId]) _repCuotas[acctId]={};
   _repCuotas[acctId].precio=precio;
   _repCuotas[acctId].nCuotas=nCuotas;
-  // Armar sale_terms para cuotas sin interés
-  // ML acepta: [{id:'INSTALLMENTS',value:{number:N,unit:'months'}}]
-  if(nCuotas>1){
-    _repCuotas[acctId].sale_terms=[{id:'INSTALLMENTS',value:{number:nCuotas,unit:'months'}}];
-    const el=document.getElementById('rep_monto_cuota_'+acctId);
-    if(el) el.textContent=(precio/nCuotas).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'/cuota';
-  }else{
-    _repCuotas[acctId].sale_terms=[];
-    const el=document.getElementById('rep_monto_cuota_'+acctId);
-    if(el) el.textContent='—';
-  }
+  // Armar tag y listing_type según ML API oficial
+  const cfg=_cuotasMap[nCuotas]||{tag:null,listing_type:'gold_pro'};
+  _repCuotas[acctId].campaign_tag=cfg.tag;
+  _repCuotas[acctId].listing_type_override=cfg.listing_type;
+  const el=document.getElementById('rep_monto_cuota_'+acctId);
+  if(el) el.textContent=nCuotas>1?(precio/nCuotas).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'/cuota':'—';
 };
 
 window.repToggleCuenta=function(acctId){
@@ -7543,22 +7550,21 @@ window.repEnviarFulljaus=async function(){
   }
 };
 
-// ── Aplicar descuento a todas las variantes del SKU ─────────────────────────
+// ── Aplicar descuento: PRICE_DISCOUNT via ML API por item_id ─────────────────
+// ML API: POST /seller-promotions/items/$ITEM_ID con promotion_type=PRICE_DISCOUNT
+// No necesita proxy — llamada directa con Bearer token
 window.repMostrarDescuento=function(){
   if(!_repItem){toast('No hay ítem cargado','err');return;}
-  const attrs=_repItem.atributos||[];
-  const getAttr=(...ids)=>{for(const id of ids){const v=(attrs.find(a=>a.id===id)||{}).value_name;if(v&&v!=='-1')return v;}return '';};
-  const sku=getAttr('SELLER_SKU')||_repItem.sku||_repItem.seller_sku||'';
   const precio=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem.precio||0;
-  if(!sku){toast('Este ítem no tiene SKU (SELLER_SKU)','err');return;}
+  const itemId=_repItem.id;
+  if(!itemId){toast('No hay item_id cargado','err');return;}
 
-  // Calcular fechas por defecto: hoy → fin de mes que viene
+  // Fechas: hoy → fin de mes
   const hoy=new Date();
-  const primerDiaMesSig=new Date(hoy.getFullYear(),hoy.getMonth()+1,1);
-  const ultimoDiaMesSig=new Date(hoy.getFullYear(),hoy.getMonth()+2,0);
+  const ultimoDiaMes=new Date(hoy.getFullYear(),hoy.getMonth()+1,0);
   const fmtInput=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-  // Armar checkboxes de cuentas para el descuento
+  // Cuentas con token
   const allAccts=(S.accounts||[]).filter(a=>a.token);
   const cuentasDescHtml=allAccts.map(a=>`
     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:5px 8px;border-radius:6px;background:var(--s3)">
@@ -7570,12 +7576,15 @@ window.repMostrarDescuento=function(){
   resEl.style.display='block';
   resEl.innerHTML=`
   <div class="card" style="padding:16px;border-left:3px solid #00b894;margin-top:8px">
-    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:12px">🏷️ Aplicar descuento a todas las variantes del SKU</div>
-    <div style="font-size:11px;color:var(--t3);margin-bottom:10px">SKU: <b style="color:var(--t1)">${sku}</b> · Precio base: <b style="color:var(--t1)">$${precio.toLocaleString('es-AR')}</b></div>
+    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:4px">🏷️ Aplicar PRICE_DISCOUNT en ML</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:12px">
+      Item: <b style="color:var(--t1)">${itemId}</b> · Precio: <b style="color:var(--t1)">$${precio.toLocaleString('es-AR')}</b><br>
+      <span style="color:var(--t3)">Aplica el descuento directo sobre este item_id en cada cuenta seleccionada (API: /seller-promotions/items)</span>
+    </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
       <div>
-        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Descuento %</div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Descuento % (5–80)</div>
         <input id="desc_pct" type="number" min="5" max="80" value="10" oninput="descActualizarPrecio()"
           style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:14px;font-weight:700;font-family:inherit">
       </div>
@@ -7586,7 +7595,7 @@ window.repMostrarDescuento=function(){
       </div>
       <div>
         <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:3px">Hasta</div>
-        <input id="desc_hasta" type="date" value="${fmtInput(ultimoDiaMesSig)}"
+        <input id="desc_hasta" type="date" value="${fmtInput(ultimoDiaMes)}"
           style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
       </div>
     </div>
@@ -7601,18 +7610,10 @@ window.repMostrarDescuento=function(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">${cuentasDescHtml}</div>
     </div>
 
-    <div style="font-size:11px;color:var(--t3);margin-bottom:10px">
-      ℹ️ Se aplicará a <b>todas las variantes</b> del SKU en las cuentas seleccionadas (sin cuotas, 3c, 6c, 9c, 12c…)
-    </div>
-
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button id="btnDescAplicar" onclick="repAplicarDescuento('${sku}',${precio})"
+      <button id="btnDescAplicar" onclick="repAplicarDescuento('${itemId}',${precio})"
         style="background:#00b894;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-        ✅ Aplicar en cuentas seleccionadas
-      </button>
-      <button onclick="repAplicarDescuento('${sku}',${precio},true)"
-        style="background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer;font-family:inherit">
-        📅 + Crear igual para el mes siguiente
+        ✅ Aplicar descuento
       </button>
       <button onclick="document.getElementById('repResultados').style.display='none'"
         style="background:var(--s3);color:var(--t2);border:1px solid var(--b1);border-radius:8px;padding:9px 16px;font-size:12px;cursor:pointer;font-family:inherit">
@@ -7632,7 +7633,9 @@ window.descActualizarPrecio=function(){
   }
 };
 
-window.repAplicarDescuento=async function(sku,precio,conMesSig=false){
+// Descuento via ML API oficial: POST /seller-promotions/items/$ITEM_ID
+// No pasa por proxy — requiere token Bearer directo
+window.repAplicarDescuento=async function(itemId,precioBase){
   const pct=parseFloat(document.getElementById('desc_pct')?.value)||0;
   const desde=document.getElementById('desc_desde')?.value;
   const hasta=document.getElementById('desc_hasta')?.value;
@@ -7642,92 +7645,65 @@ window.repAplicarDescuento=async function(sku,precio,conMesSig=false){
   const btn=document.getElementById('btnDescAplicar');
   if(btn){btn.disabled=true;btn.textContent='⏳ Aplicando...';}
 
-  // Usar cuentas seleccionadas en los checkboxes
   const allAccts=(S.accounts||[]).filter(a=>a.token);
   const accts=allAccts.filter(a=>{const cb=document.getElementById('desc_acct_'+a.id);return cb?cb.checked:true;});
-  if(!accts.length){toast('Seleccioná al menos una cuenta','err');if(btn){btn.disabled=false;btn.textContent='✅ Aplicar en cuentas seleccionadas';}return;}
+  if(!accts.length){toast('Seleccioná al menos una cuenta','err');if(btn){btn.disabled=false;btn.textContent='✅ Aplicar descuento';}return;}
 
   const resEl=document.getElementById('repResultados');
   let totalOk=0,totalFail=0;
   let htmlAcum=`<div class="card" style="padding:14px;border-left:3px solid #00b894">
-    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:8px">🏷️ Descuento ${pct}% — SKU: <b>${sku}</b></div>`;
+    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:8px">🏷️ Descuento ${pct}% — Item: <b>${itemId}</b></div>`;
 
   for(const acct of accts){
+    if(btn)btn.textContent=`⏳ ${acct.nickname||acct.id}...`;
     try{
+      // ML API directa — CORS permite con token
       const body={
-        sku,
-        seller_id:acct.seller_id||acct.id,
         discount_percent:pct,
-        start_date:desde+'T00:00:00.000Z',
-        finish_date:hasta+'T23:59:59.000Z'
+        start_date:desde+'T00:00:00.000-03:00',
+        finish_date:hasta+'T23:59:59.000-03:00',
+        promotion_type:'PRICE_DISCOUNT'
       };
-      // Actualizar botón con progreso
-      if(btn)btn.textContent=`⏳ ${acct.nickname||acct.id}...`;
-      const r=await fetch(`${PROXY}/promociones/sku`,{
+      console.log('[DESC] POST /seller-promotions/items/'+itemId, JSON.stringify(body));
+      const r=await fetch(`https://api.mercadolibre.com/seller-promotions/items/${itemId}?app_version=v2`,{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+acct.token},
         body:JSON.stringify(body)
       });
       const rawText=await r.text();
-      console.log('[DESC]['+acct.id+'] status='+r.status+' body='+rawText);
-      let d;
-      try{d=JSON.parse(rawText);}catch(pe){
-        totalFail++;
-        htmlAcum+=`<div style="padding:6px 10px;background:var(--s2);border-radius:6px;margin-bottom:8px">
-          <span style="font-size:12px;color:var(--red);font-weight:700">${acct.nickname||acct.id}</span>
-          <span style="font-size:11px;color:var(--t3);margin-left:8px">❌ Respuesta inválida del proxy (${r.status}): ${rawText.substring(0,120)}</span>
-        </div>`;
-        continue;
-      }
+      console.log('[DESC]['+acct.id+'] '+r.status+': '+rawText);
+      let d;try{d=JSON.parse(rawText);}catch(e){d={error:rawText.substring(0,200)};}
 
-      if(d.ok){
-        const ok=(d.resultados||[]).filter(x=>x.ok);
-        const fail=(d.resultados||[]).filter(x=>!x.ok);
-        totalOk+=ok.length; totalFail+=fail.length;
-        htmlAcum+=`<div style="margin-bottom:10px;padding:8px 10px;background:var(--s2);border-radius:6px">
-          <div style="font-size:12px;font-weight:700;color:var(--acc);margin-bottom:4px">${acct.nickname||acct.id} — ${ok.length}/${d.total} OK</div>
-          ${ok.map(x=>`<div style="font-size:11px;color:var(--t3)">✅ ${x.item_id} — $${x.deal_price?.toLocaleString('es-AR')||'?'} (${x.metodo||''})</div>`).join('')}
-          ${fail.map(x=>`<div style="font-size:11px;color:var(--red)">❌ ${x.item_id} — ${x.error||'Error'}</div>`).join('')}
+      if(r.ok&&!d.error){
+        totalOk++;
+        const dealPrice=Math.round(precioBase*(1-pct/100));
+        htmlAcum+=`<div style="margin-bottom:8px;padding:8px 10px;background:var(--s2);border-radius:6px">
+          <div style="font-size:12px;font-weight:700;color:var(--grn)">${acct.nickname||acct.id} ✅</div>
+          <div style="font-size:11px;color:var(--t3)">$${dealPrice.toLocaleString('es-AR')} (${pct}% off) · ${desde} → ${hasta}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">Estado: ${d.status||'aplicado'}</div>
         </div>`;
-
-        // Mes siguiente si corresponde
-        if(conMesSig&&ok.length){
-          const hoyD=new Date();
-          const inicio=new Date(hoyD.getFullYear(),hoyD.getMonth()+1,1);
-          const fin2=new Date(hoyD.getFullYear(),hoyD.getMonth()+2,0);
-          const fmtI=dd=>`${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
-          const body2={...body,start_date:fmtI(inicio)+'T00:00:00.000Z',finish_date:fmtI(fin2)+'T23:59:59.000Z'};
-          try{
-            const r2=await fetch(`${PROXY}/promociones/sku`,{
-              method:'POST',headers:{'Content-Type':'application/json','x-ml-token':acct.token},
-              body:JSON.stringify(body2)
-            });
-            const d2=await r2.json();
-            htmlAcum+=`<div style="font-size:11px;color:#00b894;margin-top:-4px;margin-bottom:8px;padding-left:10px">📅 Mes sig. (${acct.nickname||acct.id}): ${d2.exitosos||0}/${d2.total||0} OK</div>`;
-          }catch(e2){htmlAcum+=`<div style="font-size:11px;color:var(--red);padding-left:10px">❌ Error mes sig.: ${e2.message}</div>`;}
-        }
       }else{
         totalFail++;
-        htmlAcum+=`<div style="margin-bottom:8px;padding:6px 10px;background:var(--s2);border-radius:6px">
-          <span style="font-size:12px;color:var(--red);font-weight:700">${acct.nickname||acct.id}</span>
-          <span style="font-size:11px;color:var(--t3);margin-left:8px">❌ ${d.error||'Error desconocido'}</span>
+        const errMsg=d.message||d.error||d.cause?.[0]?.description||JSON.stringify(d).substring(0,200);
+        htmlAcum+=`<div style="margin-bottom:8px;padding:8px 10px;background:var(--s2);border-radius:6px">
+          <div style="font-size:12px;font-weight:700;color:var(--red)">${acct.nickname||acct.id} ❌ (${r.status})</div>
+          <div style="font-size:11px;color:var(--t3)">${errMsg}</div>
         </div>`;
       }
     }catch(e){
       totalFail++;
       htmlAcum+=`<div style="font-size:11px;color:var(--red);padding:4px 10px">${acct.nickname||acct.id}: ❌ ${e.message}</div>`;
     }
-    // Actualizar resultados en tiempo real
-    resEl.innerHTML=htmlAcum+'<div style="font-size:11px;color:var(--t3);padding-top:4px">⏳ Procesando siguientes cuentas...</div></div>';
+    resEl.innerHTML=htmlAcum+'<div style="font-size:11px;color:var(--t3);padding-top:4px">⏳ Procesando...</div></div>';
   }
 
   htmlAcum+=`<div style="font-size:12px;color:var(--t2);border-top:1px solid var(--b1);padding-top:8px;margin-top:4px">
-    Total: <b style="color:${totalOk?'#00b894':'var(--red)'}">${totalOk} OK</b>${totalFail?` · <b style="color:var(--red)">${totalFail} errores</b>`:''}
+    <b style="color:${totalOk?'#00b894':'var(--red)'}">${totalOk} OK</b>${totalFail?` · <b style="color:var(--red)">${totalFail} errores</b>`:''}
   </div></div>`;
   resEl.innerHTML=htmlAcum;
-  if(totalOk>0) toast(`✅ Descuento ${pct}% — ${totalOk} variantes OK en ${accts.length} cuenta${accts.length>1?'s':''}`,'ok');
-  else toast('❌ No se pudo aplicar el descuento — revisá la consola (F12)','err');
-  if(btn){btn.disabled=false;btn.textContent='✅ Aplicar en cuentas seleccionadas';}
+  if(totalOk>0) toast(`✅ Descuento ${pct}% aplicado en ${totalOk} cuenta${totalOk>1?'s':''}`,'ok');
+  else toast('❌ Error al aplicar descuento — revisá abajo','err');
+  if(btn){btn.disabled=false;btn.textContent='✅ Aplicar descuento';}
 };
 
 window.repPublicarTodas=async function(){
@@ -7745,7 +7721,7 @@ window.repPublicarTodas=async function(){
   const family_name=document.getElementById('rep_family_name')?.value.trim()||titulo.substring(0,60);
   const garantia=document.getElementById('rep_garantia')?.value.trim()||_repItem.garantia||'';
   if(!titulo||!categoria){toast('Título y categoría son obligatorios','err');return;}
-  const cuotas_override=Object.entries(_repCuotas).map(([cuenta,ov])=>({cuenta,precio:ov.precio!=null?ov.precio:precioBase,sale_terms:ov.sale_terms||[]}));
+  const cuotas_override=Object.entries(_repCuotas).map(([cuenta,ov])=>({cuenta,precio:ov.precio!=null?ov.precio:precioBase,campaign_tag:ov.campaign_tag||null,listing_type_override:ov.listing_type_override||null}));
   const resEl=document.getElementById('repResultados');
   resEl.style.display='block';
   resEl.innerHTML=`<div class="card"><p style="font-size:12px;color:var(--t3)">⏳ Publicando en ${accounts.length} cuenta${accounts.length!==1?'s':''}...</p></div>`;
@@ -7765,6 +7741,11 @@ window.repPublicarTodas=async function(){
   const resultados=await Promise.all(accounts.map(async acct=>{
     try{
       const override=cuotas_override.find(o=>o.cuenta===acct.id)||{};
+      // listing_type: si hay cuotas usa gold_pro, sino respeta el original
+      const lt=override.listing_type_override||((_repItem.listing_type==='gold_pro'||_repItem.listing_type==='gold_special')?_repItem.listing_type:'gold_special');
+      // tags: agregar el campaign_tag si corresponde, conservar los existentes excepto otros campaign tags
+      const existingTags=(_repItem.tags||[]).filter(t=>!['3x_campaign','9x_campaign','12x_campaign'].includes(t));
+      const tags=override.campaign_tag?[...existingTags,override.campaign_tag]:existingTags;
       const payload={
         titulo,categoria,
         precio:override.precio||precioBase,
@@ -7772,9 +7753,9 @@ window.repPublicarTodas=async function(){
         family_name,garantia,
         fotos:(_repItem.fotos||[]).filter(f=>(f.url||f||'').toString().startsWith('http')),
         atributos:_repItem.atributos||[],
-        listing_type:_repItem.listing_type||'gold_special',
+        listing_type:lt,
         envio:_repItem.envio||null,
-        sale_terms:override.sale_terms||[]
+        tags:tags.length?tags:undefined
       };
       console.log('[REP]['+acct.id+'] sale_terms='+JSON.stringify(payload.sale_terms));
       const r=await fetch(`${PROXY}/replicar/publicar`,{
