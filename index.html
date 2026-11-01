@@ -7239,9 +7239,9 @@ window.repUpdateCuota=function(acctId){
   _repCuotas[acctId].precio=precio;
   _repCuotas[acctId].nCuotas=nCuotas;
   // Armar sale_terms para cuotas sin interés
+  // ML acepta: [{id:'INSTALLMENTS',value:{number:N,unit:'months'}}]
   if(nCuotas>1){
-    const montoCuota=Math.ceil(precio/nCuotas);
-    _repCuotas[acctId].sale_terms=[{id:'TOTAL_AMOUNT',value:{struct:{number:precio,unit:'ARS'}}},{id:'INSTALLMENTS',value:{struct:{number:nCuotas,unit:'installments'}}}];
+    _repCuotas[acctId].sale_terms=[{id:'INSTALLMENTS',value:{number:nCuotas,unit:'months'}}];
     const el=document.getElementById('rep_monto_cuota_'+acctId);
     if(el) el.textContent=(precio/nCuotas).toLocaleString('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0})+'/cuota';
   }else{
@@ -7668,11 +7668,21 @@ window.repAplicarDescuento=async function(sku,precio,conMesSig=false){
         headers:{'Content-Type':'application/json','x-ml-token':acct.token},
         body:JSON.stringify(body)
       });
-      const d=await r.json();
+      const rawText=await r.text();
+      console.log('[DESC]['+acct.id+'] status='+r.status+' body='+rawText);
+      let d;
+      try{d=JSON.parse(rawText);}catch(pe){
+        totalFail++;
+        htmlAcum+=`<div style="padding:6px 10px;background:var(--s2);border-radius:6px;margin-bottom:8px">
+          <span style="font-size:12px;color:var(--red);font-weight:700">${acct.nickname||acct.id}</span>
+          <span style="font-size:11px;color:var(--t3);margin-left:8px">❌ Respuesta inválida del proxy (${r.status}): ${rawText.substring(0,120)}</span>
+        </div>`;
+        continue;
+      }
 
       if(d.ok){
-        const ok=d.resultados.filter(x=>x.ok);
-        const fail=d.resultados.filter(x=>!x.ok);
+        const ok=(d.resultados||[]).filter(x=>x.ok);
+        const fail=(d.resultados||[]).filter(x=>!x.ok);
         totalOk+=ok.length; totalFail+=fail.length;
         htmlAcum+=`<div style="margin-bottom:10px;padding:8px 10px;background:var(--s2);border-radius:6px">
           <div style="font-size:12px;font-weight:700;color:var(--acc);margin-bottom:4px">${acct.nickname||acct.id} — ${ok.length}/${d.total} OK</div>
@@ -7715,7 +7725,8 @@ window.repAplicarDescuento=async function(sku,precio,conMesSig=false){
     Total: <b style="color:${totalOk?'#00b894':'var(--red)'}">${totalOk} OK</b>${totalFail?` · <b style="color:var(--red)">${totalFail} errores</b>`:''}
   </div></div>`;
   resEl.innerHTML=htmlAcum;
-  toast(`✅ Descuento ${pct}% — ${totalOk} variantes actualizadas en ${accts.length} cuenta${accts.length>1?'s':''}`,'ok');
+  if(totalOk>0) toast(`✅ Descuento ${pct}% — ${totalOk} variantes OK en ${accts.length} cuenta${accts.length>1?'s':''}`,'ok');
+  else toast('❌ No se pudo aplicar el descuento — revisá la consola (F12)','err');
   if(btn){btn.disabled=false;btn.textContent='✅ Aplicar en cuentas seleccionadas';}
 };
 
@@ -7765,6 +7776,7 @@ window.repPublicarTodas=async function(){
         envio:_repItem.envio||null,
         sale_terms:override.sale_terms||[]
       };
+      console.log('[REP]['+acct.id+'] sale_terms='+JSON.stringify(payload.sale_terms));
       const r=await fetch(`${PROXY}/replicar/publicar`,{
         method:'POST',
         headers:{'Content-Type':'application/json','x-ml-token':acct.token},
