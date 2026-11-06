@@ -8055,6 +8055,8 @@ window.repPublicarTodas=async function(){
       </div>
       ${ok>0?`<div style="margin-top:10px"><button class="btn" style="background:var(--s3)" onclick="repLimpiar()">✖ Limpiar</button></div>`:''}
     </div>`;
+    // Si hay atributos faltantes, hacer scroll al bloque naranja
+    if(attrUnion.length) setTimeout(()=>{const el=document.getElementById('rep_attrs_shared');if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},150);
     toast(ok===accounts.length?`✅ Publicado en ${ok} cuentas`:`⚠️ ${ok}/${accounts.length} exitosas — ${err} con error`,(ok===accounts.length?'ok':'err'));
 
     // ── Replicar descuento si el item origen lo tenía y el checkbox está marcado ──
