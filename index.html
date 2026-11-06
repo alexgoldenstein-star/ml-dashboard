@@ -7928,7 +7928,10 @@ window.repPublicarTodas=async function(){
         envio:_repItem.envio||null,
         tags:tags.length?tags:undefined
       };
-      console.log('[REP]['+acct.id+'] sale_terms='+JSON.stringify(payload.sale_terms));
+      // Debug GTIN
+      const gtinRaw=(_repItem.atributos||[]).find(a=>a.id==='GTIN'||a.id==='EAN');
+      console.log('[REP]['+acct.id+'] GTIN_raw='+JSON.stringify(gtinRaw));
+      console.log('[REP]['+acct.id+'] atributos_enviados='+JSON.stringify(payload.atributos.filter(a=>a.id==='GTIN'||a.id==='EAN')));
       const r=await fetch(`${PROXY}/replicar/publicar`,{
         method:'POST',
         headers:{'Content-Type':'application/json','x-ml-token':acct.token},
