@@ -7357,6 +7357,7 @@ window.repToggleCuenta=function(acctId){
 window.repLimpiar=function(){
   _repItem=null; _repCuotas={}; window._repCuentasSel=null;
   const f=document.getElementById('repForm');const r=document.getElementById('repResultados');
+  const b=document.getElementById('rep_attrs_banner'); if(b) b.innerHTML='';
   if(f){f.style.display='none';f.innerHTML='';}
   if(r){r.style.display='none';r.innerHTML='';}
 };
@@ -8019,20 +8020,29 @@ window.repPublicarTodas=async function(){
         </div>`;
     }
 
-    const attrFormHtml=attrUnion.length?`
-      <div id="rep_attrs_shared" style="background:var(--org)15;border:1px solid var(--org)44;border-radius:8px;padding:14px;margin-bottom:12px">
-        <div style="font-size:12px;font-weight:700;color:var(--org);margin-bottom:4px">⚠️ Atributos requeridos para esta categoría</div>
-        <div style="font-size:11px;color:var(--t3);margin-bottom:12px">Completá una sola vez — se va a aplicar a todas las cuentas con error (<b>${cuentasConAttrsFaltantes.map(r=>r.cuenta).join(', ')}</b>)</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px">
-          ${attrUnion.map(a=>renderAttrField(a,'shared')).join('')}
-        </div>
-        <button class="btn" style="font-size:12px;margin-top:8px;background:var(--org);padding:8px 18px" onclick="repReintentarTodosConAtributos()">↻ Reintentar en ${cuentasConAttrsFaltantes.length} cuenta${cuentasConAttrsFaltantes.length>1?'s':''}</button>
-      </div>`:''
+    // Bloque naranja de atributos faltantes: va en un div SEPARADO sobre el formulario
+    const attrsBannerEl=document.getElementById('rep_attrs_banner')||(() => {
+      const d=document.createElement('div'); d.id='rep_attrs_banner';
+      document.getElementById('repForm').prepend(d); return d;
+    })();
+    if(attrUnion.length){
+      attrsBannerEl.innerHTML=`
+        <div style="background:#ff980022;border:2px solid #ff9800;border-radius:8px;padding:14px;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;color:#ff9800;margin-bottom:6px">⚠️ Atributos requeridos — completá para publicar</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:12px">Completá una sola vez — se aplica a todas las cuentas con error (<b>${cuentasConAttrsFaltantes.map(r=>r.cuenta).join(', ')}</b>)</div>
+          <div id="rep_attrs_shared" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px">
+            ${attrUnion.map(a=>renderAttrField(a,'shared')).join('')}
+          </div>
+          <button class="btn" style="font-size:12px;margin-top:10px;background:#ff9800;color:#fff;padding:8px 20px" onclick="repReintentarTodosConAtributos()">↻ Reintentar en ${cuentasConAttrsFaltantes.length} cuenta${cuentasConAttrsFaltantes.length>1?'s':''}</button>
+        </div>`;
+      setTimeout(()=>attrsBannerEl.scrollIntoView({behavior:'smooth',block:'start'}),100);
+    } else {
+      attrsBannerEl.innerHTML='';
+    }
 
     resEl.innerHTML=`
     <div class="card" style="padding:14px">
       <div style="font-size:13px;font-weight:600;margin-bottom:10px">${ok===accounts.length?'✅':'⚠️'} ${ok}/${accounts.length} publicaciones exitosas</div>
-      ${attrFormHtml}
       <div style="display:flex;flex-direction:column;gap:6px">
         ${resultados.map(r=>`
         <div id="rep_row_${r.cuenta}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);background:${r.ok?'var(--grn)11':'var(--red)11'}">
