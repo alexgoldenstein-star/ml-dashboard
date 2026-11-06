@@ -7048,7 +7048,9 @@ function repRenderForm(){
       <td style="padding:8px 6px"><input type="checkbox" id="rep_sel_${a.id}" ${sel?'checked':''} onchange="repToggleCuenta('${a.id}')" style="cursor:pointer;width:15px;height:15px"></td>
       <td style="padding:8px 6px;font-weight:600;font-size:13px;color:var(--acc)">${a.nickname||a.id}${esOrigen?` <span style="font-size:9px;background:var(--org)33;color:var(--org);padding:1px 6px;border-radius:10px;margin-left:4px">origen</span>`:''}</td>
       <td style="padding:8px 6px"><input class="inp" type="number" id="rep_precio_${a.id}" value="${precio}" style="width:130px;font-size:13px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
-      <td style="padding:8px 6px"><input class="inp" type="number" id="rep_ncuotas_${a.id}" value="${nCuotas}" min="1" max="24" style="width:70px;font-size:13px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
+      <td style="padding:8px 6px"><select class="inp" id="rep_ncuotas_${a.id}" style="width:100px;font-size:13px" onchange="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}>
+        ${[1,3,6,9,12].map(x=>`<option value="${x}" ${x===nCuotas?'selected':''}>${x===1?'Sin cuotas':x+' cuotas'}</option>`).join('')}
+      </select></td>
       <td id="rep_monto_cuota_${a.id}" style="color:var(--t2);font-size:13px;padding:8px 6px;font-weight:500">${nCuotas>1?fmtARS(Math.ceil(precio/nCuotas))+'/c':'—'}</td>
       <td id="rep_margen_${a.id}" style="font-size:13px;padding:8px 6px;font-weight:600;color:${colMargen}">${margenEst!=null?margenEst+'%':'—'}</td>
     </tr>`;
@@ -7198,7 +7200,14 @@ function repRenderForm(){
     <button class="btn" id="btnFJPublicar" style="background:#6C5CE7;font-size:13px;padding:10px 18px;font-weight:600;border:none;color:#fff;cursor:pointer;border-radius:8px" onclick="repPublicarFulljaus()">🟣 Publicar en Fulljaus</button>
     <button class="btn" style="background:#00b894;font-size:13px;padding:10px 18px;font-weight:600;border:none;color:#fff;cursor:pointer;border-radius:8px" onclick="repMostrarDescuento()">🏷️ Aplicar descuento</button>
     <button class="btn" style="background:var(--s3);font-size:13px;padding:10px 18px" onclick="repLimpiar()">✖ Cancelar</button>
-  </div>`;
+  </div>
+  ${it.descuento_activo||it.pct_descuento_actual?`<div style="padding:10px 14px;background:rgba(0,184,148,.08);border:1px solid rgba(0,184,148,.3);border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+    <input type="checkbox" id="rep_replicar_desc" checked style="width:15px;height:15px;cursor:pointer">
+    <label for="rep_replicar_desc" style="font-size:12px;cursor:pointer">
+      🏷️ Replicar descuento del item origen (<b style="color:#00b894">${it.aporte_ml?'🤝 Aporte ML ':''}${it.pct_descuento_actual||'?'}% off</b>) en las nuevas publicaciones automáticamente al publicar
+    </label>
+  </div>`:''}
+  `;
 }
 
 // Aplica cuotas globales a TODAS las cuentas seleccionadas
@@ -7250,6 +7259,7 @@ window.repUpdateCuota=function(acctId){
   if(!_repCuotas[acctId]) _repCuotas[acctId]={};
   _repCuotas[acctId].precio=precio;
   _repCuotas[acctId].nCuotas=nCuotas;
+  _repCuotas[acctId]._manual=true;
   // Armar tag y listing_type según ML API oficial
   const cfg=_cuotasMap[nCuotas]||{tag:null,listing_type:'gold_pro'};
   _repCuotas[acctId].campaign_tag=cfg.tag;
@@ -7706,6 +7716,27 @@ window.repAplicarDescuento=async function(itemId,precioBase){
   if(btn){btn.disabled=false;btn.textContent='✅ Aplicar descuento';}
 };
 
+// Filtra atributos que ML no acepta al crear un item nuevo
+window.limpiarAttrs=function limpiarAttrs(attrs){
+  const SKIP=new Set([
+    'SELLER_SKU','ITEM_CONDITION','GTIN','EAN','ALPHANUMERIC_MODEL','SELLER_ID','ITEM_ID',
+    'CATALOG_PRODUCT_ID','CATALOG_LISTING_TYPE_ID','FAMILY_NAME','family_name',
+    'ITEM_RELATIONS','PRICE_NET_AMOUNT','UNITS_PER_PACKAGE',
+    'PACKAGE_DATA_SOURCE','PACKAGE_HEIGHT','PACKAGE_LENGTH','PACKAGE_WEIGHT','PACKAGE_WIDTH',
+    'PACKAGE_DEPTH','PACKAGE_DIMENSIONS',
+    'SYI_PYMES_ID','SYI_INVOICE_REQUIRED','SYI_COST_CENTER',
+    'OFFICIAL_STORE_ID','ITEM_HEALTH_THRESHOLD','COVERAGE_AREAS',
+  ]);
+  return (attrs||[]).filter(a=>{
+    if(!a.id) return false;
+    if(SKIP.has(a.id)||SKIP.has((a.id||'').toUpperCase())) return false;
+    if(/^(PACKAGE_|SYI_)/i.test(a.id)) return false;
+    if(!a.value_id&&!a.value_name) return false;
+    if(a.value_name&&(a.value_name==='-1'||a.value_name==='0')) return false;
+    return true;
+  }).map(a=>({id:a.id,...(a.value_id?{value_id:a.value_id}:{}),...(a.value_name?{value_name:a.value_name}:{})}));
+};
+
 window.repPublicarTodas=async function(){
   if(!_repItem){toast('No hay ítem cargado','err');return;}
   const allAccts=(S.accounts||[]).filter(a=>a.token);
@@ -7728,15 +7759,6 @@ window.repPublicarTodas=async function(){
 
   // Publicar DIRECTAMENTE a ML desde el browser (sin pasar por proxy)
   // Así evitamos depender de que el proxy tenga la versión actualizada.
-  function limpiarAttrs(attrs){
-    const SKIP=new Set(['SELLER_SKU','ITEM_CONDITION','GTIN','EAN','ALPHANUMERIC_MODEL','SELLER_ID','ITEM_ID','CATALOG_PRODUCT_ID','CATALOG_LISTING_TYPE_ID','FAMILY_NAME','family_name','ITEM_RELATIONS','PRICE_NET_AMOUNT','UNITS_PER_PACKAGE']);
-    return (attrs||[]).filter(a=>{
-      if(!a.id||SKIP.has(a.id)||SKIP.has((a.id||'').toUpperCase())) return false;
-      if(!a.value_id&&!a.value_name) return false;
-      if(a.value_name&&(a.value_name==='-1'||a.value_name==='0')) return false;
-      return true;
-    }).map(a=>({id:a.id,...(a.value_id?{value_id:a.value_id}:{}),...(a.value_name?{value_name:a.value_name}:{})}));
-  }
   // CORS impide llamar a ML directo desde el browser → usamos proxy con family_name
   const resultados=await Promise.all(accounts.map(async acct=>{
     try{
@@ -7752,7 +7774,7 @@ window.repPublicarTodas=async function(){
         stock,condicion,descripcion,
         family_name,garantia,
         fotos:(_repItem.fotos||[]).filter(f=>(f.url||f||'').toString().startsWith('http')),
-        atributos:_repItem.atributos||[],
+        atributos:limpiarAttrs(_repItem.atributos||[]),
         listing_type:lt,
         envio:_repItem.envio||null,
         tags:tags.length?tags:undefined
@@ -7775,79 +7797,196 @@ window.repPublicarTodas=async function(){
   try{
     const ok=resultados.filter(r=>r.ok).length;
     const err=resultados.filter(r=>!r.ok).length;
-    // Guardar attrs_faltantes por cuenta en global para evitar problemas de escape en onclick
+    // Guardar attrs_faltantes por cuenta en global
     window._repAttrsFaltantes={};
     resultados.forEach(r=>{if(r.attrs_faltantes&&r.attrs_faltantes.length) window._repAttrsFaltantes[r.cuenta]=r.attrs_faltantes;});
+
+    // Armar formulario ÚNICO de atributos faltantes (unión de todas las cuentas con error)
+    // El usuario completa UNA sola vez y se aplica a todas las cuentas que fallaron
+    const cuentasConAttrsFaltantes=resultados.filter(r=>!r.ok&&r.attrs_faltantes&&r.attrs_faltantes.length);
+    // Unión de atributos (por id, sin duplicados)
+    const attrUnionMap=new Map();
+    cuentasConAttrsFaltantes.forEach(r=>r.attrs_faltantes.forEach(a=>{if(!attrUnionMap.has(a.id)) attrUnionMap.set(a.id,a);}));
+    const attrUnion=[...attrUnionMap.values()];
+    window._repCuentasConAttrsFaltantes=cuentasConAttrsFaltantes.map(r=>r.cuenta);
+
+    function renderAttrField(a, prefix='shared'){
+      const isDim=/width|height|length|largo|alto|ancho|profundidad|depth|weight|peso|grosor|thickness/i.test(a.name+' '+a.id);
+      const dimUnits=isDim?(/peso|weight/i.test(a.name+' '+a.id)?['kg','g','lb']:['cm','mm','m','in']):[];
+      if(a.values&&a.values.length) return `
+        <div style="margin-bottom:8px">
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:3px">${a.name} <span style="color:var(--red)">*</span></label>
+          <select class="inp" id="attr_${prefix}_${a.id}" data-attr-id="${a.id}" style="font-size:12px;height:32px">
+            <option value="">— Seleccionar —</option>
+            ${a.values.map(v=>`<option value="${v.id}">${v.name}</option>`).join('')}
+          </select>
+        </div>`;
+      if(dimUnits.length) return `
+        <div style="margin-bottom:8px">
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:3px">${a.name} <span style="color:var(--red)">*</span></label>
+          <div style="display:flex;gap:4px">
+            <input class="inp" id="attr_${prefix}_${a.id}_num" placeholder="Valor" style="font-size:12px;height:32px;flex:1">
+            <select class="inp" id="attr_${prefix}_${a.id}_unit" style="font-size:12px;height:32px;width:70px">
+              ${dimUnits.map(u=>`<option value="${u}">${u}</option>`).join('')}
+            </select>
+            <input type="hidden" id="attr_${prefix}_${a.id}" data-attr-id="${a.id}" data-dim="1">
+          </div>
+        </div>`;
+      return `
+        <div style="margin-bottom:8px">
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:3px">${a.name} <span style="color:var(--red)">*</span></label>
+          <input class="inp" id="attr_${prefix}_${a.id}" data-attr-id="${a.id}" placeholder="${a.name}" style="font-size:12px;height:32px">
+        </div>`;
+    }
+
+    const attrFormHtml=attrUnion.length?`
+      <div id="rep_attrs_shared" style="background:var(--org)15;border:1px solid var(--org)44;border-radius:8px;padding:14px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--org);margin-bottom:4px">⚠️ Atributos requeridos para esta categoría</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:12px">Completá una sola vez — se va a aplicar a todas las cuentas con error (<b>${cuentasConAttrsFaltantes.map(r=>r.cuenta).join(', ')}</b>)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 16px">
+          ${attrUnion.map(a=>renderAttrField(a,'shared')).join('')}
+        </div>
+        <button class="btn" style="font-size:12px;margin-top:8px;background:var(--org);padding:8px 18px" onclick="repReintentarTodosConAtributos()">↻ Reintentar en ${cuentasConAttrsFaltantes.length} cuenta${cuentasConAttrsFaltantes.length>1?'s':''}</button>
+      </div>`:''
+
     resEl.innerHTML=`
     <div class="card" style="padding:14px">
       <div style="font-size:13px;font-weight:600;margin-bottom:10px">${ok===accounts.length?'✅':'⚠️'} ${ok}/${accounts.length} publicaciones exitosas</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
+      ${attrFormHtml}
+      <div style="display:flex;flex-direction:column;gap:6px">
         ${resultados.map(r=>`
         <div id="rep_row_${r.cuenta}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);background:${r.ok?'var(--grn)11':'var(--red)11'}">
-          <span style="font-weight:600;color:${r.ok?'var(--grn)':'var(--red)'};width:50px">${r.cuenta}</span>
+          <span style="font-weight:600;color:${r.ok?'var(--grn)':'var(--red)'};min-width:50px">${r.cuenta}</span>
           ${r.ok?`<div style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap">
-            <span style="font-size:12px;font-weight:700;color:var(--t1);background:var(--s2);padding:3px 10px;border-radius:6px;font-family:monospace;letter-spacing:.5px">${r.id}</span>
-            <button onclick="navigator.clipboard.writeText('${r.id}').then(()=>toast('ID copiado','ok'))" title="Copiar ID" style="background:var(--s3);border:1px solid var(--b2);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;color:var(--t2);font-family:inherit">📋 Copiar ID</button>
-            <a href="${r.permalink}" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto;white-space:nowrap">Ver publicación ↗</a>
+            <span style="font-size:12px;font-weight:700;color:var(--t1);background:var(--s2);padding:3px 10px;border-radius:6px;font-family:monospace">${r.id}</span>
+            <button onclick="navigator.clipboard.writeText('${r.id}').then(()=>toast('ID copiado','ok'))" style="background:var(--s3);border:1px solid var(--b2);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;color:var(--t2);font-family:inherit">📋 Copiar</button>
+            <a href="${r.permalink}" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto;white-space:nowrap">Ver ↗</a>
           </div>`
-          :`<div style="display:flex;flex-direction:column;gap:6px;flex:1">
-            <span style="font-size:13px;color:var(--red);font-weight:600">${r.error||'Error desconocido'}</span>
-            ${r.unauthorized?`<span style="font-size:12px;color:var(--org)">⚠️ Token sin permisos de escritura. Reconectá la cuenta en <b>Cuentas ML</b>.</span>`:''}
-            ${(r.attrs_faltantes&&r.attrs_faltantes.length)?`
-              <div id="rep_attrs_${r.cuenta}" style="background:var(--org)15;border:1px solid var(--org)44;border-radius:6px;padding:8px 10px;margin-top:2px">
-                <div style="font-size:12px;font-weight:600;color:var(--org);margin-bottom:6px">⚠️ Atributos requeridos faltantes para esta categoría:</div>
-                ${r.attrs_faltantes.map(a=>{
-                  const isDim=/width|height|length|largo|alto|ancho|profundidad|depth|weight|peso|grosor|thickness/i.test(a.name+' '+a.id);
-                  const dimUnits=isDim?(/peso|weight/i.test(a.name+' '+a.id)?['kg','g','lb']:['cm','mm','m','in']):[];
-                  if(a.values&&a.values.length) return `
-                  <div style="margin-bottom:6px">
-                    <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
-                    <select class="inp" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" style="font-size:12px;height:30px">
-                      <option value="">— Seleccionar —</option>
-                      ${a.values.map(v=>`<option value="${v.id}">${v.name}</option>`).join('')}
-                    </select>
-                  </div>`;
-                  if(dimUnits.length) return `
-                  <div style="margin-bottom:6px">
-                    <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
-                    <div style="display:flex;gap:4px">
-                      <input class="inp" id="attr_${r.cuenta}_${a.id}_num" placeholder="Valor" style="font-size:12px;height:30px;flex:1">
-                      <select class="inp" id="attr_${r.cuenta}_${a.id}_unit" style="font-size:12px;height:30px;width:70px">
-                        ${dimUnits.map(u=>`<option value="${u}">${u}</option>`).join('')}
-                      </select>
-                      <input type="hidden" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" data-dim="1">
-                    </div>
-                  </div>`;
-                  return `
-                  <div style="margin-bottom:6px">
-                    <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:2px">${a.name} <span style="color:var(--red)">*</span></label>
-                    <input class="inp" id="attr_${r.cuenta}_${a.id}" data-attr-id="${a.id}" placeholder="${a.name}" style="font-size:12px;height:30px">
-                  </div>`;
-                }).join('')}
-                <button class="btn" style="font-size:12px;margin-top:4px;background:var(--org)" onclick="repReintentarConAtributos('${r.cuenta}')">↻ Reintentar con estos atributos</button>
-              </div>`:''}
-            <details style="font-size:10px;color:var(--t3);margin-top:4px" open>
-              <summary style="cursor:pointer;color:var(--org);font-weight:600;font-size:11px">🔍 Debug — qué se mandó y qué respondió ML</summary>
-              <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div>
-                  <div style="font-size:10px;color:var(--t3);margin-bottom:3px">BODY ENVIADO A ML:</div>
-                  <pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;background:var(--s2);padding:6px;border-radius:4px;max-height:200px;overflow-y:auto">${JSON.stringify(r._bodyEnviado||{},null,2)}</pre>
-                </div>
-                <div>
-                  <div style="font-size:10px;color:var(--t3);margin-bottom:3px">RESPUESTA ML (status ${r.status||'?'}):</div>
-                  <pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;background:var(--s2);padding:6px;border-radius:4px;max-height:200px;overflow-y:auto">${JSON.stringify(r.ml_raw||{},null,2)}</pre>
-                </div>
+          :`<div style="display:flex;flex-direction:column;gap:4px;flex:1">
+            <span style="font-size:12px;color:var(--red)">${r.error||'Error desconocido'}</span>
+            ${r.unauthorized?`<span style="font-size:11px;color:var(--org)">⚠️ Token sin permisos — reconectá la cuenta</span>`:''}
+            ${r.attrs_faltantes?.length?`<span style="font-size:11px;color:var(--org)">↑ Completá los atributos arriba y reintentá</span>`:''}
+            <details style="margin-top:2px">
+              <summary style="cursor:pointer;color:var(--t3);font-size:10px">Ver debug</summary>
+              <div style="margin-top:4px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;background:var(--s2);padding:5px;border-radius:4px;max-height:150px;overflow-y:auto">${JSON.stringify(r._bodyEnviado||{},null,2)}</pre>
+                <pre style="white-space:pre-wrap;word-break:break-all;font-size:9px;background:var(--s2);padding:5px;border-radius:4px;max-height:150px;overflow-y:auto">${JSON.stringify(r.ml_raw||{},null,2)}</pre>
               </div>
             </details>
           </div>`}
         </div>`).join('')}
       </div>
-      ${ok>0?`<div style="margin-top:12px"><button class="btn" style="background:var(--s3)" onclick="repLimpiar()">✖ Limpiar</button></div>`:''}
+      ${ok>0?`<div style="margin-top:10px"><button class="btn" style="background:var(--s3)" onclick="repLimpiar()">✖ Limpiar</button></div>`:''}
     </div>`;
     toast(ok===accounts.length?`✅ Publicado en ${ok} cuentas`:`⚠️ ${ok}/${accounts.length} exitosas — ${err} con error`,(ok===accounts.length?'ok':'err'));
+
+    // ── Replicar descuento si el item origen lo tenía y el checkbox está marcado ──
+    const replicarDesc=document.getElementById('rep_replicar_desc')?.checked;
+    const pctOrigen=_repItem?.pct_descuento_actual;
+    if(replicarDesc&&pctOrigen&&ok>0){
+      const hoy=new Date();
+      const finMes=new Date(hoy.getFullYear(),hoy.getMonth()+1,0);
+      const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      let descOk=0,descFail=0;
+      for(const r of resultados.filter(r=>r.ok)){
+        const acct=accounts.find(a=>a.id===r.cuenta||a.nickname===r.cuenta);
+        if(!acct||!r.id) continue;
+        try{
+          const dr=await fetch(`https://api.mercadolibre.com/seller-promotions/items/${r.id}?app_version=v2`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json','Authorization':'Bearer '+acct.token},
+            body:JSON.stringify({discount_percent:pctOrigen,start_date:fmt(hoy)+'T00:00:00.000-03:00',finish_date:fmt(finMes)+'T23:59:59.000-03:00',promotion_type:'PRICE_DISCOUNT'})
+          });
+          const dd=await dr.json();
+          if(dr.ok&&!dd.error){
+            descOk++;
+            const rowEl=resEl.querySelector(`#rep_row_${r.cuenta}`);
+            if(rowEl){const badge=document.createElement('span');badge.style.cssText='font-size:10px;background:rgba(0,184,148,.15);color:#00b894;padding:2px 7px;border-radius:10px;margin-left:6px';badge.textContent=`🏷️ -${pctOrigen}%`;rowEl.querySelector('div')?.appendChild(badge);}
+          }else{descFail++;}
+        }catch(e2){descFail++;}
+      }
+      if(descOk>0) toast(`🏷️ Descuento ${pctOrigen}% replicado en ${descOk} cuenta${descOk>1?'s':''}`,descFail?'info':'ok');
+      if(descFail>0) toast(`⚠️ ${descFail} cuenta${descFail>1?'s':''} sin descuento — aplicalo manual con 🏷️`,'err');
+    }
   }catch(e){
     resEl.innerHTML=`<div class="card"><p style="color:var(--red);font-size:12px">❌ Error: ${e.message}</p></div>`;
   }
+};
+
+// Reintentar TODAS las cuentas con error usando los atributos del form compartido
+window.repReintentarTodosConAtributos=async function(){
+  if(!_repItem) return;
+  const cuentas=window._repCuentasConAttrsFaltantes||[];
+  if(!cuentas.length){toast('No hay cuentas para reintentar','err');return;}
+
+  // Leer atributos del form compartido (prefix='shared')
+  const attrUnionMap=new Map();
+  (window._repAttrsFaltantes||{});
+  cuentas.forEach(c=>{(window._repAttrsFaltantes[c]||[]).forEach(a=>{if(!attrUnionMap.has(a.id)) attrUnionMap.set(a.id,a);});});
+  const attrUnion=[...attrUnionMap.values()];
+
+  const attrsLeidos=attrUnion.map(a=>{
+    const el=document.getElementById(`attr_shared_${a.id}`);
+    if(!el) return null;
+    if(el.dataset.dim==='1'){
+      const num=document.getElementById(`attr_shared_${a.id}_num`)?.value?.trim();
+      const unit=document.getElementById(`attr_shared_${a.id}_unit`)?.value?.trim();
+      if(!num) return null;
+      return {id:a.id,value_name:`${num} ${unit||'cm'}`};
+    }
+    const val=el.value?.trim();
+    if(!val) return null;
+    return el.tagName==='SELECT'?{id:a.id,value_id:val}:{id:a.id,value_name:val};
+  }).filter(Boolean);
+
+  if(attrsLeidos.length<attrUnion.length){toast('Completá todos los atributos requeridos','err');return;}
+
+  const btn=document.querySelector('[onclick="repReintentarTodosConAtributos()"]');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Reintentando...';}
+
+  const titulo=document.getElementById('rep_titulo')?.value.trim()||_repItem.titulo;
+  const categoria=document.getElementById('rep_categoria')?.value.trim()||_repItem.categoria;
+  const precioBase=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem.precio;
+  const stock=parseInt(document.getElementById('rep_stock')?.value)||_repItem.stock||1;
+  const condicion=document.getElementById('rep_condicion')?.value||_repItem.condicion||'new';
+  const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
+  const garantia=document.getElementById('rep_garantia')?.value.trim()||_repItem.garantia||'';
+  const family_name=document.getElementById('rep_family_name')?.value.trim()||titulo.substring(0,60);
+  const allAccts=(S.accounts||[]).filter(a=>a.token);
+  const atributosBase=limpiarAttrs(_repItem.atributos||[]);
+  const atributosFinales=[...atributosBase,...attrsLeidos];
+
+  for(const cuentaId of cuentas){
+    const acct=allAccts.find(a=>a.id===cuentaId||a.nickname===cuentaId);
+    if(!acct) continue;
+    const ov=_repCuotas[cuentaId]||{};
+    const precio=ov.precio!=null?ov.precio:precioBase;
+    const lt=ov.listing_type_override||_repItem.listing_type||'gold_special';
+    const existingTags=(_repItem.tags||[]).filter(t=>!['3x_campaign','9x_campaign','12x_campaign'].includes(t));
+    const tags=ov.campaign_tag?[...existingTags,ov.campaign_tag]:existingTags;
+    if(btn) btn.textContent=`⏳ ${acct.nickname||cuentaId}...`;
+    try{
+      const r=await fetch(`${PROXY}/replicar/publicar`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+        body:JSON.stringify({titulo,categoria,precio,condicion,listing_type:lt,stock,fotos:_repItem.fotos||[],atributos:atributosFinales,descripcion,garantia,family_name,envio:_repItem.envio||null,tags:tags.length?tags:undefined})
+      });
+      const d=await r.json();
+      const rowEl=document.getElementById(`rep_row_${cuentaId}`);
+      if(d.ok){
+        if(rowEl) rowEl.innerHTML=`<span style="font-weight:600;color:var(--grn);min-width:50px">✅ ${acct.nickname||cuentaId}</span><span style="font-size:12px;font-family:monospace;background:var(--s2);padding:2px 8px;border-radius:5px;margin-left:8px">${d.id}</span><a href="${d.permalink}" target="_blank" style="font-size:11px;color:var(--acc);margin-left:auto">Ver ↗</a>`;
+        rowEl?.style&&(rowEl.style.background='var(--grn)11');
+        toast(`✅ ${acct.nickname||cuentaId}: ${d.id}`,'ok');
+      } else {
+        if(rowEl){const errSpan=rowEl.querySelector('span:nth-child(2)');if(errSpan) errSpan.textContent=d.error||'Error';}
+        toast(`❌ ${acct.nickname||cuentaId}: ${d.error}`,'err');
+      }
+    }catch(e){toast(`❌ ${acct.nickname||cuentaId}: ${e.message}`,'err');}
+  }
+  if(btn){btn.disabled=false;btn.textContent=`↻ Reintentar en ${cuentas.length} cuenta${cuentas.length>1?'s':''}`;}
+  // Ocultar el form de atributos si todos salieron bien
+  const aún_con_error=cuentas.filter(c=>{const r=document.getElementById(`rep_row_${c}`);return r&&r.style.background.includes('red');});
+  if(!aún_con_error.length){const f=document.getElementById('rep_attrs_shared');if(f) f.style.display='none';}
 };
 
 window.repReintentarConAtributos=async function(cuentaId, attrsFaltantesArg){
@@ -7901,7 +8040,7 @@ window.repReintentarConAtributos=async function(cuentaId, attrsFaltantesArg){
     const r=await fetch(`${PROXY}/replicar/publicar`,{
       method:'POST',
       headers:{'Content-Type':'application/json','x-ml-token':acct.token},
-      body:JSON.stringify({titulo,categoria,precio,condicion,listing_type:_repItem.listing_type||'gold_special',stock,fotos:_repItem.fotos||[],atributos:atributosFinales,descripcion,garantia:_repItem.garantia||'',envio:_repItem.envio||{},sale_terms:ov.sale_terms||[]})
+      body:JSON.stringify({titulo,categoria,precio,condicion,listing_type:_repItem.listing_type||'gold_special',stock,fotos:_repItem.fotos||[],atributos:limpiarAttrs(atributosFinales),descripcion,garantia:_repItem.garantia||'',envio:_repItem.envio||{}})
     });
     const d=await r.json();
     if(d.ok){
@@ -8792,36 +8931,45 @@ function recRazonLabel(razon){
 
 async function renderDescuentos(el, accounts){
   el.innerHTML='<div style="text-align:center;padding:20px;color:var(--t2);font-size:12px">🔍 Cargando descuentos de todas las cuentas...</div>';
-  
+
   let html='';
   for(const acct of accounts){
     try{
       const sellerId=UID[acct.id]||acct.userId||acct.id;
-      const r=await fetch(`${PROXY}/plataforma/descuentos?seller_id=${sellerId}`,{headers:{'x-ml-token':acct.token}});
+      // ML API directa: GET /seller-promotions?app_version=v2
+      const r=await fetch(`https://api.mercadolibre.com/seller-promotions?app_version=v2`,{
+        headers:{'Authorization':'Bearer '+acct.token}
+      });
       const d=await r.json();
-      const activas=d.activas||[];
-      const deals=d.deals||[];
-      const todo=[...activas,...deals];
+      // El response es un array de promociones o tiene .results
+      const promos=Array.isArray(d)?d:(d.results||[]);
+      const activas=promos.filter(p=>p.status==='active'||p.status==='started');
+      const todo=promos;
       
       html+=`<div class="card" style="margin-bottom:12px">
         <div class="ch">
           <span class="sku" style="background:var(--s3)">${acct.id}</span>
-          <span style="font-size:11px;color:var(--t2)">${todo.length} descuentos/campañas</span>
+          <span style="font-size:11px;color:var(--t2)">${todo.length} promociones · ${activas.length} activas</span>
         </div>
         ${todo.length===0
           ?'<p style="color:var(--t3);font-size:11px">Sin descuentos activos.</p>'
-          :`<table class="tbl"><thead><tr><th>Nombre</th><th>Tipo</th><th>Descuento</th><th>Items</th><th>Vence</th><th>Estado</th></tr></thead><tbody>
+          :`<table class="tbl"><thead><tr><th>ID / Nombre</th><th>Tipo</th><th>Descuento</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr></thead><tbody>
             ${todo.map(p=>{
-              const vence=p.end_date?new Date(p.end_date).toLocaleDateString('es-AR'):'Sin fecha';
-              const diasRestantes=p.end_date?Math.floor((new Date(p.end_date)-Date.now())/(1000*60*60*24)):null;
+              const fin=p.finish_date||p.end_date;
+              const inicio=p.start_date;
+              const vence=fin?new Date(fin).toLocaleDateString('es-AR'):'Sin fecha';
+              const desde=inicio?new Date(inicio).toLocaleDateString('es-AR'):'—';
+              const diasRestantes=fin?Math.floor((new Date(fin)-Date.now())/(1000*60*60*24)):null;
               const urgente=diasRestantes!==null&&diasRestantes<3;
+              const pct=p.discount_percent||p.percentage||p.discount||'';
+              const isActive=p.status==='active'||p.status==='started';
               return `<tr style="${urgente?'background:rgba(255,138,77,.05)':''}">
-                <td style="font-size:11px">${esc(p.name||p.label||'—')}</td>
-                <td><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:var(--s3)">${esc(p.type||p.deal_type||'—')}</span></td>
-                <td class="mono" style="color:var(--grn)">${p.percentage?p.percentage+'%':p.discount?p.discount+'%':'—'}</td>
-                <td>${p.items_count||p.items?.length||'—'}</td>
-                <td style="font-size:11px"><span style="color:${urgente?'var(--red)':'var(--t2)'}">${vence}</span>${urgente?` <strong style="color:var(--red)">(¡${diasRestantes}d!)</strong>`:''}</td>
-                <td><span style="font-size:10px;color:${p.status==='active'?'var(--grn)':'var(--t3)'}">${esc(p.status||'—')}</span></td>
+                <td style="font-size:11px"><div style="font-weight:600;color:var(--t1)">${esc(p.name||p.id||'—')}</div><div style="font-size:10px;color:var(--t3)">${esc(p.id||'')}</div></td>
+                <td><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:var(--s3)">${esc(p.type||p.promotion_type||'—')}</span></td>
+                <td class="mono" style="color:var(--grn)">${pct?pct+'%':'—'}</td>
+                <td style="font-size:11px">${desde}</td>
+                <td style="font-size:11px"><span style="color:${urgente?'var(--red)':'var(--t2)'}">${vence}</span>${urgente?` <b style="color:var(--red)">(${diasRestantes}d)</b>`:''}</td>
+                <td><span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${isActive?'rgba(71,232,127,.15)':'var(--s3)'};color:${isActive?'var(--grn)':'var(--t3)'}">${esc(p.status||'—')}</span></td>
               </tr>`;
             }).join('')}
           </tbody></table>`
