@@ -7941,47 +7941,19 @@ window.repPublicarTodas=async function(){
       const d=await r.json();
       console.log('[REP]['+acct.id+']', r.status, JSON.stringify(d));
       if(d.ok) return {cuenta:acct.id||acct.nickname,ok:true,id:d.id,permalink:d.permalink};
-      // Extraer attrs_faltantes: el proxy los devuelve, o los extraemos de la respuesta
-      let attrsFaltantesRaw=d.attrs_faltantes||[];
-      if(!attrsFaltantesRaw.length){
-        // Buscar causes en la respuesta del proxy o en el ml_raw embebido
-        const mlRaw=d.ml_raw||d;
-        const causes=[...(mlRaw.cause||[]),...(mlRaw.causes||[]),...(d.causes||[])];
-        // Detectar error de atributo requerido o inválido
-        const esErrorAttr=causes.some(c=>
-          c.code==='item.attribute.missing_conditional_required'||
-          c.code==='item.attribute.required'||
-          c.code==='item.attribute.invalid'||
-          (c.message||'').toLowerCase().includes('required for category')||
-          (c.message||'').toLowerCase().includes('are required')||
-          (c.message||'').toLowerCase().includes('invalid format')
-        );
-        const fullCausesText=causes.map(c=>(c.message||'')+' '+(c.code||'')).join(' ');
-        const esErrorGtin=/\b(GTIN|EAN)\b/i.test(fullCausesText);
-        if(esErrorAttr||esErrorGtin){
-          // Extraer IDs de atributos del mensaje — ej: "The attributes [GTIN] are required for category [MLA1594]"
-          const fullMsg=causes.map(c=>c.message||'').join(' ');
-          // Capturar todo lo que esté entre [] que no sea una categoría ML
-          const bracketRe=/\[([A-Za-z][A-Za-z0-9_]*(?:,\s*[A-Za-z][A-Za-z0-9_]*)*)\]/g;
-          let bm;
-          while((bm=bracketRe.exec(fullMsg))!==null){
-            bm[1].split(',').map(s=>s.trim()).filter(Boolean).forEach(id=>{
-              if(id&&!/^MLA\d+$/i.test(id)&&!attrsFaltantesRaw.find(a=>a.id===id))
-                attrsFaltantesRaw.push({id,name:id==='GTIN'?'Código universal de producto (GTIN/EAN)':id,values:[]});
-            });
-          }
-          // Fallback: si menciona GTIN/EAN pero no lo capturó, agregar GTIN directamente
-          if(!attrsFaltantesRaw.length&&esErrorGtin)
-            attrsFaltantesRaw.push({id:'GTIN',name:'Código universal de producto (GTIN/EAN)',values:[]});
+      // Extraer attrs_faltantes del error
+      // El proxy puede devolver d.attrs_faltantes directamente, o tenemos que extraerlo
+      let attrsFaltantesRaw=Array.isArray(d.attrs_faltantes)&&d.attrs_faltantes.length?d.attrs_faltantes:null;
+      if(!attrsFaltantesRaw){
+        // Juntar TODOS los causes posibles de la respuesta del proxy
+        const todoElJson=JSON.stringify(d);
+        // Búsqueda simple: si el texto del error contiene GTIN o EAN y es error de atributo
+        const esGtinError=todoElJson.includes('GTIN')||todoElJson.includes('missing_conditional_required')||todoElJson.includes('required for category');
+        if(esGtinError){
+          attrsFaltantesRaw=[{id:'GTIN',name:'Código universal de producto (GTIN/EAN)',values:[]}];
         }
-        // También buscar en item.attributes con status error/required
-        const mlAttrsErr=(mlRaw.attributes||[]).filter(a=>a.status==='required'||a.status==='error');
-        mlAttrsErr.forEach(a=>{
-          if(a.id&&!attrsFaltantesRaw.find(x=>x.id===a.id))
-            attrsFaltantesRaw.push({id:a.id,name:a.name||a.id,values:a.values||[]});
-        });
       }
-      return {cuenta:acct.id||acct.nickname,ok:false,error:d.error||'Error desconocido',unauthorized:d.unauthorized,attrs_faltantes:attrsFaltantesRaw,ml_raw:d.ml_raw||d,_bodyEnviado:payload};
+      return {cuenta:acct.id||acct.nickname,ok:false,error:d.error||'Error desconocido',unauthorized:d.unauthorized,attrs_faltantes:attrsFaltantesRaw||[],ml_raw:d.ml_raw||d,_bodyEnviado:payload};
     }catch(e){
       return {cuenta:acct.id||acct.nickname,ok:false,error:'Error de red: '+e.message};
     }
@@ -8133,6 +8105,7 @@ window.repReintentarTodosConAtributos=async function(){
   cuentas.forEach(c=>{(window._repAttrsFaltantes[c]||[]).forEach(a=>{if(!attrUnionMap.has(a.id)) attrUnionMap.set(a.id,a);});});
   const attrUnion=[...attrUnionMap.values()];
 
+  // Leer todos los inputs del banner (attr_shared_*)
   const attrsLeidos=attrUnion.map(a=>{
     const el=document.getElementById(`attr_shared_${a.id}`);
     if(!el) return null;
@@ -8144,13 +8117,23 @@ window.repReintentarTodosConAtributos=async function(){
     }
     let val=el.value?.trim();
     if(!val) return null;
-    // Para GTIN/EAN: limpiar a solo dígitos
     if(a.id==='GTIN'||a.id==='EAN') val=val.replace(/\D/g,'');
     if(!val) return null;
     return el.tagName==='SELECT'?{id:a.id,value_id:val}:{id:a.id,value_name:val};
   }).filter(Boolean);
+  // También leer directamente cualquier input attr_shared_* del DOM (por si attrUnion está desincronizado)
+  document.querySelectorAll('[id^="attr_shared_"]').forEach(el=>{
+    if(el.dataset.dim==='1') return; // ya procesado arriba
+    const attrId=el.dataset.attrId||el.id.replace('attr_shared_','');
+    if(!attrId||attrsLeidos.find(a=>a.id===attrId)) return;
+    let val=el.value?.trim();
+    if(!val) return;
+    if(attrId==='GTIN'||attrId==='EAN') val=val.replace(/\D/g,'');
+    if(!val) return;
+    attrsLeidos.push(el.tagName==='SELECT'?{id:attrId,value_id:val}:{id:attrId,value_name:val});
+  });
 
-  if(attrsLeidos.length<attrUnion.length){toast('Completá todos los atributos requeridos','err');return;}
+  if(!attrsLeidos.length){toast('Completá los atributos requeridos','err');return;}
 
   const btn=document.querySelector('[onclick="repReintentarTodosConAtributos()"]');
   if(btn){btn.disabled=true;btn.textContent='⏳ Reintentando...';}
