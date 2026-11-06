@@ -6958,7 +6958,9 @@ async function repBuscar(){
     const d=await r.json();
     if(!r.ok||!d.ok){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+( d.error||'Error al importar')+'</p></div>';return;}
     _repItem=d;
+    _repItem._cuentaOrigen=acct?.id||acct?.nickname||'';
     _repCuotas={};
+    window._repItemsPublicados={};
     repRenderForm();
   }catch(e){formEl.innerHTML='<div class="card"><p style="color:var(--red);font-size:12px">❌ '+e.message+'</p></div>';}
 }
@@ -6996,8 +6998,10 @@ window.repSeleccionar = async function(itemId){
       return;
     }
     _repItem=d;
+    _repItem._cuentaOrigen=acct?.id||acct?.nickname||'';
     _repCuotas={};
     window._repCuentasSel=null; // reset para re-inicializar con la cuenta origen detectada
+    window._repItemsPublicados={}; // limpiar items publicados previos al cargar nuevo item
     repRenderForm();
   }catch(e){
     formEl.innerHTML='<div class="card" style="padding:16px"><p style="color:var(--red);font-size:13px">❌ '+e.message+'</p></div>';
@@ -7560,36 +7564,86 @@ window.repEnviarFulljaus=async function(){
   }
 };
 
-// ── Aplicar descuento: PRICE_DISCOUNT via ML API por item_id ─────────────────
-// ML API: POST /seller-promotions/items/$ITEM_ID con promotion_type=PRICE_DISCOUNT
-// No necesita proxy — llamada directa con Bearer token
-window.repMostrarDescuento=function(){
+// ── Aplicar descuento: usar campaña existente o crear nueva ──────────────────
+window.repMostrarDescuento=async function(){
   if(!_repItem){toast('No hay ítem cargado','err');return;}
   const precio=parseFloat(document.getElementById('rep_precio_base')?.value)||_repItem.precio||0;
-  const itemId=_repItem.id;
-  if(!itemId){toast('No hay item_id cargado','err');return;}
+  const itemIdOrigen=_repItem.id;
+  if(!itemIdOrigen){toast('No hay item_id cargado','err');return;}
 
-  // Fechas: hoy → fin de mes
   const hoy=new Date();
   const ultimoDiaMes=new Date(hoy.getFullYear(),hoy.getMonth()+1,0);
   const fmtInput=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-  // Cuentas con token
   const allAccts=(S.accounts||[]).filter(a=>a.token);
-  const cuentasDescHtml=allAccts.map(a=>`
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:5px 8px;border-radius:6px;background:var(--s3)">
-      <input type="checkbox" id="desc_acct_${a.id}" checked style="width:14px;height:14px;cursor:pointer">
-      <span style="font-weight:600;color:var(--acc)">${a.nickname||a.id}</span>
-    </label>`).join('');
+  const itemsPublicados=window._repItemsPublicados||{};
+  const cuentaItemMap={};
+  Object.entries(itemsPublicados).forEach(([acctId,{item_id}])=>{cuentaItemMap[acctId]=item_id;});
+  allAccts.forEach(a=>{
+    if(!cuentaItemMap[a.id]&&(_repItem._cuentaOrigen===a.id||_repItem._cuentaOrigen===a.nickname))
+      cuentaItemMap[a.id]=itemIdOrigen;
+  });
 
   const resEl=document.getElementById('repResultados');
   resEl.style.display='block';
+  resEl.innerHTML=`<div class="card" style="padding:16px;border-left:3px solid #00b894;margin-top:8px">
+    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:8px">🏷️ Aplicar descuento en ML</div>
+    <div style="font-size:11px;color:var(--t3)">⏳ Cargando campañas activas...</div></div>`;
+
+  // Cargar campañas activas de TODAS las cuentas con item disponible
+  // mapa acctId → [{id, name, status, discount_percent, start_date, finish_date}]
+  const campañasPorCuenta={};
+  await Promise.all(allAccts.filter(a=>cuentaItemMap[a.id]).map(async a=>{
+    try{
+      const r=await fetch(`https://api.mercadolibre.com/seller-promotions?app_version=v2`,{
+        headers:{'Authorization':'Bearer '+a.token}
+      });
+      if(!r.ok){campañasPorCuenta[a.id]=[];return;}
+      const d=await r.json();
+      const promos=Array.isArray(d)?d:(d.results||[]);
+      campañasPorCuenta[a.id]=promos.filter(p=>
+        (p.promotion_type==='PRICE_DISCOUNT'||p.type==='PRICE_DISCOUNT')&&
+        (p.status==='active'||p.status==='started'||p.status==='candidate'||p.status==='paused')
+      );
+    }catch(e){campañasPorCuenta[a.id]=[];}
+  }));
+
+  // Campañas en común (misma por nombre) para mostrar una sola vez
+  // Para cada cuenta, construir la lista de opciones
+  const cuentasDescHtml=allAccts.map(a=>{
+    const iid=cuentaItemMap[a.id];
+    const disabled=!iid;
+    const campañas=campañasPorCuenta[a.id]||[];
+    const optsCampañas=campañas.map(c=>{
+      const lbl=c.name||c.description||c.id;
+      const pct=c.discount_percent?` (${c.discount_percent}% off)`:'';
+      const fechas=c.finish_date?` → ${c.finish_date.substring(0,10)}`:'';
+      return `<option value="${c.id}">${lbl}${pct}${fechas}</option>`;
+    }).join('');
+    const selectCampaña=`
+      <select id="desc_campana_${a.id}" style="font-size:11px;background:var(--s2);border:1px solid var(--b2);border-radius:5px;padding:3px 6px;color:var(--t1);font-family:inherit;width:100%;margin-top:3px">
+        <option value="">── Nueva campaña manual ──</option>
+        ${optsCampañas}
+      </select>`;
+    return `
+    <div style="padding:8px 10px;border-radius:6px;background:var(--s3);${disabled?'opacity:0.4':''}">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="desc_acct_${a.id}" ${disabled?'disabled':'checked'} data-item-id="${iid||''}" style="width:14px;height:14px;cursor:pointer;flex-shrink:0">
+        <span style="font-weight:600;color:var(--acc);font-size:12px">${a.nickname||a.id}</span>
+        <span style="font-size:10px;color:var(--t3);font-family:monospace">${iid||'sin item'}</span>
+      </label>
+      ${!disabled?`<div style="margin-top:4px">
+        <div style="font-size:10px;color:var(--t3);margin-bottom:2px">Campaña: ${campañas.length?campañas.length+' activa'+( campañas.length>1?'s':''):'ninguna activa'}</div>
+        ${selectCampaña}
+      </div>`:''}
+    </div>`;
+  }).join('');
+
   resEl.innerHTML=`
   <div class="card" style="padding:16px;border-left:3px solid #00b894;margin-top:8px">
-    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:4px">🏷️ Aplicar PRICE_DISCOUNT en ML</div>
+    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:4px">🏷️ Aplicar descuento en ML</div>
     <div style="font-size:11px;color:var(--t3);margin-bottom:12px">
-      Item: <b style="color:var(--t1)">${itemId}</b> · Precio: <b style="color:var(--t1)">$${precio.toLocaleString('es-AR')}</b><br>
-      <span style="color:var(--t3)">Aplica el descuento directo sobre este item_id en cada cuenta seleccionada (API: /seller-promotions/items)</span>
+      Precio: <b style="color:var(--t1)">$${precio.toLocaleString('es-AR')}</b> · Si elegís una campaña existente se agrega el item a ella. Si no, se crea una campaña nueva.
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
@@ -7609,6 +7663,7 @@ window.repMostrarDescuento=function(){
           style="width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:6px 8px;color:var(--t1);font-size:12px;font-family:inherit">
       </div>
     </div>
+    <div style="font-size:10px;color:var(--t3);margin-bottom:4px">Las fechas solo aplican si se crea una campaña nueva. Las campañas existentes ya tienen sus fechas.</div>
 
     <div id="desc_preview" style="background:var(--s2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--t2)">
       Con 10% de descuento: <b style="color:var(--t1);font-size:14px">$${Math.round(precio*0.9).toLocaleString('es-AR')}</b>
@@ -7616,12 +7671,12 @@ window.repMostrarDescuento=function(){
     </div>
 
     <div style="margin-bottom:12px">
-      <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Aplicar en estas cuentas:</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">${cuentasDescHtml}</div>
+      <div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:6px">Cuentas y campañas:</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${cuentasDescHtml}</div>
     </div>
 
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button id="btnDescAplicar" onclick="repAplicarDescuento('${itemId}',${precio})"
+      <button id="btnDescAplicar" onclick="repAplicarDescuento(${precio})"
         style="background:#00b894;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
         ✅ Aplicar descuento
       </button>
@@ -7643,9 +7698,8 @@ window.descActualizarPrecio=function(){
   }
 };
 
-// Descuento via ML API oficial: POST /seller-promotions/items/$ITEM_ID
-// No pasa por proxy — requiere token Bearer directo
-window.repAplicarDescuento=async function(itemId,precioBase){
+// Descuento via ML API: agrega a campaña existente o crea nueva
+window.repAplicarDescuento=async function(precioBase){
   const pct=parseFloat(document.getElementById('desc_pct')?.value)||0;
   const desde=document.getElementById('desc_desde')?.value;
   const hasta=document.getElementById('desc_hasta')?.value;
@@ -7656,30 +7710,51 @@ window.repAplicarDescuento=async function(itemId,precioBase){
   if(btn){btn.disabled=true;btn.textContent='⏳ Aplicando...';}
 
   const allAccts=(S.accounts||[]).filter(a=>a.token);
-  const accts=allAccts.filter(a=>{const cb=document.getElementById('desc_acct_'+a.id);return cb?cb.checked:true;});
-  if(!accts.length){toast('Seleccioná al menos una cuenta','err');if(btn){btn.disabled=false;btn.textContent='✅ Aplicar descuento';}return;}
+  const accts=allAccts.map(a=>{
+    const cb=document.getElementById('desc_acct_'+a.id);
+    if(!cb||!cb.checked||cb.disabled) return null;
+    const iid=cb.dataset.itemId||'';
+    const dealId=document.getElementById('desc_campana_'+a.id)?.value||'';
+    return iid?{...a,_descItemId:iid,_dealId:dealId}:null;
+  }).filter(Boolean);
+  if(!accts.length){toast('Seleccioná al menos una cuenta con item disponible','err');if(btn){btn.disabled=false;btn.textContent='✅ Aplicar descuento';}return;}
 
   const resEl=document.getElementById('repResultados');
   let totalOk=0,totalFail=0;
   let htmlAcum=`<div class="card" style="padding:14px;border-left:3px solid #00b894">
-    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:8px">🏷️ Descuento ${pct}% — Item: <b>${itemId}</b></div>`;
+    <div style="font-size:13px;font-weight:700;color:#00b894;margin-bottom:8px">🏷️ Descuento ${pct}% — ${accts.length} cuenta${accts.length>1?'s':''}</div>`;
 
   for(const acct of accts){
     if(btn)btn.textContent=`⏳ ${acct.nickname||acct.id}...`;
     try{
-      // ML API directa — CORS permite con token
-      const body={
-        discount_percent:pct,
-        start_date:desde+'T00:00:00.000-03:00',
-        finish_date:hasta+'T23:59:59.000-03:00',
-        promotion_type:'PRICE_DISCOUNT'
-      };
-      console.log('[DESC] POST /seller-promotions/items/'+itemId, JSON.stringify(body));
-      const r=await fetch(`https://api.mercadolibre.com/seller-promotions/items/${itemId}?app_version=v2`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+acct.token},
-        body:JSON.stringify(body)
-      });
+      const thisItemId=acct._descItemId;
+      const dealId=acct._dealId;
+      let url,method,body,modoLabel;
+
+      if(dealId){
+        // ── Agregar a campaña existente ──────────────────────────────────────
+        // PUT /seller-promotions/{deal_id}/items/{item_id}
+        url=`https://api.mercadolibre.com/seller-promotions/${dealId}/items/${thisItemId}?app_version=v2`;
+        method='PUT';
+        body={};// solo asociar el item a la campaña; las fechas/% las maneja la campaña
+        modoLabel='campaña existente';
+        console.log('[DESC] PUT /seller-promotions/'+dealId+'/items/'+thisItemId);
+      }else{
+        // ── Crear/modificar campaña standalone ──────────────────────────────
+        // GET para ver si ya tiene una activa → PUT para modificar, POST para crear
+        method='POST';
+        try{
+          const ck=await fetch(`https://api.mercadolibre.com/seller-promotions/items/${thisItemId}?app_version=v2`,{headers:{'Authorization':'Bearer '+acct.token}});
+          if(ck.ok){const cd=await ck.json();const ex=Array.isArray(cd)?cd:[cd];
+            if(ex.some(p=>(p.type==='PRICE_DISCOUNT'||p.promotion_type==='PRICE_DISCOUNT')&&(p.status==='active'||p.status==='started'||p.status==='candidate')))method='PUT';}
+        }catch(e2){}
+        url=`https://api.mercadolibre.com/seller-promotions/items/${thisItemId}?app_version=v2`;
+        body={discount_percent:pct,start_date:desde+'T00:00:00.000-03:00',finish_date:hasta+'T23:59:59.000-03:00',promotion_type:'PRICE_DISCOUNT'};
+        modoLabel=method==='PUT'?'modificar campaña existente':'nueva campaña';
+        console.log('[DESC] '+method+' standalone /seller-promotions/items/'+thisItemId);
+      }
+
+      const r=await fetch(url,{method,headers:{'Content-Type':'application/json','Authorization':'Bearer '+acct.token},body:JSON.stringify(body)});
       const rawText=await r.text();
       console.log('[DESC]['+acct.id+'] '+r.status+': '+rawText);
       let d;try{d=JSON.parse(rawText);}catch(e){d={error:rawText.substring(0,200)};}
@@ -7688,9 +7763,8 @@ window.repAplicarDescuento=async function(itemId,precioBase){
         totalOk++;
         const dealPrice=Math.round(precioBase*(1-pct/100));
         htmlAcum+=`<div style="margin-bottom:8px;padding:8px 10px;background:var(--s2);border-radius:6px">
-          <div style="font-size:12px;font-weight:700;color:var(--grn)">${acct.nickname||acct.id} ✅</div>
-          <div style="font-size:11px;color:var(--t3)">$${dealPrice.toLocaleString('es-AR')} (${pct}% off) · ${desde} → ${hasta}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:2px">Estado: ${d.status||'aplicado'}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--grn)">${acct.nickname||acct.id} ✅ <span style="font-weight:400;color:var(--t3)">(${modoLabel})</span></div>
+          <div style="font-size:11px;color:var(--t3)">$${dealPrice.toLocaleString('es-AR')} (${pct}% off)${dealId?'':' · '+desde+' → '+hasta}</div>
         </div>`;
       }else{
         totalFail++;
@@ -7800,6 +7874,12 @@ window.repPublicarTodas=async function(){
     // Guardar attrs_faltantes por cuenta en global
     window._repAttrsFaltantes={};
     resultados.forEach(r=>{if(r.attrs_faltantes&&r.attrs_faltantes.length) window._repAttrsFaltantes[r.cuenta]=r.attrs_faltantes;});
+    // Guardar item_ids publicados: mapa cuenta_id → {item_id, acct}
+    if(!window._repItemsPublicados) window._repItemsPublicados={};
+    resultados.filter(r=>r.ok&&r.id).forEach(r=>{
+      const acct=accounts.find(a=>a.id===r.cuenta||a.nickname===r.cuenta);
+      if(acct) window._repItemsPublicados[acct.id]={item_id:r.id,acct};
+    });
 
     // Armar formulario ÚNICO de atributos faltantes (unión de todas las cuentas con error)
     // El usuario completa UNA sola vez y se aplica a todas las cuentas que fallaron
@@ -7892,8 +7972,11 @@ window.repPublicarTodas=async function(){
         const acct=accounts.find(a=>a.id===r.cuenta||a.nickname===r.cuenta);
         if(!acct||!r.id) continue;
         try{
+          // Usar PUT si ya existe promo activa, POST si no (evitar duplicados)
+          let descMethod='POST';
+          try{const ck=await fetch(`https://api.mercadolibre.com/seller-promotions/items/${r.id}?app_version=v2`,{headers:{'Authorization':'Bearer '+acct.token}});if(ck.ok){const cd=await ck.json();const ex=Array.isArray(cd)?cd:[cd];if(ex.some(p=>(p.type==='PRICE_DISCOUNT'||p.promotion_type==='PRICE_DISCOUNT')&&(p.status==='active'||p.status==='started'||p.status==='candidate')))descMethod='PUT';}}catch(e2){}
           const dr=await fetch(`https://api.mercadolibre.com/seller-promotions/items/${r.id}?app_version=v2`,{
-            method:'POST',
+            method:descMethod,
             headers:{'Content-Type':'application/json','Authorization':'Bearer '+acct.token},
             body:JSON.stringify({discount_percent:pctOrigen,start_date:fmt(hoy)+'T00:00:00.000-03:00',finish_date:fmt(finMes)+'T23:59:59.000-03:00',promotion_type:'PRICE_DISCOUNT'})
           });
