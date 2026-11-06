@@ -7874,7 +7874,16 @@ window.limpiarAttrs=function limpiarAttrs(attrs){
     if(!a.value_id&&!a.value_name) return false;
     if(a.value_name&&(a.value_name==='-1'||a.value_name==='0')) return false;
     return true;
-  }).map(a=>({id:a.id,...(a.value_id?{value_id:a.value_id}:{}),...(a.value_name?{value_name:a.value_name}:{})}));
+  }).map(a=>{
+    // Para GTIN/EAN: limpiar el valor — ML es estricto con el formato
+    // Solo dígitos, largo válido (8, 12, 13 o 14 dígitos)
+    if(a.id==='GTIN'||a.id==='EAN'){
+      const raw=(a.value_name||a.value_id||'').toString().replace(/\D/g,'');
+      if(![8,12,13,14].includes(raw.length)) return null; // largo inválido, omitir
+      return {id:a.id,value_name:raw};
+    }
+    return {id:a.id,...(a.value_id?{value_id:a.value_id}:{}),...(a.value_name?{value_name:a.value_name}:{})};
+  }).filter(Boolean);
 };
 
 window.repPublicarTodas=async function(){
