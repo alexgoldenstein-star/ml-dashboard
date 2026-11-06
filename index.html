@@ -7042,20 +7042,32 @@ function repRenderForm(){
     const ov=_repCuotas[a.id]||{};
     const precio=ov.precio!=null?ov.precio:precioBaseActual;
     const nCuotas=ov.nCuotas||1;
+    // Tipo de publicación: leer override o inferir del item original
+    const ltOv=ov.listing_type_override||null;
+    const ltOrigen=_repItem.listing_type||'gold_special';
+    const lt=ltOv||ltOrigen;
+    // gold_special=Básica, gold_pro=Clásica, gold_premium=Premium
+    const ltLabel={'gold_special':'Básica','gold_pro':'Clásica','gold_premium':'Premium'};
     const sel=window._repCuentasSel.has(a.id);
     const esOrigen=cuentaOrigen&&(a.id===cuentaOrigen.id);
     const comML=0.14; const iibb=0.04;
     const neto=precio/1.21;
     const margenEst=precio>0?Math.round(((neto - neto*comML - neto*iibb)/neto)*100):null;
     const colMargen=margenEst==null?'var(--t3)':margenEst<15?'var(--red)':margenEst<25?'var(--org)':'var(--grn)';
+    const cuotasDisabled=lt==='gold_special';// básica no tiene cuotas s/int
     return `<tr id="rep_row_${a.id}" style="border-bottom:1px solid var(--s3);opacity:${sel?'1':'0.4'}">
       <td style="padding:8px 6px"><input type="checkbox" id="rep_sel_${a.id}" ${sel?'checked':''} onchange="repToggleCuenta('${a.id}')" style="cursor:pointer;width:15px;height:15px"></td>
       <td style="padding:8px 6px;font-weight:600;font-size:13px;color:var(--acc)">${a.nickname||a.id}${esOrigen?` <span style="font-size:9px;background:var(--org)33;color:var(--org);padding:1px 6px;border-radius:10px;margin-left:4px">origen</span>`:''}</td>
-      <td style="padding:8px 6px"><input class="inp" type="number" id="rep_precio_${a.id}" value="${precio}" style="width:130px;font-size:13px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
-      <td style="padding:8px 6px"><select class="inp" id="rep_ncuotas_${a.id}" style="width:100px;font-size:13px" onchange="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}>
+      <td style="padding:8px 6px"><input class="inp" type="number" id="rep_precio_${a.id}" value="${precio}" style="width:120px;font-size:13px" oninput="repUpdateCuota('${a.id}')" ${sel?'':'disabled'}></td>
+      <td style="padding:8px 6px"><select class="inp" id="rep_lt_${a.id}" style="width:95px;font-size:12px" onchange="repUpdateListingType('${a.id}')" ${sel?'':'disabled'}>
+        <option value="gold_special" ${lt==='gold_special'?'selected':''}>Básica</option>
+        <option value="gold_pro" ${lt==='gold_pro'?'selected':''}>Clásica</option>
+        <option value="gold_premium" ${lt==='gold_premium'?'selected':''}>Premium</option>
+      </select></td>
+      <td style="padding:8px 6px"><select class="inp" id="rep_ncuotas_${a.id}" style="width:95px;font-size:12px" onchange="repUpdateCuota('${a.id}')" ${(sel&&!cuotasDisabled)?'':'disabled'}>
         ${[1,3,6,9,12].map(x=>`<option value="${x}" ${x===nCuotas?'selected':''}>${x===1?'Sin cuotas':x+' cuotas'}</option>`).join('')}
       </select></td>
-      <td id="rep_monto_cuota_${a.id}" style="color:var(--t2);font-size:13px;padding:8px 6px;font-weight:500">${nCuotas>1?fmtARS(Math.ceil(precio/nCuotas))+'/c':'—'}</td>
+      <td id="rep_monto_cuota_${a.id}" style="color:var(--t2);font-size:13px;padding:8px 6px;font-weight:500">${(!cuotasDisabled&&nCuotas>1)?fmtARS(Math.ceil(precio/nCuotas))+'/c':'—'}</td>
       <td id="rep_margen_${a.id}" style="font-size:13px;padding:8px 6px;font-weight:600;color:${colMargen}">${margenEst!=null?margenEst+'%':'—'}</td>
     </tr>`;
   }).join('');
@@ -7171,16 +7183,23 @@ function repRenderForm(){
       <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">🏪 Publicar en cuentas</div>
       <span id="rep_sel_count" style="font-size:12px;color:var(--t3)">${window._repCuentasSel.size}/${accounts.length} seleccionadas</span>
     </div>
-    <!-- CUOTAS GLOBALES — ML soporta 1/3/6/9/12 cuotas sin interés (gold_pro) -->
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;background:var(--s2);border-radius:8px;margin-bottom:12px">
-      <span style="font-size:11px;color:var(--t3);font-weight:600;white-space:nowrap">Cuotas s/int para todas:</span>
+    <!-- TIPO PUBLICACIÓN + CUOTAS GLOBALES -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px;background:var(--s2);border-radius:8px;margin-bottom:12px;align-items:center">
+      <span style="font-size:11px;color:var(--t3);font-weight:600;white-space:nowrap">Tipo para todas:</span>
+      <div style="display:flex;gap:4px">
+        ${[['gold_special','Básica'],['gold_pro','Clásica'],['gold_premium','Premium']].map(([v,lbl])=>`<button onclick="repSetListingTypeGlobal('${v}')" id="rep_lt_g_${v}"
+          style="padding:4px 10px;border-radius:6px;border:1px solid var(--b2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;background:var(--s3);color:var(--t2)"
+          >${lbl}</button>`).join('')}
+      </div>
+      <span style="font-size:10px;color:var(--t3);margin:0 4px">|</span>
+      <span style="font-size:11px;color:var(--t3);font-weight:600;white-space:nowrap">Cuotas s/int:</span>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
         ${[1,3,6,9,12].map(n=>`<button onclick="repSetCuotasGlobal(${n})" id="rep_cuotas_g_${n}"
           style="padding:4px 10px;border-radius:6px;border:1px solid var(--b2);font-size:11px;font-weight:600;cursor:pointer;
           background:${n===1?'var(--acc)':'var(--s3)'};color:${n===1?'#fff':'var(--t2)'};font-family:inherit;transition:all .15s"
           >${n===1?'Sin cuotas':n+'c'}</button>`).join('')}
       </div>
-      <span style="font-size:10px;color:var(--t3);margin-left:4px">3/6/9/12c = gold_pro con tag de campaña ML</span>
+      <span style="font-size:10px;color:var(--t3)">Clásica/Premium = gold_pro/gold_premium</span>
     </div>
     <p style="font-size:11px;color:var(--t3);margin-bottom:10px">Margen estimado = precio neto s/IVA menos comisión ML (14%) e IIBB (4%).</p>
     <div style="overflow-x:auto">
@@ -7189,6 +7208,7 @@ function repRenderForm(){
           <th style="width:28px;padding:8px 6px"></th>
           <th style="text-align:left;padding:8px 6px">Cuenta</th>
           <th style="text-align:left;padding:8px 6px">Precio (ARS)</th>
+          <th style="text-align:left;padding:8px 6px">Tipo pub.</th>
           <th style="text-align:left;padding:8px 6px">Cuotas s/int</th>
           <th style="text-align:left;padding:8px 6px">$/cuota</th>
           <th style="text-align:left;padding:8px 6px">Margen est.</th>
@@ -7213,6 +7233,52 @@ function repRenderForm(){
   </div>`:''}
   `;
 }
+
+// Cambia listing_type de una cuenta y actualiza estado del select de cuotas
+window.repUpdateListingType=function(acctId){
+  const ltSel=document.getElementById('rep_lt_'+acctId);
+  const cuotasSel=document.getElementById('rep_ncuotas_'+acctId);
+  if(!ltSel) return;
+  const lt=ltSel.value;
+  if(!_repCuotas[acctId]) _repCuotas[acctId]={};
+  _repCuotas[acctId].listing_type_override=lt;
+  _repCuotas[acctId]._manual=true;
+  // Básica no soporta cuotas s/int
+  if(cuotasSel){
+    if(lt==='gold_special'){
+      cuotasSel.value='1';
+      cuotasSel.disabled=true;
+      _repCuotas[acctId].nCuotas=1;
+      _repCuotas[acctId].campaign_tag=null;
+    }else{
+      cuotasSel.disabled=false;
+      repUpdateCuota(acctId);
+    }
+  }
+  // Si es clásica/premium y cuotas > 1, el listing_type ya lo fijó el override — no pisar
+  if(lt!=='gold_special'){
+    const nCuotas=parseInt(cuotasSel?.value)||1;
+    const cfg=_cuotasMap[nCuotas]||{tag:null,listing_type:'gold_pro'};
+    _repCuotas[acctId].campaign_tag=cfg.tag;
+    // listing_type_override mantiene gold_pro o gold_premium según eligió el usuario
+  }
+};
+
+// Aplica listing_type a TODAS las cuentas seleccionadas
+window.repSetListingTypeGlobal=function(lt){
+  // Resaltar botón activo
+  ['gold_special','gold_pro','gold_premium'].forEach(v=>{
+    const btn=document.getElementById('rep_lt_g_'+v);
+    if(!btn) return;
+    if(v===lt){btn.style.background='var(--acc)';btn.style.color='#fff';}
+    else{btn.style.background='var(--s3)';btn.style.color='var(--t2)';}
+  });
+  const accounts=(S.accounts||[]).filter(a=>a.token);
+  accounts.forEach(a=>{
+    const sel=document.getElementById('rep_lt_'+a.id);
+    if(sel){sel.value=lt;repUpdateListingType(a.id);}
+  });
+};
 
 // Aplica cuotas globales a TODAS las cuentas seleccionadas
 window.repSetCuotasGlobal=function(n){
