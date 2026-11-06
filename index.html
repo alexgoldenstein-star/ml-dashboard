@@ -7984,7 +7984,9 @@ window.repPublicarTodas=async function(){
 
     // Armar formulario ÚNICO de atributos faltantes (unión de todas las cuentas con error)
     // El usuario completa UNA sola vez y se aplica a todas las cuentas que fallaron
+    console.log('[REP] resultados completos:', JSON.stringify(resultados.map(r=>({cuenta:r.cuenta,ok:r.ok,error:r.error,attrs_faltantes:r.attrs_faltantes}))));
     const cuentasConAttrsFaltantes=resultados.filter(r=>!r.ok&&r.attrs_faltantes&&r.attrs_faltantes.length);
+    console.log('[REP] cuentasConAttrsFaltantes:', cuentasConAttrsFaltantes.length, JSON.stringify(cuentasConAttrsFaltantes.map(r=>r.cuenta)));
     // Unión de atributos (por id, sin duplicados)
     const attrUnionMap=new Map();
     cuentasConAttrsFaltantes.forEach(r=>r.attrs_faltantes.forEach(a=>{if(!attrUnionMap.has(a.id)) attrUnionMap.set(a.id,a);}));
