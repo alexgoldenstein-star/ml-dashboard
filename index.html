@@ -7941,23 +7941,41 @@ window.repPublicarTodas=async function(){
       const d=await r.json();
       console.log('[REP]['+acct.id+']', r.status, JSON.stringify(d));
       if(d.ok) return {cuenta:acct.id||acct.nickname,ok:true,id:d.id,permalink:d.permalink};
-      // Extraer attrs_faltantes: el proxy los devuelve, o los extraemos del ml_raw si vienen como causes
+      // Extraer attrs_faltantes: el proxy los devuelve, o los extraemos de la respuesta
       let attrsFaltantesRaw=d.attrs_faltantes||[];
-      if(!attrsFaltantesRaw.length&&d.ml_raw){
-        // ML a veces los manda en causes como item.attribute.missing_conditional_required
-        const causes=d.ml_raw.cause||d.ml_raw.causes||[];
-        causes.forEach(c=>{
-          const msg=(c.message||c.description||'');
-          // "The attributes [GTIN] are required..."
-          const match=msg.match(/attributes?\s*\[([^\]]+)\]/gi);
-          if(match) match.forEach(m=>{
-            const id=m.replace(/attributes?\s*\[/i,'').replace(']','').trim();
-            if(id&&!attrsFaltantesRaw.find(a=>a.id===id))
-              attrsFaltantesRaw.push({id,name:id,values:[]});
-          });
-        });
-        // También puede venir en item.attributes.errors
-        const mlAttrsErr=(d.ml_raw.attributes||[]).filter(a=>a.status==='required'||a.status==='error');
+      if(!attrsFaltantesRaw.length){
+        // Buscar causes en la respuesta del proxy o en el ml_raw embebido
+        const mlRaw=d.ml_raw||d;
+        const causes=[...(mlRaw.cause||[]),...(mlRaw.causes||[]),...(d.causes||[])];
+        // Detectar error de atributo requerido o inválido
+        const esErrorAttr=causes.some(c=>
+          c.code==='item.attribute.missing_conditional_required'||
+          c.code==='item.attribute.required'||
+          c.code==='item.attribute.invalid'||
+          (c.message||'').toLowerCase().includes('required for category')||
+          (c.message||'').toLowerCase().includes('are required')||
+          (c.message||'').toLowerCase().includes('invalid format')
+        );
+        const fullCausesText=causes.map(c=>(c.message||'')+' '+(c.code||'')).join(' ');
+        const esErrorGtin=/\b(GTIN|EAN)\b/i.test(fullCausesText);
+        if(esErrorAttr||esErrorGtin){
+          // Extraer IDs de atributos del mensaje — ej: "The attributes [GTIN] are required for category [MLA1594]"
+          const fullMsg=causes.map(c=>c.message||'').join(' ');
+          // Capturar todo lo que esté entre [] que no sea una categoría ML
+          const bracketRe=/\[([A-Za-z][A-Za-z0-9_]*(?:,\s*[A-Za-z][A-Za-z0-9_]*)*)\]/g;
+          let bm;
+          while((bm=bracketRe.exec(fullMsg))!==null){
+            bm[1].split(',').map(s=>s.trim()).filter(Boolean).forEach(id=>{
+              if(id&&!/^MLA\d+$/i.test(id)&&!attrsFaltantesRaw.find(a=>a.id===id))
+                attrsFaltantesRaw.push({id,name:id==='GTIN'?'Código universal de producto (GTIN/EAN)':id,values:[]});
+            });
+          }
+          // Fallback: si menciona GTIN/EAN pero no lo capturó, agregar GTIN directamente
+          if(!attrsFaltantesRaw.length&&esErrorGtin)
+            attrsFaltantesRaw.push({id:'GTIN',name:'Código universal de producto (GTIN/EAN)',values:[]});
+        }
+        // También buscar en item.attributes con status error/required
+        const mlAttrsErr=(mlRaw.attributes||[]).filter(a=>a.status==='required'||a.status==='error');
         mlAttrsErr.forEach(a=>{
           if(a.id&&!attrsFaltantesRaw.find(x=>x.id===a.id))
             attrsFaltantesRaw.push({id:a.id,name:a.name||a.id,values:a.values||[]});
