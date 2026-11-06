@@ -7975,6 +7975,7 @@ window.repPublicarTodas=async function(){
     // Armar formulario ÚNICO de atributos faltantes (unión de todas las cuentas con error)
     // El usuario completa UNA sola vez y se aplica a todas las cuentas que fallaron
     console.log('[REP] resultados completos:', JSON.stringify(resultados.map(r=>({cuenta:r.cuenta,ok:r.ok,error:r.error,attrs_faltantes:r.attrs_faltantes}))));
+    window._repUltimosResultados=resultados; // guardar para fallback en reintentar
     const cuentasConAttrsFaltantes=resultados.filter(r=>!r.ok&&r.attrs_faltantes&&r.attrs_faltantes.length);
     console.log('[REP] cuentasConAttrsFaltantes:', cuentasConAttrsFaltantes.length, JSON.stringify(cuentasConAttrsFaltantes.map(r=>r.cuenta)));
     // Unión de atributos (por id, sin duplicados)
@@ -8023,11 +8024,27 @@ window.repPublicarTodas=async function(){
         <button class="btn" style="font-size:13px;background:#ff9800;color:#fff;padding:9px 22px;font-weight:600" onclick="repReintentarTodosConAtributos()">↻ Reintentar en ${cuentasConAttrsFaltantes.length} cuenta${cuentasConAttrsFaltantes.length>1?'s':''}</button>
       </div>`:'';
 
+    // Si hay GTIN en attrUnion, siempre mostrar el campo de texto simple (no select)
+    // porque renderAttrField puede no renderizar bien GTIN sin values[]
+    const hayGtinEnAttrUnion=attrUnion.some(a=>a.id==='GTIN'||a.id==='EAN');
+    const hayErrorGtin=resultados.some(r=>!r.ok&&(JSON.stringify(r.ml_raw||{}).includes('GTIN')||JSON.stringify(r.error||'').includes('GTIN')));
+    const mostrarBannerGtin=hayGtinEnAttrUnion||hayErrorGtin||(attrUnion.length===0&&cuentasConAttrsFaltantes.length>0);
+    const bannerFinal = mostrarBannerGtin ? `
+      <div id="rep_attrs_banner" style="background:#ff980022;border:2px solid #ff9800;border-radius:8px;padding:14px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;color:#ff9800;margin-bottom:6px">⚠️ Se requiere GTIN/EAN para publicar en esta categoría</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:12px">Completá para reintentar en <b>${cuentasConAttrsFaltantes.length} cuenta${cuentasConAttrsFaltantes.length>1?'s':''}</b> (${cuentasConAttrsFaltantes.map(r=>r.cuenta).join(', ')})</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <label style="font-size:12px;color:var(--t2);white-space:nowrap;font-weight:600">GTIN / EAN:</label>
+          <input class="inp" id="attr_shared_GTIN" data-attr-id="GTIN" placeholder="Ej: 7794000012345" style="font-size:13px;height:36px;flex:1;max-width:280px">
+        </div>
+        <button class="btn" style="font-size:13px;background:#ff9800;color:#fff;padding:9px 22px;font-weight:600" onclick="repReintentarTodosConAtributos()">↻ Reintentar con GTIN</button>
+      </div>` : attrsBannerHtml;
+
     resEl.style.display='block';
     resEl.innerHTML=`
     <div class="card" style="padding:14px">
       <div style="font-size:13px;font-weight:600;margin-bottom:10px">${ok===accounts.length?'✅':'⚠️'} ${ok}/${accounts.length} publicaciones exitosas</div>
-      ${attrsBannerHtml}
+      ${bannerFinal}
       <div style="display:flex;flex-direction:column;gap:6px">
         ${resultados.map(r=>`
         <div id="rep_row_${r.cuenta}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);background:${r.ok?'var(--grn)11':'var(--red)11'}">
@@ -8040,7 +8057,6 @@ window.repPublicarTodas=async function(){
           :`<div style="display:flex;flex-direction:column;gap:4px;flex:1">
             <span style="font-size:12px;color:var(--red)">${r.error||'Error desconocido'}</span>
             ${r.unauthorized?`<span style="font-size:11px;color:var(--org)">⚠️ Token sin permisos — reconectá la cuenta</span>`:''}
-            ${r.attrs_faltantes?.length?`<span style="font-size:11px;color:var(--org)">↑ Completá los atributos arriba y reintentá</span>`:''}
             <details style="margin-top:2px">
               <summary style="cursor:pointer;color:var(--t3);font-size:10px">Ver debug</summary>
               <div style="margin-top:4px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
@@ -8096,7 +8112,12 @@ window.repPublicarTodas=async function(){
 // Reintentar TODAS las cuentas con error usando los atributos del form compartido
 window.repReintentarTodosConAtributos=async function(){
   if(!_repItem) return;
-  const cuentas=window._repCuentasConAttrsFaltantes||[];
+  // Usar cuentas guardadas O todas las cuentas con error (por si _repCuentasConAttrsFaltantes está vacío)
+  let cuentas=window._repCuentasConAttrsFaltantes||[];
+  if(!cuentas.length){
+    // Fallback: usar todas las cuentas con error del último resultado
+    cuentas=(window._repUltimosResultados||[]).filter(r=>!r.ok).map(r=>r.cuenta);
+  }
   if(!cuentas.length){toast('No hay cuentas para reintentar','err');return;}
 
   // Leer atributos del form compartido (prefix='shared')
