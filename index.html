@@ -3236,7 +3236,11 @@ const RP = {
 };
 
 function rpInit(){
-  if(!S.accounts.length) return;
+  if(!S.accounts?.length){
+    const c = document.getElementById('rpanel_catalogo');
+    if(c) c.innerHTML = `<div style="padding:20px;color:var(--t3);font-size:12px;text-align:center">⚠️ No hay cuentas conectadas. Configurá tus cuentas ML en <b>Cuentas ML</b>.</div>`;
+    return;
+  }
 
   // Ordenar cuentas: GBS primero
   const accts = [...S.accounts].sort((a,b)=> a.id===RP_GBS_ID ? -1 : b.id===RP_GBS_ID ? 1 : 0);
@@ -3934,7 +3938,14 @@ window.rpAutoToggle = function(){
   toast(checked ? '⚡ Repricing automático activado (manual por ahora)' : 'Repricing automático desactivado','ok');
 };
 
-function renderRepricing(){ rpInit(); }
+function renderRepricing(){
+  try { rpInit(); }
+  catch(e){
+    console.error('renderRepricing error:', e);
+    const c = document.getElementById('rpanel_catalogo');
+    if(c) c.innerHTML = `<div style="padding:20px;color:var(--red);font-size:12px">Error al cargar Repricing: ${e.message}<br><pre style="font-size:10px;color:var(--t3)">${e.stack}</pre></div>`;
+  }
+}
 
 // ── FILTERS ───────────────────────────────────────────────────
 window.setAcct=(a,el)=>{S.acct=a;S.vPage=0;document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));el.classList.add("on");renderAll();};
