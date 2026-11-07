@@ -3265,11 +3265,11 @@ function rpInit(){
   }).catch(()=>{});
   // Auto-cargar TODAS las cuentas en paralelo al entrar
   const yaLoaded = S.accounts.every(a=>RP.datos[a.userId]?.loaded);
+  // Siempre renderizar para mostrar estado actual (aunque esté vacío)
+  rpRenderCatalogo();
+  rpRenderKPIs();
   if(!yaLoaded){
     setTimeout(()=>rpCargarTodas(), 300);
-  } else {
-    rpRenderCatalogo();
-    rpRenderKPIs();
   }
 }
 
