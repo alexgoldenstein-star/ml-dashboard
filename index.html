@@ -178,6 +178,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
 <div class="ni" data-p="stock"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="14" height="10" rx="1.5"/><path d="M4 4V3a2 2 0 0 1 4 0v1M8 4V3a2 2 0 0 1 4 0v1"/><path d="M5 9h2M9 9h2M5 12h6"/></svg> Stock</div>
 <div class="ni" data-p="mayorista"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h8M2 12h5"/><circle cx="12" cy="11" r="3"/><path d="M12 10v2l1 1"/></svg>Mayorista</div>
     <div class="ni" data-p="galpon"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="6" width="14" height="9" rx="1"/><path d="M1 6l7-5 7 5"/><path d="M6 15v-5h4v5"/></svg>El Galpón</div>
+    <div class="ni" data-p="repricing"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 10l3-7 3 5 2-3 3 5"/><circle cx="13" cy="4" r="1.5" fill="currentColor" stroke="none"/></svg>Repricing</div>
     <div class="ni" data-p="alertas" id="navAlertas" style="display:none"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l7 13H1L8 1z"/><path d="M8 6v4M8 11v1"/></svg><span style="color:var(--red)">A completar</span><span class="nbadge" id="alertaBadge">0</span></div>
     <div class="ns">Herramientas</div>
     <a href="https://alexgoldenstein-star.github.io/ml-dashboard/listas/" target="_blank" class="ni" style="text-decoration:none;color:inherit"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="14" height="12" rx="1.5"/><path d="M1 6h14M5 2v4M11 2v4M4 10h3M4 12.5h5"/></svg>Listas Proveedores <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.4;margin-left:2px"><path d="M6 3h7v7M13 3L4 12"/></svg></a>
@@ -2817,6 +2818,231 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
   </div>
 </div>
 
+    <!-- ══════════════════════════════════════════════════════
+         REPRICING & PROMOCIONES
+    ══════════════════════════════════════════════════════ -->
+    <div class="page" id="page-repricing">
+      <div style="max-width:1100px;margin:0 auto">
+
+        <!-- TABS -->
+        <div class="tabs" id="repricingTabs">
+          <div class="tab on" onclick="rpTab('catalogo',this)">📊 Catálogo & Margen</div>
+          <div class="tab" onclick="rpTab('repricing',this)">⚡ Repricing Auto</div>
+          <div class="tab" onclick="rpTab('promos',this)">🏷️ Promociones</div>
+          <div class="tab" onclick="rpTab('config',this)">⚙️ Config</div>
+        </div>
+
+        <!-- SELECTOR DE CUENTA -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div id="rpAcctTabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <button class="btn btn-sm" onclick="rpCargar()" id="rpBtnCargar" style="margin-left:auto">↺ Cargar datos</button>
+        </div>
+
+        <!-- ── TAB: CATÁLOGO & MARGEN ── -->
+        <div id="rpanel_catalogo">
+          <!-- KPIs -->
+          <div class="g4" id="rp_kpis" style="margin-bottom:12px"></div>
+
+          <!-- Filtro rápido -->
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+            <input class="inp" id="rp_search" placeholder="Buscar producto, SKU..." style="max-width:260px" oninput="rpFiltrar()">
+            <select class="inp" id="rp_filtro_estado" style="max-width:160px;width:auto" onchange="rpFiltrar()">
+              <option value="">Todos los estados</option>
+              <option value="winning">🥇 Ganando buybox</option>
+              <option value="losing">📉 Perdiendo</option>
+              <option value="sin_costo">⚠️ Sin costo</option>
+              <option value="margen_bajo">🔴 Margen bajo (&lt;10%)</option>
+            </select>
+            <select class="inp" id="rp_orden" style="max-width:180px;width:auto" onchange="rpFiltrar()">
+              <option value="margen_asc">Margen ↑ (críticos primero)</option>
+              <option value="margen_desc">Margen ↓ (mejores primero)</option>
+              <option value="precio_desc">Precio ↓</option>
+              <option value="nombre_asc">Nombre A→Z</option>
+            </select>
+            <span id="rp_total_lbl" style="font-size:11px;color:var(--t3);margin-left:4px"></span>
+          </div>
+
+          <!-- Tabla -->
+          <div id="rp_tabla_wrap" class="card" style="padding:0;overflow:hidden">
+            <div class="tbl-wrap">
+              <table class="tbl" id="rp_tabla">
+                <thead>
+                  <tr>
+                    <th style="padding:10px 8px 8px">Producto / SKU</th>
+                    <th>Precio</th>
+                    <th>Costo</th>
+                    <th>Comisión est.</th>
+                    <th>Margen neto</th>
+                    <th>Estado catálogo</th>
+                    <th>Buybox</th>
+                    <th>Mis cuentas</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="rp_tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB: REPRICING AUTO ── -->
+        <div id="rpanel_repricing" style="display:none">
+          <div class="card" style="margin-bottom:12px">
+            <div class="ch">
+              <span class="ct">⚡ Motor de Repricing Automático</span>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:11px;color:var(--t3)" id="rp_auto_last_run"></span>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+                  <input type="checkbox" id="rp_auto_enabled" onchange="rpAutoToggle()" style="width:14px;height:14px">
+                  Activar repricing automático
+                </label>
+              </div>
+            </div>
+            <p style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.6">
+              Analiza tus publicaciones de catálogo, compara con la competencia y propone o aplica ajustes de precio respetando siempre el <b>margen mínimo configurado</b>. Nunca bajará el precio por debajo de tu piso de rentabilidad.
+            </p>
+
+            <!-- Config del motor -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+              <div>
+                <label class="lbl">Margen mínimo (%)</label>
+                <input class="inp" type="number" id="rp_margen_min" value="10" min="0" max="80" step="1" placeholder="10">
+              </div>
+              <div>
+                <label class="lbl">Estrategia</label>
+                <select class="inp" id="rp_estrategia">
+                  <option value="ganar_buybox">Ganar buybox (igualar al ganador)</option>
+                  <option value="un_peso_menos">-$1 al ganador</option>
+                  <option value="pct_menos">-X% al ganador</option>
+                  <option value="precio_maximo">Mantener precio máximo posible</option>
+                </select>
+              </div>
+              <div>
+                <label class="lbl">% bajo el ganador (si aplica)</label>
+                <input class="inp" type="number" id="rp_pct_bajo" value="1" min="0" max="20" step="0.5" placeholder="1">
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" onclick="rpCalcular()" id="rpBtnCalc" style="background:rgba(232,255,71,.1);border-color:rgba(232,255,71,.4);color:var(--acc)">🔍 Calcular cambios propuestos</button>
+              <button class="btn" onclick="rpAplicarTodos()" id="rpBtnAplicar" style="display:none;background:rgba(71,232,127,.08);border-color:rgba(71,232,127,.3);color:var(--grn)">⚡ Aplicar todos</button>
+            </div>
+          </div>
+
+          <!-- Banner resumen anti-canibalismo -->
+          <div id="rp_summary_banner" style="display:none"></div>
+
+          <!-- Tabla de propuestas -->
+          <div id="rp_propuestas_wrap" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+              <div class="ct">Cambios propuestos</div>
+              <div style="font-size:11px;color:var(--t3)" id="rp_prop_lbl"></div>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden">
+              <div class="tbl-wrap">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th style="padding:10px 8px 8px">Producto</th>
+                      <th>Precio actual</th>
+                      <th>Precio ganador</th>
+                      <th>Precio propuesto</th>
+                      <th>Margen nuevo</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rp_prop_tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB: PROMOCIONES ── -->
+        <div id="rpanel_promos" style="display:none">
+          <div class="card" style="margin-bottom:12px">
+            <div class="ch">
+              <span class="ct">🏷️ Gestión de Precios Promocionales</span>
+            </div>
+            <p style="font-size:11px;color:var(--t3);margin-bottom:14px;line-height:1.6">
+              Activá y desactivá precios de campaña para tus publicaciones. Solo se activan descuentos donde el margen neto lo permite.
+            </p>
+
+            <!-- Config rentabilidad mínima para promos -->
+            <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap">
+              <div>
+                <label class="lbl">Margen mínimo para activar promo (%)</label>
+                <input class="inp" type="number" id="rp_promo_margen_min" value="8" min="0" max="50" step="1" style="width:100px">
+              </div>
+              <div>
+                <label class="lbl">Descuento máximo a aplicar (%)</label>
+                <input class="inp" type="number" id="rp_promo_desc_max" value="15" min="1" max="50" step="1" style="width:100px">
+              </div>
+              <button class="btn btn-sm" onclick="rpPromoAnalizar()" style="margin-bottom:1px">🔍 Analizar publicaciones</button>
+            </div>
+          </div>
+
+          <div id="rp_promos_resultado" style="display:none">
+            <div class="g4" id="rp_promos_kpis" style="margin-bottom:12px"></div>
+            <div class="card" style="padding:0;overflow:hidden">
+              <div class="tbl-wrap">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th style="padding:10px 8px 8px">Producto</th>
+                      <th>Precio actual</th>
+                      <th>Precio promo</th>
+                      <th>Margen promo</th>
+                      <th>Estado</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rp_promos_tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB: CONFIG ── -->
+        <div id="rpanel_config" style="display:none">
+          <div class="card" style="margin-bottom:12px">
+            <div class="ch"><span class="ct">⚙️ Configuración del módulo</span></div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+              <div>
+                <label class="lbl">Comisión estimada ML (%)</label>
+                <input class="inp" type="number" id="rp_cfg_comision" value="14" min="0" max="30" step="0.5">
+                <div style="font-size:10px;color:var(--t3);margin-top:3px">Usada para calcular margen cuando no hay dato exacto de la orden</div>
+              </div>
+              <div>
+                <label class="lbl">IIBB estimado (%)</label>
+                <input class="inp" type="number" id="rp_cfg_iibb" value="4" min="0" max="10" step="0.5">
+              </div>
+              <div>
+                <label class="lbl">IVA estimado (%)</label>
+                <input class="inp" type="number" id="rp_cfg_iva" value="2.5" min="0" max="21" step="0.5">
+              </div>
+              <div>
+                <label class="lbl">Publicidad estimada (%)</label>
+                <input class="inp" type="number" id="rp_cfg_pub" value="5" min="0" max="20" step="0.5">
+              </div>
+            </div>
+            <div style="margin-top:14px;display:flex;gap:8px">
+              <button class="btn" onclick="rpGuardarCfg()" style="background:rgba(232,255,71,.08);border-color:rgba(232,255,71,.3);color:var(--acc)">💾 Guardar configuración</button>
+              <button class="btn btn-sm" onclick="rpSyncDesdeGlobal()">↺ Sincronizar desde Config global</button>
+            </div>
+          </div>
+
+          <!-- Historial de cambios -->
+          <div class="card">
+            <div class="ch"><span class="ct">📋 Historial de cambios de precio</span></div>
+            <div id="rp_historial_lista" style="font-size:11px;color:var(--t3)">Sin cambios registrados aún.</div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /page-repricing -->
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -2977,7 +3203,7 @@ function setupNav(){
     el.addEventListener("click",()=>{goPage(el.dataset.p);closeMob();});
   });
 }
-const TITLES={overview:"Overview",ventas:"Ventas",rent:"Rentabilidad",envios:"Análisis de Envíos",productos:"Productos & Costos",zonas:"Zonas Flex",mercado:"Est. Mercado",ctrl_prod:"Control de Productos",alertas:"A completar",cuentas:"Cuentas ML",gettoken:"Get Token",config:"Configuración",portafolio:"Portafolio de Productos",galpon:"El Galpón"};
+const TITLES={overview:"Overview",ventas:"Ventas",rent:"Rentabilidad",envios:"Análisis de Envíos",productos:"Productos & Costos",zonas:"Zonas Flex",mercado:"Est. Mercado",ctrl_prod:"Control de Productos",alertas:"A completar",cuentas:"Cuentas ML",gettoken:"Get Token",config:"Configuración",portafolio:"Portafolio de Productos",galpon:"El Galpón",repricing:"Repricing & Promociones"};
 const NO_FILTER=["config","gettoken","alertas","cuentas","galpon"];
 
 window.goPage=p=>{
@@ -2991,10 +3217,724 @@ window.goPage=p=>{
   renderPage(p);
 };
 function renderPage(p){
-  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,oportunidades:renderOportunidades,stock:renderStock,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,catalogo:renderCatalogo,fulljaus:renderFulljaus,control:renderControl,galpon:renderGalpon};
+  const map={overview:renderOverview,ventas:renderVentas,rent:renderRent,envios:renderEnvios,productos:renderProds,zonas:renderZonas,mercado:renderMercado,plataforma:renderPlataforma,ctrl_prod:renderCtrlProd,alertas:renderAlertasPage,cuentas:renderCuentas,config:loadCfgUI,calc:renderCalc,container:renderContainer,importacion:renderImportacion,oportunidades:renderOportunidades,stock:renderStock,mayorista:renderMayorista,adsagente:renderAdsAgente,portafolio:renderPortafolio,inteligencia:renderInteligencia,historial:renderHistorial,rubros:renderRubros,catalogo:renderCatalogo,fulljaus:renderFulljaus,control:renderControl,galpon:renderGalpon,repricing:renderRepricing};
   if(map[p])map[p]();
 }
 function renderAll(){renderPage(S.page);}
+
+// ── REPRICING ─────────────────────────────────────────────────
+// GBS es la cuenta principal — siempre carga primero y tiene prioridad en repricing
+const RP_GBS_ID = 'GBS';
+
+// Estado del módulo
+const RP = {
+  acctIdx: 0,
+  datos: {},        // { userId: { items:[], loaded:false } }
+  propuestas: [],   // cambios calculados (incluye bloqueados por canibalismo)
+  historial: [],    // cambios aplicados guardados en Firebase
+  cfg: { comision:14, iibb:4, iva:2.5, pub:5, margen_min:10, promo_margen_min:8, promo_desc_max:15, estrategia:'ganar_buybox', pct_bajo:1 }
+};
+
+function rpInit(){
+  if(!S.accounts.length) return;
+
+  // Ordenar cuentas: GBS primero
+  const accts = [...S.accounts].sort((a,b)=> a.id===RP_GBS_ID ? -1 : b.id===RP_GBS_ID ? 1 : 0);
+  // Ajustar acctIdx al índice en S.accounts (el orden original para tokens)
+  RP.acctIdx = S.accounts.findIndex(a=>a.id===RP_GBS_ID);
+  if(RP.acctIdx<0) RP.acctIdx=0;
+
+  // Render tabs de cuenta (GBS primero, resaltado)
+  const wrap = document.getElementById('rpAcctTabs');
+  if(wrap) wrap.innerHTML = S.accounts.map((a,i)=>`
+    <div class="tab ${a.id===RP_GBS_ID?'on':''}" onclick="rpSelectAcct(${i},this)" style="cursor:pointer${a.id===RP_GBS_ID?';font-weight:700':''}">${a.nickname||a.id}${a.id===RP_GBS_ID?' ⭐':''}</div>
+  `).join('');
+
+  // Cargar config guardada de Firebase
+  fb.get('repricing_cfg').then(cfg=>{
+    if(cfg) Object.assign(RP.cfg, cfg);
+    if(S.cfg.com) RP.cfg.comision = S.cfg.com;
+    if(S.cfg.iibb) RP.cfg.iibb = S.cfg.iibb;
+    if(S.cfg.pub) RP.cfg.pub = S.cfg.pub;
+    rpLoadCfgUI();
+  }).catch(()=>{});
+  // Cargar historial
+  fb.get('repricing_historial').then(h=>{
+    if(h?.lista) RP.historial = h.lista;
+    rpRenderHistorial();
+  }).catch(()=>{});
+  // Auto-cargar TODAS las cuentas en paralelo al entrar
+  const yaLoaded = S.accounts.every(a=>RP.datos[a.userId]?.loaded);
+  if(!yaLoaded){
+    setTimeout(()=>rpCargarTodas(), 300);
+  } else {
+    rpRenderCatalogo();
+    rpRenderKPIs();
+  }
+}
+
+window.rpSelectAcct = function(idx, el){
+  RP.acctIdx = idx;
+  document.querySelectorAll('#rpAcctTabs .tab').forEach(t=>t.classList.remove('on'));
+  el?.classList.add('on');
+  rpRenderCatalogo();
+  rpRenderKPIs();
+};
+
+window.rpTab = function(panel, el){
+  ['catalogo','repricing','promos','config'].forEach(p=>{
+    const el2=document.getElementById('rpanel_'+p);
+    if(el2) el2.style.display = p===panel ? '' : 'none';
+  });
+  document.querySelectorAll('#repricingTabs .tab').forEach(t=>t.classList.remove('on'));
+  el?.classList.add('on');
+  if(panel==='config') rpLoadCfgUI();
+  if(panel==='catalogo') rpRenderCatalogo();
+};
+
+// Cargar UNA cuenta específica
+async function rpCargarUna(acct){
+  if(!acct?.token) return null;
+  const uid = acct.userId;
+  try{
+    const r = await fetch(PROXY+'/catalogos/items?seller_id='+uid,{headers:{'x-ml-token':acct.token}});
+    const d = await r.json();
+    const items = (d.items||[]).map(it=>{
+      const sku = it.sku || it.seller_sku;
+      const prod = sku ? S.products.find(p=>p.sku===sku) : null;
+      const costo = prod?.ars || 0;
+      const margen = costo>0 ? rpCalcMargen(it.precio||0, costo) : null;
+      const margen_ganador = (it.precio_para_ganar||it.precio_ganador) && costo>0
+        ? rpCalcMargen(it.precio_para_ganar||it.precio_ganador, costo) : null;
+      return { ...it, _costo:costo, _prod:prod, _margen:margen, _margen_ganador:margen_ganador, _acct_id:acct.id };
+    });
+    RP.datos[uid] = { items, loaded:true, ts:Date.now(), acct_id:acct.id };
+    return items.length;
+  }catch(e){ return null; }
+}
+
+// Cargar TODAS las cuentas en paralelo (con GBS primero para feedback rápido)
+window.rpCargarTodas = async function(){
+  if(!S.accounts.length){ toast('Sin cuentas configuradas','err'); return; }
+  const btn = document.getElementById('rpBtnCargar');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Cargando todas...'; }
+
+  // GBS primero (para que el usuario vea datos rápido)
+  const gbsAcct = S.accounts.find(a=>a.id===RP_GBS_ID);
+  const resto = S.accounts.filter(a=>a.id!==RP_GBS_ID);
+
+  let total = 0;
+  if(gbsAcct){
+    const n = await rpCargarUna(gbsAcct);
+    if(n!==null){ total+=n; rpRenderCatalogo(); rpRenderKPIs(); }
+  }
+  // El resto en paralelo
+  const resultados = await Promise.allSettled(resto.map(a=>rpCargarUna(a)));
+  resultados.forEach(r=>{ if(r.status==='fulfilled'&&r.value!==null) total+=r.value; });
+
+  rpRenderCatalogo();
+  rpRenderKPIs();
+  const cuentasOk = S.accounts.filter(a=>RP.datos[a.userId]?.loaded).length;
+  toast(`✅ ${total} publicaciones · ${cuentasOk}/${S.accounts.length} cuentas`, 'ok');
+  if(btn){ btn.disabled=false; btn.textContent='↺ Actualizar'; }
+};
+
+// Cargar = cargar todas
+window.rpCargar = window.rpCargarTodas;
+
+// Mapa global catalog_product_id → [accts ganando] para anti-canibalismo
+function rpBuildWinMap(){
+  // { catalog_product_id: [ { acct_id, item_id, precio } ] }
+  const map = {};
+  S.accounts.forEach(a=>{
+    const data = RP.datos[a.userId];
+    if(!data?.items) return;
+    data.items.forEach(it=>{
+      const cpid = it.catalog_product_id||it.id;
+      if(!map[cpid]) map[cpid]=[];
+      if(it.estado_catalogo==='winning'){
+        map[cpid].push({ acct_id:a.id, nickname:a.nickname||a.id, item_id:it.id, precio:it.precio });
+      }
+    });
+  });
+  return map;
+}
+
+// Calcula margen neto estimado
+function rpCalcMargen(precio, costo){
+  if(!precio||!costo) return null;
+  const com = RP.cfg.comision/100;
+  const iibb = RP.cfg.iibb/100;
+  const iva = RP.cfg.iva/100;
+  const pub = RP.cfg.pub/100;
+  const neto = precio - costo - (precio*com) - (precio*iibb) - (precio*iva) - (precio*pub);
+  return Math.round(neto/precio*100);
+}
+
+// Precio mínimo para respetar margen mínimo
+function rpPrecioMinimo(costo){
+  const com = RP.cfg.comision/100;
+  const iibb = RP.cfg.iibb/100;
+  const iva = RP.cfg.iva/100;
+  const pub = RP.cfg.pub/100;
+  const margenMin = (RP.cfg.margen_min||10)/100;
+  // precio*(1 - com - iibb - iva - pub - margenMin) = costo
+  const factor = 1 - com - iibb - iva - pub - margenMin;
+  if(factor<=0) return costo*3;
+  return Math.ceil(costo/factor);
+}
+
+function rpGetItems(){
+  const acct = S.accounts[RP.acctIdx];
+  if(!acct) return [];
+  return RP.datos[acct.userId]?.items || [];
+}
+
+// Nombre corto de cuenta para mostrar en UI
+function rpNickAcct(id){ return S.accounts.find(a=>a.id===id)?.nickname||id; }
+
+window.rpMostrarBloqueados = function(tipo){
+  const s = RP._stats;
+  if(!s) return;
+  const items = tipo==='canibalismo' ? s.bloqueadosCanibalismo : s.bloqueadosMargen;
+  if(!items?.length) return;
+  const titulo = tipo==='canibalismo'
+    ? `🤝 ${items.length} publicaciones — Ya ganás con otra cuenta`
+    : `🔒 ${items.length} publicaciones — Sin margen suficiente`;
+  const rows = items.map(it=>{
+    const info = tipo==='canibalismo'
+      ? `<span style="color:var(--blu)">Gana: <b>${esc(it._bloqueado_por)}</b></span>`
+      : `<span style="color:var(--org)">Precio mín: <b>${fF(it._precio_min||0)}</b></span>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b1);font-size:11px">
+      <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;color:var(--t1)">${esc(it.titulo||it.id)}</div>
+      ${info}
+    </div>`;
+  }).join('');
+  const modal = document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML=`<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:20px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:600;color:var(--t1)">${titulo}</div>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:var(--t3);font-size:18px;cursor:pointer;padding:0 4px">×</button>
+    </div>
+    ${rows}
+  </div>`;
+  modal.addEventListener('click',e=>{ if(e.target===modal) modal.remove(); });
+  document.body.appendChild(modal);
+};
+
+function rpRenderKPIs(){
+  const items = rpGetItems();
+  const el = document.getElementById('rp_kpis');
+  if(!el) return;
+  if(!items.length){ el.innerHTML=''; return; }
+  const conCosto = items.filter(it=>it._costo>0);
+  const ganando = items.filter(it=>it.estado_catalogo==='winning');
+  const perdiendo = items.filter(it=>it.estado_catalogo==='losing');
+  const margenBajo = conCosto.filter(it=>it._margen!==null&&it._margen<10);
+  const margenNeg = conCosto.filter(it=>it._margen!==null&&it._margen<0);
+  const avgMargen = conCosto.length
+    ? Math.round(conCosto.filter(it=>it._margen!==null).reduce((s,it)=>s+it._margen,0) / conCosto.filter(it=>it._margen!==null).length)
+    : null;
+
+  el.innerHTML = `
+    <div class="kpi grn"><div class="kl">Ganando Buybox</div><div class="kv">${ganando.length}</div><div class="ks">de ${items.length} pubs</div></div>
+    <div class="kpi red"><div class="kl">Perdiendo</div><div class="kv">${perdiendo.length}</div><div class="ks">${perdiendo.length?'acción disponible':''}</div></div>
+    <div class="kpi ${avgMargen!==null&&avgMargen>=10?'grn':avgMargen!==null&&avgMargen>=0?'org':'red'}">
+      <div class="kl">Margen promedio</div>
+      <div class="kv">${avgMargen!==null?avgMargen+'%':'—'}</div>
+      <div class="ks">${conCosto.length} con costo cargado</div>
+    </div>
+    <div class="kpi red"><div class="kl">Margen bajo / neg.</div><div class="kv">${margenBajo.length}</div><div class="ks">${margenNeg.length} en negativo</div></div>
+  `;
+}
+
+function rpRenderCatalogo(){
+  const tbody = document.getElementById('rp_tbody');
+  if(!tbody) return;
+  let items = rpGetItems();
+  if(!items.length){
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--t3)">Presioná "Cargar datos" para ver las publicaciones de catálogo</td></tr>`;
+    return;
+  }
+
+  const winMap = rpBuildWinMap();
+  const acctActual = S.accounts[RP.acctIdx];
+
+  // Filtros
+  const q = document.getElementById('rp_search')?.value?.toLowerCase()||'';
+  const filtroEstado = document.getElementById('rp_filtro_estado')?.value||'';
+  const orden = document.getElementById('rp_orden')?.value||'margen_asc';
+
+  let filtered = items.filter(it=>{
+    if(q && !(it.titulo||'').toLowerCase().includes(q) && !(it.sku||'').toLowerCase().includes(q)) return false;
+    if(filtroEstado==='winning' && it.estado_catalogo!=='winning') return false;
+    if(filtroEstado==='losing' && it.estado_catalogo!=='losing') return false;
+    if(filtroEstado==='sin_costo' && it._costo>0) return false;
+    if(filtroEstado==='margen_bajo' && (it._margen===null||it._margen>=10)) return false;
+    return true;
+  });
+
+  filtered.sort((a,b)=>{
+    if(orden==='margen_asc') return (a._margen??999)-(b._margen??999);
+    if(orden==='margen_desc') return (b._margen??-999)-(a._margen??-999);
+    if(orden==='precio_desc') return (b.precio||0)-(a.precio||0);
+    if(orden==='nombre_asc') return (a.titulo||'').localeCompare(b.titulo||'');
+    return 0;
+  });
+
+  const lbl = document.getElementById('rp_total_lbl');
+  if(lbl) lbl.textContent = `${filtered.length} publicaciones`;
+
+  const rows = filtered.map(it=>{
+    const margenColor = it._margen===null?'var(--t3)':it._margen<0?'var(--red)':it._margen<10?'var(--org)':'var(--grn)';
+    const estadoBadge = it.estado_catalogo==='winning'
+      ? `<span style="font-size:9px;background:rgba(71,232,127,.12);color:var(--grn);padding:2px 7px;border-radius:10px">🥇 Ganando</span>`
+      : it.estado_catalogo==='losing'
+        ? `<span style="font-size:9px;background:rgba(255,77,77,.1);color:var(--red);padding:2px 7px;border-radius:10px">📉 Perdiendo</span>`
+        : `<span style="font-size:9px;background:rgba(255,255,255,.04);color:var(--t3);padding:2px 7px;border-radius:10px">⚪ Sin datos</span>`;
+    const precioGanador = it.precio_para_ganar||it.precio_ganador;
+    const puedeGanar = precioGanador && it._costo>0 && rpCalcMargen(precioGanador, it._costo)>=RP.cfg.margen_min;
+    const comEst = Math.round((it.precio||0)*RP.cfg.comision/100);
+
+    // Anti-canibalismo: ¿otra cuenta mía ya gana este catálogo?
+    const cpid = it.catalog_product_id||it.id;
+    const otrasCuentasGanando = (winMap[cpid]||[]).filter(w=>w.acct_id!==acctActual?.id);
+    const yaGanaOtra = otrasCuentasGanando.length > 0;
+    const cuentaGanadora = yaGanaOtra ? otrasCuentasGanando.find(w=>w.acct_id===RP_GBS_ID) || otrasCuentasGanando[0] : null;
+
+    const colCani = yaGanaOtra
+      ? `<span style="font-size:9px;background:rgba(77,163,255,.1);color:var(--blu);padding:2px 7px;border-radius:10px" title="Ya ganás con otra cuenta">🤝 ${esc(cuentaGanadora.nickname)}</span>`
+      : it.estado_catalogo==='winning'
+        ? `<span style="font-size:9px;color:var(--grn)">Esta cuenta ✓</span>`
+        : `<span style="font-size:9px;color:var(--t3)">—</span>`;
+
+    return `<tr>
+      <td style="max-width:200px">
+        <div style="font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px" title="${esc(it.titulo)}">${esc(it.titulo||'—')}</div>
+        ${it.sku?`<span class="sku">${esc(it.sku)}</span>`:''}
+      </td>
+      <td class="mono" style="font-weight:600">${fF(it.precio||0)}</td>
+      <td class="mono ${it._costo?'':'r'}">${it._costo?fF(it._costo):'<span style="color:var(--red);font-size:10px">Sin costo</span>'}</td>
+      <td class="mono m">${fF(comEst)}</td>
+      <td style="font-weight:700;color:${margenColor}">${it._margen!==null?it._margen+'%':'—'}</td>
+      <td>${estadoBadge}</td>
+      <td style="font-size:10px">
+        ${precioGanador?`<span style="color:var(--acc)">${fS(Math.round(precioGanador))}</span>`:'<span style="color:var(--t3)">—</span>'}
+        ${it._margen_ganador!==null?`<div style="font-size:9px;color:${it._margen_ganador<0?'var(--red)':it._margen_ganador<10?'var(--org)':'var(--grn)'};">${it._margen_ganador}% mg</div>`:''}
+      </td>
+      <td>${colCani}</td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          ${yaGanaOtra
+            ? `<span style="font-size:9px;color:var(--blu);padding:3px 6px">Ya ganás ✓</span>`
+            : puedeGanar
+              ? `<button onclick="rpBajarPrecio1('${it.id}',${precioGanador},'${esc(it.titulo)}')" style="padding:3px 9px;border:1px solid rgba(232,255,71,.4);background:rgba(232,255,71,.07);color:var(--acc);border-radius:5px;font-size:10px;cursor:pointer;font-family:inherit">⚡ Igualar</button>`
+              : ''}
+          <a href="https://articulo.mercadolibre.com.ar/${it.id}" target="_blank" style="padding:3px 9px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);border-radius:5px;font-size:10px;text-decoration:none">Ver →</a>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  tbody.innerHTML = rows || `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--t3)">Sin resultados</td></tr>`;
+}
+
+window.rpFiltrar = function(){ rpRenderCatalogo(); };
+
+window.rpBajarPrecio1 = async function(itemId, nuevoPrecio, titulo){
+  const acct = S.accounts[RP.acctIdx];
+  if(!acct?.token){ toast('Sin token','err'); return; }
+  if(!confirm(`¿Ajustar precio de "${titulo}" a ${fS(Math.round(nuevoPrecio))}?`)) return;
+  try{
+    const r = await fetch(`${PROXY}/promociones/precio`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+      body:JSON.stringify({item_id:itemId,price:Math.round(nuevoPrecio)})
+    });
+    const d = await r.json();
+    if(d.ok||d.id||d.price){
+      toast('✅ Precio actualizado','ok');
+      rpRegistrarCambio(itemId, titulo, 0, nuevoPrecio, 'manual_igualar');
+      await rpCargar();
+    } else {
+      toast('Error: '+(d.error||d.message||'sin respuesta'),'err');
+    }
+  }catch(e){ toast('Error: '+e.message,'err'); }
+};
+
+window.rpCalcular = function(){
+  const items = rpGetItems();
+  if(!items.length){ toast('Cargá datos primero','err'); return; }
+
+  const margenMin = parseInt(document.getElementById('rp_margen_min')?.value)||10;
+  const estrategia = document.getElementById('rp_estrategia')?.value||'ganar_buybox';
+  const pctBajo = parseFloat(document.getElementById('rp_pct_bajo')?.value)||1;
+  RP.cfg.margen_min = margenMin;
+  RP.cfg.estrategia = estrategia;
+  RP.cfg.pct_bajo = pctBajo;
+
+  RP.propuestas = [];
+  const bloqueadosCanibalismo = [];
+  const bloqueadosMargen = [];
+  const yaGanando = [];
+
+  const winMap = rpBuildWinMap();
+  const acctActual = S.accounts[RP.acctIdx];
+
+  items.forEach(it=>{
+    // Ya ganamos con esta cuenta
+    if(it.estado_catalogo==='winning'){
+      yaGanando.push(it);
+      return;
+    }
+
+    if(it.estado_catalogo!=='losing') return; // sin datos suficientes
+    if(!it._costo || it._costo<=0) return; // sin costo no podemos proteger margen
+    const precioGanador = it.precio_para_ganar||it.precio_ganador;
+    if(!precioGanador) return;
+
+    // Anti-canibalismo: ¿otra cuenta mía ya gana este catálogo?
+    const cpid = it.catalog_product_id||it.id;
+    const otrasCuentasGanando = (winMap[cpid]||[]).filter(w=>w.acct_id!==acctActual?.id);
+    if(otrasCuentasGanando.length > 0){
+      // GBS tiene prioridad: si es la que ya gana, respetar; si es otra, también respetar
+      const cuentaGanadora = otrasCuentasGanando.find(w=>w.acct_id===RP_GBS_ID) || otrasCuentasGanando[0];
+      bloqueadosCanibalismo.push({ ...it, _bloqueado_por: cuentaGanadora.nickname, _bloqueado_por_id: cuentaGanadora.acct_id });
+      return;
+    }
+
+    let precioNuevo;
+    if(estrategia==='ganar_buybox') precioNuevo = precioGanador;
+    else if(estrategia==='un_peso_menos') precioNuevo = precioGanador - 1;
+    else if(estrategia==='pct_menos') precioNuevo = precioGanador * (1 - pctBajo/100);
+    else precioNuevo = precioGanador;
+
+    const precioMin = rpPrecioMinimo(it._costo);
+    if(precioNuevo < precioMin){
+      bloqueadosMargen.push({ ...it, _precio_min: Math.ceil(precioMin) });
+      return;
+    }
+
+    if(Math.round(precioNuevo) === Math.round(it.precio)) return;
+
+    const margenNuevo = rpCalcMargen(precioNuevo, it._costo);
+    if(margenNuevo < 0){
+      bloqueadosMargen.push({ ...it, _precio_min: Math.ceil(precioMin) });
+      return;
+    }
+
+    RP.propuestas.push({
+      id: it.id,
+      titulo: it.titulo,
+      sku: it.sku,
+      precioActual: it.precio,
+      precioGanador,
+      precioNuevo: Math.round(precioNuevo),
+      margenActual: it._margen,
+      margenNuevo,
+      _item: it
+    });
+  });
+
+  // Guardar stats para el banner
+  RP._stats = {
+    yaGanando: yaGanando.length,
+    canibalismo: bloqueadosCanibalismo.length,
+    sinMargen: bloqueadosMargen.length,
+    propuestas: RP.propuestas.length,
+    bloqueadosCanibalismo,
+    bloqueadosMargen
+  };
+
+  rpRenderPropuestas();
+};
+
+function rpRenderPropuestas(){
+  const wrap = document.getElementById('rp_propuestas_wrap');
+  const tbody = document.getElementById('rp_prop_tbody');
+  const lbl = document.getElementById('rp_prop_lbl');
+  const btnAplicar = document.getElementById('rpBtnAplicar');
+  if(!wrap||!tbody) return;
+
+  // Banner de resumen anti-canibalismo
+  const bannerEl = document.getElementById('rp_summary_banner');
+  if(bannerEl && RP._stats){
+    const s = RP._stats;
+    bannerEl.style.display = '';
+    bannerEl.innerHTML = `
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;margin-bottom:12px;font-size:11px">
+        ${s.yaGanando?`<span style="color:var(--grn)">🥇 <b>${s.yaGanando}</b> ya ganando</span>`:''}
+        ${s.canibalismo?`<span style="color:var(--blu);cursor:pointer" onclick="rpMostrarBloqueados('canibalismo')" title="Click para ver detalle">🤝 <b>${s.canibalismo}</b> bloqueados — ya ganás con otra cuenta</span>`:''}
+        ${s.sinMargen?`<span style="color:var(--org);cursor:pointer" onclick="rpMostrarBloqueados('margen')" title="Click para ver detalle">🔒 <b>${s.sinMargen}</b> sin margen suficiente</span>`:''}
+        <span style="color:var(--acc);font-weight:700;margin-left:auto">⚡ <b>${s.propuestas}</b> cambios posibles</span>
+      </div>`;
+  }
+
+  if(!RP.propuestas.length){
+    wrap.style.display='';
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">Sin cambios recomendados — revisá los bloqueados arriba</td></tr>`;
+    if(lbl) lbl.textContent = '0 cambios';
+    if(btnAplicar) btnAplicar.style.display='none';
+    return;
+  }
+
+  wrap.style.display='';
+  if(lbl) lbl.textContent = `${RP.propuestas.length} cambios propuestos`;
+  if(btnAplicar) btnAplicar.style.display='';
+
+  tbody.innerHTML = RP.propuestas.map((p,i)=>{
+    const diff = Math.round(p.precioNuevo - p.precioActual);
+    const diffPct = Math.round((p.precioNuevo-p.precioActual)/p.precioActual*100);
+    const margenColor = p.margenNuevo<0?'var(--red)':p.margenNuevo<10?'var(--org)':'var(--grn)';
+    return `<tr id="rp_prop_row_${i}">
+      <td style="max-width:200px">
+        <div style="font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px" title="${esc(p.titulo)}">${esc(p.titulo||'—')}</div>
+        ${p.sku?`<span class="sku">${esc(p.sku)}</span>`:''}
+      </td>
+      <td class="mono">${fF(p.precioActual)}</td>
+      <td class="mono" style="color:var(--acc)">${fF(p.precioGanador)}</td>
+      <td>
+        <span class="mono" style="font-weight:700;color:${diff<0?'var(--grn)':'var(--org)'}">${fF(p.precioNuevo)}</span>
+        <div style="font-size:9px;color:${diff<0?'var(--grn)':'var(--org)'}">${diff>0?'+':''}${diff} (${diffPct>0?'+':''}${diffPct}%)</div>
+      </td>
+      <td style="font-weight:700;color:${margenColor}">${p.margenNuevo}%</td>
+      <td>
+        <button onclick="rpAplicarUno(${i})" id="rp_prop_btn_${i}" style="padding:3px 10px;border:1px solid rgba(232,255,71,.4);background:rgba(232,255,71,.07);color:var(--acc);border-radius:5px;font-size:10px;cursor:pointer;font-family:inherit">Aplicar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+window.rpAplicarUno = async function(idx){
+  const p = RP.propuestas[idx];
+  if(!p) return;
+  const acct = S.accounts[RP.acctIdx];
+  if(!acct?.token){ toast('Sin token','err'); return; }
+  const btn = document.getElementById(`rp_prop_btn_${idx}`);
+  if(btn){ btn.disabled=true; btn.textContent='⏳...'; }
+  try{
+    const r = await fetch(`${PROXY}/promociones/precio`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+      body:JSON.stringify({item_id:p.id,price:p.precioNuevo})
+    });
+    const d = await r.json();
+    if(d.ok||d.id||d.price){
+      rpRegistrarCambio(p.id, p.titulo, p.precioActual, p.precioNuevo, 'repricing_auto');
+      const row = document.getElementById(`rp_prop_row_${idx}`);
+      if(row) row.style.opacity='0.4';
+      if(btn){ btn.textContent='✅ OK'; btn.style.color='var(--grn)'; }
+      toast(`✅ ${p.titulo.substring(0,30)}: ${fS(p.precioNuevo)}`,'ok');
+    } else {
+      if(btn){ btn.disabled=false; btn.textContent='Aplicar'; }
+      toast('Error: '+(d.error||d.message||'sin respuesta'),'err');
+    }
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='Aplicar'; }
+    toast('Error: '+e.message,'err');
+  }
+};
+
+window.rpAplicarTodos = async function(){
+  if(!RP.propuestas.length) return;
+  if(!confirm(`¿Aplicar ${RP.propuestas.length} cambios de precio?`)) return;
+  let ok=0, err=0;
+  for(let i=0; i<RP.propuestas.length; i++){
+    const p = RP.propuestas[i];
+    const acct = S.accounts[RP.acctIdx];
+    if(!acct?.token) continue;
+    try{
+      const r = await fetch(`${PROXY}/promociones/precio`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+        body:JSON.stringify({item_id:p.id,price:p.precioNuevo})
+      });
+      const d = await r.json();
+      if(d.ok||d.id||d.price){
+        ok++;
+        rpRegistrarCambio(p.id, p.titulo, p.precioActual, p.precioNuevo, 'repricing_auto_bulk');
+        const row = document.getElementById(`rp_prop_row_${i}`);
+        if(row) row.style.opacity='0.4';
+        const btn = document.getElementById(`rp_prop_btn_${i}`);
+        if(btn){ btn.textContent='✅'; btn.style.color='var(--grn)'; btn.disabled=true; }
+      } else { err++; }
+    }catch{ err++; }
+    // pequeña pausa para no saturar la API
+    await new Promise(r=>setTimeout(r,200));
+  }
+  toast(`✅ ${ok} aplicados${err?' | ❌ '+err+' errores':''}`, ok>0?'ok':'err');
+  if(ok>0) setTimeout(()=>rpCargar(), 1000);
+};
+
+// PROMOCIONES
+window.rpPromoAnalizar = function(){
+  const items = rpGetItems();
+  if(!items.length){ toast('Cargá datos primero','err'); return; }
+  const margenMinPromo = parseInt(document.getElementById('rp_promo_margen_min')?.value)||8;
+  const descMax = parseInt(document.getElementById('rp_promo_desc_max')?.value)||15;
+
+  const resultado = document.getElementById('rp_promos_resultado');
+  if(resultado) resultado.style.display='';
+
+  const conCosto = items.filter(it=>it._costo>0);
+  const aptos = conCosto.filter(it=>{
+    // Verificar si con el descuento máximo todavía tiene margen
+    const precioConDesc = Math.round((it.precio||0)*(1-descMax/100));
+    const margenConDesc = rpCalcMargen(precioConDesc, it._costo);
+    return margenConDesc !== null && margenConDesc >= margenMinPromo;
+  });
+  const noAptos = conCosto.filter(it=>!aptos.includes(it));
+  const yaConDesc = items.filter(it=>it.descuento_activo);
+
+  // KPIs
+  const kpisEl = document.getElementById('rp_promos_kpis');
+  if(kpisEl) kpisEl.innerHTML = `
+    <div class="kpi grn"><div class="kl">Aptos para promo</div><div class="kv">${aptos.length}</div><div class="ks">margen ≥${margenMinPromo}% con desc.</div></div>
+    <div class="kpi red"><div class="kl">No aptos</div><div class="kv">${noAptos.length}</div><div class="ks">margen insuficiente</div></div>
+    <div class="kpi org"><div class="kl">Ya con descuento</div><div class="kv">${yaConDesc.length}</div><div class="ks">activos actualmente</div></div>
+    <div class="kpi acc"><div class="kl">Sin costo</div><div class="kv">${items.filter(it=>!it._costo).length}</div><div class="ks">no analizables</div></div>
+  `;
+
+  // Tabla
+  const tbody = document.getElementById('rp_promos_tbody');
+  if(!tbody) return;
+  if(!aptos.length){
+    tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--t3)">Sin publicaciones aptas para promo con los parámetros actuales</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = aptos.map(it=>{
+    const precioPromo = Math.round((it.precio||0)*(1-descMax/100));
+    const margenPromo = rpCalcMargen(precioPromo, it._costo);
+    const margenColor = margenPromo<10?'var(--org)':'var(--grn)';
+    const yaActivo = it.descuento_activo;
+    return `<tr>
+      <td style="max-width:200px">
+        <div style="font-size:11px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px">${esc(it.titulo||'—')}</div>
+        ${it.sku?`<span class="sku">${esc(it.sku)}</span>`:''}
+      </td>
+      <td class="mono">${fF(it.precio||0)} <span style="font-size:9px;color:var(--t3)">(${it._margen!==null?it._margen+'% mg':'—'})</span></td>
+      <td class="mono" style="color:var(--org)">${fF(precioPromo)} <span style="font-size:9px;color:var(--org)">-${descMax}%</span></td>
+      <td style="font-weight:700;color:${margenColor}">${margenPromo}%</td>
+      <td>${yaActivo?`<span style="font-size:9px;background:rgba(255,138,77,.12);color:var(--org);padding:2px 7px;border-radius:10px">🏷️ Activo</span>`:
+        `<span style="font-size:9px;color:var(--t3)">Sin promo</span>`}</td>
+      <td>
+        ${!yaActivo?`<button onclick="rpActivarPromo('${it.id}',${precioPromo},'${esc(it.titulo)}')" style="padding:3px 10px;border:1px solid rgba(255,138,77,.4);background:rgba(255,138,77,.07);color:var(--org);border-radius:5px;font-size:10px;cursor:pointer;font-family:inherit">Activar promo</button>`:
+        `<button onclick="rpDesactivarPromo('${it.id}','${esc(it.titulo)}')" style="padding:3px 10px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);border-radius:5px;font-size:10px;cursor:pointer;font-family:inherit">Quitar promo</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+};
+
+window.rpActivarPromo = async function(itemId, precioPromo, titulo){
+  const acct = S.accounts[RP.acctIdx];
+  if(!acct?.token){ toast('Sin token','err'); return; }
+  try{
+    const r = await fetch(`${PROXY}/promociones/precio`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-ml-token':acct.token},
+      body:JSON.stringify({item_id:itemId,price:precioPromo})
+    });
+    const d = await r.json();
+    if(d.ok||d.id||d.price){ toast('🏷️ Promo activada','ok'); rpRegistrarCambio(itemId,titulo,0,precioPromo,'promo_activar'); rpCargar(); }
+    else toast('Error: '+(d.error||'sin respuesta'),'err');
+  }catch(e){ toast('Error: '+e.message,'err'); }
+};
+
+window.rpDesactivarPromo = async function(itemId, titulo){
+  const acct = S.accounts[RP.acctIdx];
+  if(!acct?.token){ toast('Sin token','err'); return; }
+  try{
+    const r = await fetch(`${PROXY}/promociones/precio/${itemId}`,{
+      method:'DELETE',
+      headers:{'x-ml-token':acct.token}
+    });
+    const d = await r.json();
+    if(d.ok||d.deleted||r.ok){ toast('Promo desactivada','ok'); rpCargar(); }
+    else toast('Error: '+(d.error||'sin respuesta'),'err');
+  }catch(e){ toast('Error: '+e.message,'err'); }
+};
+
+// CONFIG
+window.rpGuardarCfg = async function(){
+  RP.cfg.comision = parseFloat(document.getElementById('rp_cfg_comision')?.value)||14;
+  RP.cfg.iibb = parseFloat(document.getElementById('rp_cfg_iibb')?.value)||4;
+  RP.cfg.iva = parseFloat(document.getElementById('rp_cfg_iva')?.value)||2.5;
+  RP.cfg.pub = parseFloat(document.getElementById('rp_cfg_pub')?.value)||5;
+  await fb.set('repricing_cfg', RP.cfg);
+  toast('✅ Configuración guardada','ok');
+  // Recalcular márgenes si hay datos
+  const acct = S.accounts[RP.acctIdx];
+  if(acct && RP.datos[acct.userId]?.items){
+    RP.datos[acct.userId].items = RP.datos[acct.userId].items.map(it=>{
+      const margen = it._costo>0 ? rpCalcMargen(it.precio||0, it._costo) : null;
+      const precioGan = it.precio_para_ganar||it.precio_ganador;
+      const margen_ganador = precioGan&&it._costo>0 ? rpCalcMargen(precioGan, it._costo) : null;
+      return {...it, _margen:margen, _margen_ganador:margen_ganador};
+    });
+    rpRenderCatalogo();
+    rpRenderKPIs();
+  }
+};
+
+window.rpSyncDesdeGlobal = function(){
+  if(S.cfg.com) document.getElementById('rp_cfg_comision').value = S.cfg.com;
+  if(S.cfg.iibb) document.getElementById('rp_cfg_iibb').value = S.cfg.iibb;
+  if(S.cfg.pub) document.getElementById('rp_cfg_pub').value = S.cfg.pub;
+  toast('Sincronizado desde Config global','ok');
+};
+
+function rpLoadCfgUI(){
+  const f = id => document.getElementById(id);
+  if(f('rp_cfg_comision')) f('rp_cfg_comision').value = RP.cfg.comision;
+  if(f('rp_cfg_iibb')) f('rp_cfg_iibb').value = RP.cfg.iibb;
+  if(f('rp_cfg_iva')) f('rp_cfg_iva').value = RP.cfg.iva;
+  if(f('rp_cfg_pub')) f('rp_cfg_pub').value = RP.cfg.pub;
+  if(f('rp_margen_min')) f('rp_margen_min').value = RP.cfg.margen_min;
+  if(f('rp_estrategia')) f('rp_estrategia').value = RP.cfg.estrategia||'ganar_buybox';
+  if(f('rp_pct_bajo')) f('rp_pct_bajo').value = RP.cfg.pct_bajo||1;
+  if(f('rp_promo_margen_min')) f('rp_promo_margen_min').value = RP.cfg.promo_margen_min||8;
+  if(f('rp_promo_desc_max')) f('rp_promo_desc_max').value = RP.cfg.promo_desc_max||15;
+}
+
+function rpRegistrarCambio(itemId, titulo, precioAnterior, precioNuevo, tipo){
+  const entry = {
+    ts: new Date().toISOString().slice(0,16).replace('T',' '),
+    id: itemId,
+    titulo: (titulo||'').substring(0,50),
+    precioAnterior,
+    precioNuevo,
+    tipo,
+    cuenta: S.accounts[RP.acctIdx]?.id || '—'
+  };
+  RP.historial.unshift(entry);
+  if(RP.historial.length>100) RP.historial=RP.historial.slice(0,100);
+  fb.set('repricing_historial',{lista:RP.historial}).catch(()=>{});
+  rpRenderHistorial();
+}
+
+function rpRenderHistorial(){
+  const el = document.getElementById('rp_historial_lista');
+  if(!el) return;
+  if(!RP.historial.length){ el.textContent='Sin cambios registrados aún.'; return; }
+  el.innerHTML = RP.historial.slice(0,30).map(h=>`
+    <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--b1);font-size:11px;flex-wrap:wrap;align-items:center">
+      <span style="color:var(--t3);min-width:110px;flex-shrink:0">${h.ts}</span>
+      <span style="flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(h.titulo)}">${esc(h.titulo)}</span>
+      <span style="font-family:monospace;color:var(--t2)">→</span>
+      <span style="font-family:monospace;font-weight:600;color:var(--acc)">${fS(h.precioNuevo)}</span>
+      <span style="font-size:9px;background:var(--s3);padding:1px 6px;border-radius:8px;color:var(--t3)">${h.tipo}</span>
+      <span style="font-size:9px;color:var(--t3)">${h.cuenta}</span>
+    </div>
+  `).join('');
+}
+
+window.rpAutoToggle = function(){
+  const checked = document.getElementById('rp_auto_enabled')?.checked;
+  toast(checked ? '⚡ Repricing automático activado (manual por ahora)' : 'Repricing automático desactivado','ok');
+};
+
+function renderRepricing(){ rpInit(); }
 
 // ── FILTERS ───────────────────────────────────────────────────
 window.setAcct=(a,el)=>{S.acct=a;S.vPage=0;document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));el.classList.add("on");renderAll();};
@@ -8013,32 +8953,26 @@ window.repPublicarTodas=async function(){
         </div>`;
     }
 
-    // Bloque naranja de atributos faltantes — se inyecta al INICIO de resEl, antes de los rows
-    const attrsBannerHtml=attrUnion.length?`
-      <div id="rep_attrs_banner" style="background:#ff980022;border:2px solid #ff9800;border-radius:8px;padding:14px;margin-bottom:16px">
-        <div style="font-size:13px;font-weight:700;color:#ff9800;margin-bottom:6px">⚠️ Atributos requeridos — completá para publicar</div>
-        <div style="font-size:11px;color:var(--t3);margin-bottom:12px">Completá una sola vez — se aplica a todas las cuentas con error (<b>${cuentasConAttrsFaltantes.map(r=>r.cuenta).join(', ')}</b>)</div>
-        <div id="rep_attrs_shared" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px 16px;margin-bottom:10px">
-          ${attrUnion.map(a=>renderAttrField(a,'shared')).join('')}
-        </div>
-        <button class="btn" style="font-size:13px;background:#ff9800;color:#fff;padding:9px 22px;font-weight:600" onclick="repReintentarTodosConAtributos()">↻ Reintentar en ${cuentasConAttrsFaltantes.length} cuenta${cuentasConAttrsFaltantes.length>1?'s':''}</button>
-      </div>`:'';
-
-    // Si hay GTIN en attrUnion, siempre mostrar el campo de texto simple (no select)
-    // porque renderAttrField puede no renderizar bien GTIN sin values[]
-    const hayGtinEnAttrUnion=attrUnion.some(a=>a.id==='GTIN'||a.id==='EAN');
-    const hayErrorGtin=resultados.some(r=>!r.ok&&(JSON.stringify(r.ml_raw||{}).includes('GTIN')||JSON.stringify(r.error||'').includes('GTIN')));
-    const mostrarBannerGtin=hayGtinEnAttrUnion||hayErrorGtin||(attrUnion.length===0&&cuentasConAttrsFaltantes.length>0);
-    const bannerFinal = mostrarBannerGtin ? `
+    // Banner GTIN — se muestra siempre que haya algún error
+    const hayAlgunError=resultados.some(r=>!r.ok);
+    // Recolectar todos los attrs_faltantes únicos de todos los errores
+    const todosAttrsFaltantes=new Map();
+    resultados.filter(r=>!r.ok&&r.attrs_faltantes).forEach(r=>r.attrs_faltantes.forEach(a=>{if(!todosAttrsFaltantes.has(a.id))todosAttrsFaltantes.set(a.id,a);}));
+    // Siempre incluir GTIN si hay error
+    if(hayAlgunError&&!todosAttrsFaltantes.has('GTIN')) todosAttrsFaltantes.set('GTIN',{id:'GTIN',name:'Código universal de producto (GTIN/EAN)',values:[]});
+    const attrsFaltantesArr=[...todosAttrsFaltantes.values()];
+    const bannerFinal = hayAlgunError ? `
       <div id="rep_attrs_banner" style="background:#ff980022;border:2px solid #ff9800;border-radius:8px;padding:14px;margin-bottom:16px">
         <div style="font-size:13px;font-weight:700;color:#ff9800;margin-bottom:6px">⚠️ Se requiere GTIN/EAN para publicar en esta categoría</div>
-        <div style="font-size:11px;color:var(--t3);margin-bottom:12px">Completá para reintentar en <b>${cuentasConAttrsFaltantes.length} cuenta${cuentasConAttrsFaltantes.length>1?'s':''}</b> (${cuentasConAttrsFaltantes.map(r=>r.cuenta).join(', ')})</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:10px">Ingresá el código de barras del producto (8, 12 o 13 dígitos) y reintentá. Cuentas con error: <b>${resultados.filter(r=>!r.ok).map(r=>r.cuenta).join(', ')}</b></div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <label style="font-size:12px;color:var(--t2);white-space:nowrap;font-weight:600">GTIN / EAN:</label>
-          <input class="inp" id="attr_shared_GTIN" data-attr-id="GTIN" placeholder="Ej: 7794000012345" style="font-size:13px;height:36px;flex:1;max-width:280px">
+          <input class="inp" id="attr_shared_GTIN" data-attr-id="GTIN" placeholder="Ej: 7794000012345 (13 dígitos)" style="font-size:13px;height:36px;flex:1;max-width:300px" oninput="const v=this.value.replace(/\\D/g,'');this.value=v;const ok=[8,12,13,14].includes(v.length);this.style.borderColor=v.length>0?(ok?'var(--grn)':'var(--red)'):''" maxlength="14">
+          <span id="gtin_len_hint" style="font-size:11px;color:var(--t3)"></span>
         </div>
+        <script>document.getElementById('attr_shared_GTIN')?.addEventListener('input',function(){const v=this.value.replace(/\\D/g,'');const h=document.getElementById('gtin_len_hint');if(h)h.textContent=v.length?v.length+' dígitos':'';})<\/script>
         <button class="btn" style="font-size:13px;background:#ff9800;color:#fff;padding:9px 22px;font-weight:600" onclick="repReintentarTodosConAtributos()">↻ Reintentar con GTIN</button>
-      </div>` : attrsBannerHtml;
+      </div>` : '';
 
     resEl.style.display='block';
     resEl.innerHTML=`
@@ -8112,12 +9046,8 @@ window.repPublicarTodas=async function(){
 // Reintentar TODAS las cuentas con error usando los atributos del form compartido
 window.repReintentarTodosConAtributos=async function(){
   if(!_repItem) return;
-  // Usar cuentas guardadas O todas las cuentas con error (por si _repCuentasConAttrsFaltantes está vacío)
-  let cuentas=window._repCuentasConAttrsFaltantes||[];
-  if(!cuentas.length){
-    // Fallback: usar todas las cuentas con error del último resultado
-    cuentas=(window._repUltimosResultados||[]).filter(r=>!r.ok).map(r=>r.cuenta);
-  }
+  // Usar SIEMPRE todas las cuentas con error del último resultado
+  const cuentas=(window._repUltimosResultados||[]).filter(r=>!r.ok).map(r=>r.cuenta);
   if(!cuentas.length){toast('No hay cuentas para reintentar','err');return;}
 
   // Leer atributos del form compartido (prefix='shared')
@@ -8154,6 +9084,18 @@ window.repReintentarTodosConAtributos=async function(){
     attrsLeidos.push(el.tagName==='SELECT'?{id:attrId,value_id:val}:{id:attrId,value_name:val});
   });
 
+  // Validar GTIN si está presente
+  const gtinLeido=attrsLeidos.find(a=>a.id==='GTIN'||a.id==='EAN');
+  if(gtinLeido){
+    const raw=(gtinLeido.value_name||gtinLeido.value_id||'').replace(/\D/g,'');
+    if(![8,12,13,14].includes(raw.length)){
+      toast(`GTIN inválido: ${raw.length} dígitos. Debe ser 8, 12, 13 o 14 dígitos`,'err');
+      document.getElementById('attr_shared_GTIN')?.focus();
+      if(btn){btn.disabled=false;btn.textContent='↻ Reintentar con GTIN';}
+      return;
+    }
+    gtinLeido.value_name=raw;
+  }
   if(!attrsLeidos.length){toast('Completá los atributos requeridos','err');return;}
 
   const btn=document.querySelector('[onclick="repReintentarTodosConAtributos()"]');
