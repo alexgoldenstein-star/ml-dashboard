@@ -9277,10 +9277,13 @@ window.repReintentarTodosConAtributos=async function(){
     const tags=ov.campaign_tag?[...existingTags,ov.campaign_tag]:existingTags;
     if(btn) btn.textContent=`⏳ ${acct.nickname||cuentaId}...`;
     try{
+      const bodyObj={titulo,categoria,precio,condicion,listing_type:lt,stock,fotos:_repItem.fotos||[],atributos:atributosFinales,descripcion,garantia,family_name,envio:_repItem.envio||null,tags:tags.length?tags:undefined,...(sku?{seller_custom_field:sku}:{}),...(variacionesFinales?{variaciones:variacionesFinales}:{})};
+      console.log('[REP-REINTENTAR]['+cuentaId+'] attrsLeidos='+JSON.stringify(attrsLeidos));
+      console.log('[REP-REINTENTAR]['+cuentaId+'] atributosFinales='+JSON.stringify(atributosFinales));
       const r=await fetch(`${PROXY}/replicar/publicar`,{
         method:'POST',
         headers:{'Content-Type':'application/json','x-ml-token':acct.token},
-        body:JSON.stringify({titulo,categoria,precio,condicion,listing_type:lt,stock,fotos:_repItem.fotos||[],atributos:atributosFinales,descripcion,garantia,family_name,envio:_repItem.envio||null,tags:tags.length?tags:undefined,...(sku?{seller_custom_field:sku}:{}),...(variacionesFinales?{variaciones:variacionesFinales}:{})})
+        body:JSON.stringify(bodyObj)
       });
       const d=await r.json();
       const rowEl=document.getElementById(`rep_row_${cuentaId}`);
