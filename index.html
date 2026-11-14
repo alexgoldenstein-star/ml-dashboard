@@ -8817,16 +8817,16 @@ window.limpiarAttrs=function limpiarAttrs(attrs){
   const SKIP=new Set([
     'SELLER_SKU','ITEM_CONDITION','ALPHANUMERIC_MODEL','SELLER_ID','ITEM_ID',
     'CATALOG_PRODUCT_ID','CATALOG_LISTING_TYPE_ID','FAMILY_NAME','family_name',
-    'ITEM_RELATIONS','PRICE_NET_AMOUNT','UNITS_PER_PACKAGE',
-    'PACKAGE_DATA_SOURCE','PACKAGE_HEIGHT','PACKAGE_LENGTH','PACKAGE_WEIGHT','PACKAGE_WIDTH',
-    'PACKAGE_DEPTH','PACKAGE_DIMENSIONS',
-    'SYI_PYMES_ID','SYI_INVOICE_REQUIRED','SYI_COST_CENTER',
+    'ITEM_RELATIONS','PRICE_NET_AMOUNT',
+    'PACKAGE_DATA_SOURCE',
+    'SYI_PYMES_ID','SYI_COST_CENTER',
     'OFFICIAL_STORE_ID','ITEM_HEALTH_THRESHOLD','COVERAGE_AREAS',
+    'DETAILED_MODEL', // ignorado por ML (not modifiable)
   ]);
   return (attrs||[]).filter(a=>{
     if(!a.id) return false;
     if(SKIP.has(a.id)||SKIP.has((a.id||'').toUpperCase())) return false;
-    if(/^(PACKAGE_|SYI_)/i.test(a.id)) return false;
+    if(/^SYI_/i.test(a.id)) return false;
     if(!a.value_id&&!a.value_name) return false;
     if(a.value_name&&(a.value_name==='-1'||a.value_name==='0')) return false;
     return true;
@@ -8921,6 +8921,14 @@ window.repPublicarTodas=async function(){
           'BRAND':{id:'BRAND',name:'Marca',values:[]},
           'MODEL':{id:'MODEL',name:'Modelo',values:[]},
           'MATERIAL':{id:'MATERIAL',name:'Material',values:[]},
+          'VALUE_ADDED_TAX':{id:'VALUE_ADDED_TAX',name:'IVA',values:[
+            {id:'IVA_21',name:'21%'},
+            {id:'IVA_10_5',name:'10.5%'},
+            {id:'IVA_27',name:'27%'},
+            {id:'IVA_0',name:'Exento (0%)'},
+            {id:'IVA_2_5',name:'2.5%'},
+          ]},
+          'UNITS_PER_PACKAGE':{id:'UNITS_PER_PACKAGE',name:'Unidades por paquete',values:[]},
         };
         const faltantes=[];
         if(Array.isArray(causes)){
@@ -9047,6 +9055,15 @@ window.repPublicarTodas=async function(){
                 </select>
               </div>
             </div>`;
+          // Atributos con valores predefinidos → <select>
+          if(a.values&&a.values.length) return `
+            <div style="margin-bottom:10px">
+              <label style="font-size:12px;color:var(--t2);display:block;margin-bottom:4px;font-weight:600">${a.name||a.id}</label>
+              <select class="inp" id="attr_shared_${a.id}" data-attr-id="${a.id}" style="font-size:13px;height:36px;max-width:300px">
+                <option value="">— Seleccioná —</option>
+                ${a.values.map(v=>`<option value="${v.id}" data-name="${v.name}">${v.name}</option>`).join('')}
+              </select>
+            </div>`;
           return `
             <div style="margin-bottom:10px">
               <label style="font-size:12px;color:var(--t2);display:block;margin-bottom:4px;font-weight:600">${a.name||a.id}</label>
@@ -9155,7 +9172,12 @@ window.repReintentarTodosConAtributos=async function(){
     if(!val) return null;
     if(a.id==='GTIN'||a.id==='EAN') val=val.replace(/\D/g,'');
     if(!val) return null;
-    return el.tagName==='SELECT'?{id:a.id,value_id:val}:{id:a.id,value_name:val};
+    if(el.tagName==='SELECT'){
+      const selOpt=el.options[el.selectedIndex];
+      const vname=selOpt?.dataset?.name||selOpt?.text||'';
+      return {id:a.id,value_id:val,...(vname?{value_name:vname}:{})};
+    }
+    return {id:a.id,value_name:val};
   }).filter(Boolean);
   // También leer directamente cualquier input attr_shared_* del DOM (por si attrUnion está desincronizado)
   document.querySelectorAll('[id^="attr_shared_"]').forEach(el=>{
@@ -9166,7 +9188,13 @@ window.repReintentarTodosConAtributos=async function(){
     if(!val) return;
     if(attrId==='GTIN'||attrId==='EAN') val=val.replace(/\D/g,'');
     if(!val) return;
-    attrsLeidos.push(el.tagName==='SELECT'?{id:attrId,value_id:val}:{id:attrId,value_name:val});
+    if(el.tagName==='SELECT'){
+      const selOpt=el.options[el.selectedIndex];
+      const vname=selOpt?.dataset?.name||selOpt?.text||'';
+      attrsLeidos.push({id:attrId,value_id:val,...(vname?{value_name:vname}:{})});
+    } else {
+      attrsLeidos.push({id:attrId,value_name:val});
+    }
   });
 
   // Sin EAN: inyectar "Doesn't apply" si el usuario marcó la opción
