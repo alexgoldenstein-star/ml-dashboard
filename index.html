@@ -9174,35 +9174,27 @@ window.repReintentarTodosConAtributos=async function(){
   cuentas.forEach(c=>{(window._repAttrsFaltantes[c]||[]).forEach(a=>{if(!attrUnionMap.has(a.id)) attrUnionMap.set(a.id,a);});});
   const attrUnion=[...attrUnionMap.values()];
 
-  // Leer todos los inputs del banner (attr_shared_*)
-  const attrsLeidos=attrUnion.map(a=>{
-    // Para atributos de dimensión el input tiene id _num, para el resto id directo
-    const elNum=document.getElementById(`attr_shared_${a.id}_num`);
-    const el=elNum||document.getElementById(`attr_shared_${a.id}`);
-    if(!el) return null;
-    if(elNum){
-      const num=elNum.value?.trim();
-      const unit=document.getElementById(`attr_shared_${a.id}_unit`)?.value?.trim();
-      if(!num) return null;
-      return {id:a.id,value_name:`${num} ${unit||'cm'}`};
-    }
-    let val=el.value?.trim();
-    if(!val) return null;
-    if(a.id==='GTIN'||a.id==='EAN') val=val.replace(/\D/g,'');
-    if(!val) return null;
-    if(el.tagName==='SELECT'){
-      const selOpt=el.options[el.selectedIndex];
-      const vname=selOpt?.dataset?.name||selOpt?.text||'';
-      return {id:a.id,value_id:val,...(vname?{value_name:vname}:{})};
-    }
-    return {id:a.id,value_name:val};
-  }).filter(Boolean);
-  // También leer directamente cualquier input attr_shared_* del DOM (por si attrUnion está desincronizado)
+  // Leer todos los attrs del banner directamente desde el DOM (fuente principal)
+  // Estrategia: buscar todos los inputs _num (dimensiones) y el resto de inputs/selects
+  const attrsLeidos=[];
+  const leidosIds=new Set();
+
+  // 1. Leer campos de dimensión (_num + _unit)
+  document.querySelectorAll('[id^="attr_shared_"][id$="_num"]').forEach(elNum=>{
+    const attrId=elNum.dataset.attrId||(elNum.id.replace(/^attr_shared_/,'').replace(/_num$/,''));
+    if(!attrId||leidosIds.has(attrId)) return;
+    const num=elNum.value?.trim();
+    if(!num) return;
+    const unit=document.getElementById(`attr_shared_${attrId}_unit`)?.value?.trim()||'cm';
+    attrsLeidos.push({id:attrId,value_name:`${num} ${unit}`});
+    leidosIds.add(attrId);
+  });
+
+  // 2. Leer inputs/selects sin _num (atributos normales y enumerados)
   document.querySelectorAll('[id^="attr_shared_"]').forEach(el=>{
-    if(el.dataset.dim==='1') return; // ya procesado arriba
-    if(el.id.endsWith('_num')||el.id.endsWith('_unit')) return; // parte de un campo de dimensión, ya procesado
+    if(el.id.endsWith('_num')||el.id.endsWith('_unit')) return; // ya procesado
     const attrId=el.dataset.attrId||el.id.replace(/^attr_shared_/,'');
-    if(!attrId||attrsLeidos.find(a=>a.id===attrId)) return;
+    if(!attrId||leidosIds.has(attrId)) return;
     let val=el.value?.trim();
     if(!val) return;
     if(attrId==='GTIN'||attrId==='EAN') val=val.replace(/\D/g,'');
@@ -9214,6 +9206,7 @@ window.repReintentarTodosConAtributos=async function(){
     } else {
       attrsLeidos.push({id:attrId,value_name:val});
     }
+    leidosIds.add(attrId);
   });
 
   // Sin EAN: inyectar "Doesn't apply" si el usuario marcó la opción
