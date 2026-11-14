@@ -8819,6 +8819,9 @@ window.limpiarAttrs=function limpiarAttrs(attrs){
     'CATALOG_PRODUCT_ID','CATALOG_LISTING_TYPE_ID','FAMILY_NAME','family_name',
     'ITEM_RELATIONS','PRICE_NET_AMOUNT',
     'PACKAGE_DATA_SOURCE',
+    // PACKAGE_* en MAYÚSCULAS son atributos de ficha técnica que ML rechaza ("not modifiable")
+    // Los de envío son seller_package_* en minúsculas — esos SÍ se envían
+    'PACKAGE_HEIGHT','PACKAGE_LENGTH','PACKAGE_WEIGHT','PACKAGE_WIDTH','PACKAGE_DEPTH','PACKAGE_DIMENSIONS',
     'SYI_PYMES_ID','SYI_COST_CENTER',
     'OFFICIAL_STORE_ID','ITEM_HEALTH_THRESHOLD','COVERAGE_AREAS',
     'DETAILED_MODEL', // ignorado por ML (not modifiable)
@@ -8929,18 +8932,33 @@ window.repPublicarTodas=async function(){
             {id:'IVA_2_5',name:'2.5%'},
           ]},
           'UNITS_PER_PACKAGE':{id:'UNITS_PER_PACKAGE',name:'Unidades por paquete',values:[]},
+          'seller_package_height':{id:'seller_package_height',name:'Altura del paquete',values:[],dim:true},
+          'seller_package_width':{id:'seller_package_width',name:'Ancho del paquete',values:[],dim:true},
+          'seller_package_length':{id:'seller_package_length',name:'Largo del paquete',values:[],dim:true},
+          'seller_package_weight':{id:'seller_package_weight',name:'Peso del paquete',values:[],dimWeight:true},
         };
         const faltantes=[];
         if(Array.isArray(causes)){
           causes.forEach(c=>{
-            // Solo procesar errores reales de atributos faltantes (no warnings de shipping, packaging, etc.)
-            if(c.type==='error'&&(c.code==='item.attributes.missing_required'||c.code==='item.attribute.missing_catalog_required')){
-              // Extraer IDs de atributos del mensaje: "The attributes [WIDTH, GTIN] are required"
+            if(c.type!=='error') return;
+            // Atributos faltantes estándar
+            if(c.code==='item.attributes.missing_required'||c.code==='item.attribute.missing_catalog_required'||c.code==='item.attribute.missing_conditional_required'){
               const match=c.message&&c.message.match(/\[([^\]]+)\]/);
               if(match){
                 match[1].split(',').map(s=>s.trim()).forEach(id=>{
-                  // Solo agregar si es un ID de atributo válido (letras mayúsculas y guiones bajos, sin puntos)
-                  if(id&&/^[A-Z][A-Z0-9_]*$/.test(id)&&!faltantes.find(a=>a.id===id)){
+                  // Acepta IDs en mayúsculas O en minúsculas con guión bajo (seller_package_*)
+                  if(id&&/^[A-Za-z][A-Za-z0-9_]*$/.test(id)&&!faltantes.find(a=>a.id===id)){
+                    faltantes.push(attrsMapa[id]||{id,name:id,values:[]});
+                  }
+                });
+              }
+            }
+            // Dimensiones de paquete (código especial de supply)
+            if(c.code==='item.attribute.missing.seller.package.dimensions'){
+              const match=c.message&&c.message.match(/\[([^\]]+)\]/);
+              if(match){
+                match[1].split(',').map(s=>s.trim()).forEach(id=>{
+                  if(id&&!faltantes.find(a=>a.id===id)){
                     faltantes.push(attrsMapa[id]||{id,name:id,values:[]});
                   }
                 });
@@ -9024,9 +9042,9 @@ window.repPublicarTodas=async function(){
     resultados.filter(r=>!r.ok&&r.attrs_faltantes).forEach(r=>r.attrs_faltantes.forEach(a=>{if(!todosAttrsFaltantes.has(a.id))todosAttrsFaltantes.set(a.id,a);}));
     const attrsFaltantesArr=[...todosAttrsFaltantes.values()];
     // IDs de atributos de dimensión que necesitan valor + unidad
-    const dimAttrs=new Set(['WIDTH','HEIGHT_ITEM','LENGTH','WEIGHT','DEPTH']);
+    const dimAttrs=new Set(['WIDTH','HEIGHT_ITEM','LENGTH','WEIGHT','DEPTH','seller_package_height','seller_package_width','seller_package_length','seller_package_weight']);
     // Unidades por defecto por atributo
-    const dimUnits={WIDTH:'cm',HEIGHT_ITEM:'cm',LENGTH:'cm',WEIGHT:'kg',DEPTH:'cm'};
+    const dimUnits={WIDTH:'cm',HEIGHT_ITEM:'cm',LENGTH:'cm',WEIGHT:'kg',DEPTH:'cm',seller_package_height:'cm',seller_package_width:'cm',seller_package_length:'cm',seller_package_weight:'kg'};
     const hasGtin=attrsFaltantesArr.some(a=>a.id==='GTIN'||a.id==='EAN');
     const hasOtros=attrsFaltantesArr.some(a=>a.id!=='GTIN'&&a.id!=='EAN');
     const titulosBanner=attrsFaltantesArr.map(a=>a.name||a.id).join(', ');
@@ -9051,7 +9069,7 @@ window.repPublicarTodas=async function(){
               <div style="display:flex;align-items:center;gap:6px">
                 <input class="inp" id="attr_shared_${a.id}_num" data-attr-id="${a.id}" data-dim="1" placeholder="Ej: 60" style="font-size:13px;height:36px;width:100px" type="number" min="0" step="0.1">
                 <select class="inp" id="attr_shared_${a.id}_unit" style="font-size:13px;height:36px;width:70px">
-                  ${a.id==='WEIGHT'?`<option value="kg" selected>kg</option><option value="g">g</option>`:`<option value="cm" selected>cm</option><option value="mm">mm</option><option value="m">m</option>`}
+                  ${(a.id==='WEIGHT'||a.id==='seller_package_weight')?`<option value="kg" selected>kg</option><option value="g">g</option>`:`<option value="cm" selected>cm</option><option value="mm">mm</option><option value="m">m</option>`}
                 </select>
               </div>
             </div>`;
@@ -9182,7 +9200,8 @@ window.repReintentarTodosConAtributos=async function(){
   // También leer directamente cualquier input attr_shared_* del DOM (por si attrUnion está desincronizado)
   document.querySelectorAll('[id^="attr_shared_"]').forEach(el=>{
     if(el.dataset.dim==='1') return; // ya procesado arriba
-    const attrId=el.dataset.attrId||el.id.replace('attr_shared_','');
+    if(el.id.endsWith('_num')||el.id.endsWith('_unit')) return; // parte de un campo de dimensión, ya procesado
+    const attrId=el.dataset.attrId||el.id.replace(/^attr_shared_/,'');
     if(!attrId||attrsLeidos.find(a=>a.id===attrId)) return;
     let val=el.value?.trim();
     if(!val) return;
