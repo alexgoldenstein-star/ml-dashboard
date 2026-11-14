@@ -8878,7 +8878,9 @@ window.repPublicarTodas=async function(){
         atributos:limpiarAttrs(_repItem.atributos||[]),
         listing_type:lt,
         envio:_repItem.envio||null,
-        tags:tags.length?tags:undefined
+        tags:tags.length?tags:undefined,
+        // Incluir variaciones si el item las tiene
+        ...(_repItem.variaciones&&_repItem.variaciones.length?{variaciones:_repItem.variaciones}:{})
       };
       // Debug GTIN
       const gtinRaw=(_repItem.atributos||[]).find(a=>a.id==='GTIN'||a.id==='EAN');
@@ -9192,7 +9194,18 @@ window.repReintentarTodosConAtributos=async function(){
   const family_name=document.getElementById('rep_family_name')?.value.trim()||titulo.substring(0,60);
   const allAccts=(S.accounts||[]).filter(a=>a.token);
   const atributosBase=limpiarAttrs(_repItem.atributos||[]);
-  const atributosFinales=[...atributosBase,...attrsLeidos];
+  // Merge: attrs leídos del banner sobreescriben los del item (mismo id)
+  const atributosFinales=[...atributosBase.filter(a=>!attrsLeidos.find(x=>x.id===a.id)),...attrsLeidos];
+  // Si el item tiene variaciones, inyectar los attrs extra en cada attribute_combinations
+  let variacionesFinales=null;
+  if(_repItem.variaciones&&_repItem.variaciones.length){
+    variacionesFinales=_repItem.variaciones.map(v=>{
+      const combBase=v.attribute_combinations||[];
+      // Agregar attrs del banner que no estén ya en esta combinación
+      const combExtra=attrsLeidos.filter(a=>!combBase.find(c=>c.id===a.id));
+      return {...v,attribute_combinations:[...combBase,...combExtra]};
+    });
+  }
 
   for(const cuentaId of cuentas){
     const acct=allAccts.find(a=>a.id===cuentaId||a.nickname===cuentaId);
@@ -9207,7 +9220,7 @@ window.repReintentarTodosConAtributos=async function(){
       const r=await fetch(`${PROXY}/replicar/publicar`,{
         method:'POST',
         headers:{'Content-Type':'application/json','x-ml-token':acct.token},
-        body:JSON.stringify({titulo,categoria,precio,condicion,listing_type:lt,stock,fotos:_repItem.fotos||[],atributos:atributosFinales,descripcion,garantia,family_name,envio:_repItem.envio||null,tags:tags.length?tags:undefined})
+        body:JSON.stringify({titulo,categoria,precio,condicion,listing_type:lt,stock,fotos:_repItem.fotos||[],atributos:atributosFinales,descripcion,garantia,family_name,envio:_repItem.envio||null,tags:tags.length?tags:undefined,...(variacionesFinales?{variaciones:variacionesFinales}:{})})
       });
       const d=await r.json();
       const rowEl=document.getElementById(`rep_row_${cuentaId}`);
