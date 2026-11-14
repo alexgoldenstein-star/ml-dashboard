@@ -8108,6 +8108,10 @@ function repRenderForm(){
         <input class="inp" id="rep_garantia" value="${(it.garantia||'').replace(/"/g,'&quot;')}" placeholder="ej: 12 meses" style="font-size:13px">
       </div>
     </div>
+    <div style="margin-bottom:12px">
+      <label class="lbl">SKU / Código interno <span style="font-size:10px;color:var(--t3)">(seller_custom_field)</span></label>
+      <input class="inp" id="rep_sku" value="${(it.seller_sku||it.sku||'').replace(/"/g,'&quot;')}" placeholder="Código interno del producto" style="font-size:13px;max-width:300px">
+    </div>
     <div>
       <label class="lbl">Descripción</label>
       <textarea class="inp" id="rep_descripcion" rows="4" style="width:100%;resize:vertical;font-size:12px">${it.descripcion||''}</textarea>
@@ -8852,6 +8856,7 @@ window.repPublicarTodas=async function(){
   const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
   const family_name=document.getElementById('rep_family_name')?.value.trim()||titulo.substring(0,60);
   const garantia=document.getElementById('rep_garantia')?.value.trim()||_repItem.garantia||'';
+  const sku=document.getElementById('rep_sku')?.value.trim()||_repItem.seller_sku||_repItem.sku||'';
   if(!titulo||!categoria){toast('Título y categoría son obligatorios','err');return;}
   const cuotas_override=Object.entries(_repCuotas).map(([cuenta,ov])=>({cuenta,precio:ov.precio!=null?ov.precio:precioBase,campaign_tag:ov.campaign_tag||null,listing_type_override:ov.listing_type_override||null}));
   const resEl=document.getElementById('repResultados');
@@ -8879,6 +8884,7 @@ window.repPublicarTodas=async function(){
         listing_type:lt,
         envio:_repItem.envio||null,
         tags:tags.length?tags:undefined,
+        ...(sku?{seller_custom_field:sku}:{}),
         // Incluir variaciones si el item las tiene
         ...(_repItem.variaciones&&_repItem.variaciones.length?{variaciones:_repItem.variaciones}:{})
       };
@@ -9196,6 +9202,7 @@ window.repReintentarTodosConAtributos=async function(){
   const descripcion=document.getElementById('rep_descripcion')?.value||_repItem.descripcion||'';
   const garantia=document.getElementById('rep_garantia')?.value.trim()||_repItem.garantia||'';
   const family_name=document.getElementById('rep_family_name')?.value.trim()||titulo.substring(0,60);
+  const sku=document.getElementById('rep_sku')?.value.trim()||_repItem.seller_sku||_repItem.sku||'';
   const allAccts=(S.accounts||[]).filter(a=>a.token);
   const atributosBase=limpiarAttrs(_repItem.atributos||[]);
   // Merge: attrs leídos del banner sobreescriben los del item (mismo id)
@@ -9224,7 +9231,7 @@ window.repReintentarTodosConAtributos=async function(){
       const r=await fetch(`${PROXY}/replicar/publicar`,{
         method:'POST',
         headers:{'Content-Type':'application/json','x-ml-token':acct.token},
-        body:JSON.stringify({titulo,categoria,precio,condicion,listing_type:lt,stock,fotos:_repItem.fotos||[],atributos:atributosFinales,descripcion,garantia,family_name,envio:_repItem.envio||null,tags:tags.length?tags:undefined,...(variacionesFinales?{variaciones:variacionesFinales}:{})})
+        body:JSON.stringify({titulo,categoria,precio,condicion,listing_type:lt,stock,fotos:_repItem.fotos||[],atributos:atributosFinales,descripcion,garantia,family_name,envio:_repItem.envio||null,tags:tags.length?tags:undefined,...(sku?{seller_custom_field:sku}:{}),...(variacionesFinales?{variaciones:variacionesFinales}:{})})
       });
       const d=await r.json();
       const rowEl=document.getElementById(`rep_row_${cuentaId}`);
