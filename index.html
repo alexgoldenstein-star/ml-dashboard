@@ -8894,7 +8894,9 @@ window.repPublicarTodas=async function(){
       if(d.ok) return {cuenta:acct.id||acct.nickname,ok:true,id:d.id,permalink:d.permalink};
       // Extraer attrs_faltantes del error
       // El proxy puede devolver d.attrs_faltantes directamente, o tenemos que extraerlo
-      let attrsFaltantesRaw=Array.isArray(d.attrs_faltantes)&&d.attrs_faltantes.length?d.attrs_faltantes:null;
+      // Filtrar attrs_faltantes del proxy: solo atributos reales (IDs en MAYÚSCULAS sin puntos), no códigos de error
+      const rawAttrs=Array.isArray(d.attrs_faltantes)?d.attrs_faltantes.filter(a=>a&&a.id&&/^[A-Z][A-Z0-9_]*$/.test(a.id)):[];
+      let attrsFaltantesRaw=rawAttrs.length?rawAttrs:null;
       if(!attrsFaltantesRaw){
         // Parsear causes del error de ML para extraer atributos realmente faltantes
         const causes=d.cause||d.ml_raw?.cause||[];
@@ -8913,12 +8915,14 @@ window.repPublicarTodas=async function(){
         const faltantes=[];
         if(Array.isArray(causes)){
           causes.forEach(c=>{
+            // Solo procesar errores reales de atributos faltantes (no warnings de shipping, packaging, etc.)
             if(c.type==='error'&&(c.code==='item.attributes.missing_required'||c.code==='item.attribute.missing_catalog_required')){
               // Extraer IDs de atributos del mensaje: "The attributes [WIDTH, GTIN] are required"
               const match=c.message&&c.message.match(/\[([^\]]+)\]/);
               if(match){
                 match[1].split(',').map(s=>s.trim()).forEach(id=>{
-                  if(id&&!faltantes.find(a=>a.id===id)){
+                  // Solo agregar si es un ID de atributo válido (letras mayúsculas y guiones bajos, sin puntos)
+                  if(id&&/^[A-Z][A-Z0-9_]*$/.test(id)&&!faltantes.find(a=>a.id===id)){
                     faltantes.push(attrsMapa[id]||{id,name:id,values:[]});
                   }
                 });
@@ -8926,12 +8930,11 @@ window.repPublicarTodas=async function(){
             }
           });
         }
-        // Fallback: si no se parsearon causes pero hay error de atributos, agregar GTIN como antes
+        // Fallback conservador: solo GTIN si el error menciona explícitamente GTIN/EAN
         if(!faltantes.length){
           const todoElJson=JSON.stringify(d);
-          const esAttrError=todoElJson.includes('missing_required')||todoElJson.includes('missing_conditional_required');
-          const tieneGtin=todoElJson.includes('GTIN')||todoElJson.includes('EAN');
-          if(esAttrError||tieneGtin) faltantes.push({id:'GTIN',name:'Código de barras (GTIN/EAN)',values:[]});
+          const gtinExplicito=todoElJson.includes('"GTIN"')||todoElJson.includes('"EAN"');
+          if(gtinExplicito) faltantes.push({id:'GTIN',name:'Código de barras (GTIN/EAN)',values:[]});
         }
         if(faltantes.length) attrsFaltantesRaw=faltantes;
       }
