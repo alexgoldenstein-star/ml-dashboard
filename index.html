@@ -9254,13 +9254,15 @@ window.repReintentarTodosConAtributos=async function(){
   const atributosBase=limpiarAttrs(_repItem.atributos||[]);
   // Merge: attrs leídos del banner sobreescriben los del item (mismo id)
   const atributosFinales=[...atributosBase.filter(a=>!attrsLeidos.find(x=>x.id===a.id)),...attrsLeidos];
-  // Si el item tiene variaciones, inyectar los attrs extra en cada attribute_combinations
+  // Attrs que NO deben ir en attribute_combinations (son del ítem, no de la variación)
+  const ATTRS_ITEM_ONLY=new Set(['VALUE_ADDED_TAX','seller_package_height','seller_package_width','seller_package_length','seller_package_weight','GTIN','EAN','UNITS_PER_PACKAGE']);
+  // Si el item tiene variaciones, inyectar attrs dimensionales/fiscales en attribute_combinations solo si son de variación
   let variacionesFinales=null;
   if(_repItem.variaciones&&_repItem.variaciones.length){
     variacionesFinales=_repItem.variaciones.map(v=>{
       const combBase=v.attribute_combinations||[];
-      // Agregar attrs del banner que no estén ya en esta combinación
-      const combExtra=attrsLeidos.filter(a=>!combBase.find(c=>c.id===a.id));
+      // Solo inyectar attrs que son realmente de variación (no fiscales ni de paquete)
+      const combExtra=attrsLeidos.filter(a=>!ATTRS_ITEM_ONLY.has(a.id)&&!combBase.find(c=>c.id===a.id));
       return {...v,attribute_combinations:[...combBase,...combExtra]};
     });
   }
