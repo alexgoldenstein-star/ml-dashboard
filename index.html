@@ -8882,10 +8882,12 @@ window.repPublicarTodas=async function(){
         // Incluir variaciones si el item las tiene
         ...(_repItem.variaciones&&_repItem.variaciones.length?{variaciones:_repItem.variaciones}:{})
       };
-      // Debug GTIN
-      const gtinRaw=(_repItem.atributos||[]).find(a=>a.id==='GTIN'||a.id==='EAN');
-      console.log('[REP]['+acct.id+'] GTIN_raw='+JSON.stringify(gtinRaw));
-      console.log('[REP]['+acct.id+'] atributos_enviados='+JSON.stringify(payload.atributos.filter(a=>a.id==='GTIN'||a.id==='EAN')));
+      // Debug payload completo
+      console.log('[REP]['+acct.id+'] payload_keys='+JSON.stringify(Object.keys(payload)));
+      console.log('[REP]['+acct.id+'] WIDTH_en_atributos='+JSON.stringify(payload.atributos?.find(a=>a.id==='WIDTH')));
+      console.log('[REP]['+acct.id+'] variaciones_count='+(payload.variaciones?.length||0));
+      if(payload.variaciones?.length) console.log('[REP]['+acct.id+'] variacion0_combos='+JSON.stringify(payload.variaciones[0]?.attribute_combinations));
+      console.log('[REP]['+acct.id+'] _repItem_keys='+JSON.stringify(Object.keys(_repItem||{})));
       const r=await fetch(`${PROXY}/replicar/publicar`,{
         method:'POST',
         headers:{'Content-Type':'application/json','x-ml-token':acct.token},
@@ -9033,7 +9035,7 @@ window.repPublicarTodas=async function(){
             <div style="margin-bottom:10px">
               <label style="font-size:12px;color:var(--t2);display:block;margin-bottom:4px;font-weight:600">📐 ${a.name||a.id}</label>
               <div style="display:flex;align-items:center;gap:6px">
-                <input class="inp" id="attr_shared_${a.id}" data-attr-id="${a.id}" data-dim="1" placeholder="Ej: 60" style="font-size:13px;height:36px;width:100px" type="number" min="0" step="0.1">
+                <input class="inp" id="attr_shared_${a.id}_num" data-attr-id="${a.id}" data-dim="1" placeholder="Ej: 60" style="font-size:13px;height:36px;width:100px" type="number" min="0" step="0.1">
                 <select class="inp" id="attr_shared_${a.id}_unit" style="font-size:13px;height:36px;width:70px">
                   ${a.id==='WEIGHT'?`<option value="kg" selected>kg</option><option value="g">g</option>`:`<option value="cm" selected>cm</option><option value="mm">mm</option><option value="m">m</option>`}
                 </select>
@@ -9133,10 +9135,12 @@ window.repReintentarTodosConAtributos=async function(){
 
   // Leer todos los inputs del banner (attr_shared_*)
   const attrsLeidos=attrUnion.map(a=>{
-    const el=document.getElementById(`attr_shared_${a.id}`);
+    // Para atributos de dimensión el input tiene id _num, para el resto id directo
+    const elNum=document.getElementById(`attr_shared_${a.id}_num`);
+    const el=elNum||document.getElementById(`attr_shared_${a.id}`);
     if(!el) return null;
-    if(el.dataset.dim==='1'){
-      const num=document.getElementById(`attr_shared_${a.id}_num`)?.value?.trim();
+    if(elNum){
+      const num=elNum.value?.trim();
       const unit=document.getElementById(`attr_shared_${a.id}_unit`)?.value?.trim();
       if(!num) return null;
       return {id:a.id,value_name:`${num} ${unit||'cm'}`};
