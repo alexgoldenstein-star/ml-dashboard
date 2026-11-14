@@ -8908,9 +8908,10 @@ window.repPublicarTodas=async function(){
       // Extraer attrs_faltantes del error
       // El proxy puede devolver d.attrs_faltantes directamente, o tenemos que extraerlo
       // Filtrar attrs_faltantes del proxy: solo atributos reales (IDs en MAYÚSCULAS sin puntos), no códigos de error
-      const rawAttrs=Array.isArray(d.attrs_faltantes)?d.attrs_faltantes.filter(a=>a&&a.id&&/^[A-Z][A-Z0-9_]*$/.test(a.id)):[];
-      let attrsFaltantesRaw=rawAttrs.length?rawAttrs:null;
-      if(!attrsFaltantesRaw){
+      // Ignoramos d.attrs_faltantes del proxy porque puede estar incompleto (ej: no incluye seller_package_*)
+      // Siempre parseamos causes directamente del error de ML
+      let attrsFaltantesRaw=null;
+      if(false){
         // Parsear causes del error de ML para extraer atributos realmente faltantes
         const causes=d.cause||d.ml_raw?.cause||[];
         const attrsMapa={
