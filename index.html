@@ -5287,7 +5287,11 @@ window.renderProds=function renderProds(){
       "<td><span class=\"sku\">"+esc(x.sku)+"</span></td>"+
       "<td style=\"max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--t2)\" title=\""+esc(x.desc)+"\">"+esc(x.desc)+"</td>"+
       "<td>"+(rubroId?"<span style=\"font-size:9px;padding:2px 7px;border-radius:8px;background:"+rubroColor+"22;color:"+rubroColor+"\">"+esc(rubroLabel)+(esAuto?" 🤖":"")+"</span>":"<span style=\"font-size:10px;color:var(--org)\">Sin asignar</span>")+"</td>"+
-      "<td>"+(x.origen==="importado"?"<span style=\"font-size:9px;padding:2px 7px;border-radius:8px;background:rgba(77,163,255,.12);color:var(--blu)\">📦 Importado</span>":(x.origen==="local"?"<span style=\"font-size:9px;padding:2px 7px;border-radius:8px;background:rgba(71,232,127,.12);color:var(--grn)\">🏪 Local</span>":"<span style=\"font-size:9px;color:var(--t3)\">—</span>"))+"</td>"+
+      "<td><select style=\"font-size:11px;padding:2px 4px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--t1);cursor:pointer\" data-sku=\""+esc(x.sku)+"\" onchange=\"setProdOrigen(this.dataset.sku,this.value)\">"+
+        "<option value=\"\" "+((!x.origen)?"selected":"")+" style=\"color:var(--t3)\">— Sin clasificar</option>"+
+        "<option value=\"importado\" "+(x.origen==="importado"?"selected":"")+" >📦 Importado</option>"+
+        "<option value=\"local\" "+(x.origen==="local"?"selected":"")+" >🏪 Local</option>"+
+      "</select></td>"+
       "<td class=\"mono\">USD "+x.usd+"</td>"+
       "<td class=\"mono\">$"+Math.round(x.ars).toLocaleString("es-AR")+"</td>"+
       "<td><span style=\"font-size:10px;padding:2px 6px;border-radius:4px;background:"+(x.iva==21?"rgba(77,163,255,.1)":"rgba(255,138,77,.1)")+";color:"+(x.iva==21?"var(--blu)":"var(--org)")+"\">"+x.iva+"%</span></td>"+
@@ -5523,8 +5527,19 @@ window.saveProd=async()=>{
   S.orders = applyProductCosts(S.orders);
   renderProds();checkAlertas();renderAll();
 };
+window.setProdOrigen=function(sku,origen){
+  const p=S.products.find(x=>x.sku===sku);
+  if(!p) return;
+  if(origen) p.origen=origen; else delete p.origen;
+  if(!S.prodEdits) S.prodEdits={};
+  if(!S.prodEdits[sku]) S.prodEdits[sku]={};
+  S.prodEdits[sku].origen=origen||null;
+  saveS();
+  renderProds();
+  toast('✓ Origen actualizado','ok');
+};
 window.exportProds=()=>{
-  const csv=["SKU,Descripcion,USD,ARS,IVA,Publicidad"].concat(S.products.map(p=>p.sku+',"'+(p.desc||"").replace(/"/g,'""')+'",'+p.usd+","+p.ars+","+p.iva+"%,"+(p.pub===false?"No":"Si"))).join("\n");
+  const csv=["SKU,Descripcion,USD,ARS,IVA,Publicidad,Origen"].concat(S.products.map(p=>p.sku+',"'+(p.desc||"").replace(/"/g,'""')+'",'+p.usd+","+p.ars+","+p.iva+"%,"+(p.pub===false?"No":"Si")+","+(p.origen||""))).join("\n");
   const b=new Blob([csv],{type:"text/csv;charset=utf-8;"});const l=document.createElement("a");l.href=URL.createObjectURL(b);l.download="productos.csv";l.click();
 };
 
