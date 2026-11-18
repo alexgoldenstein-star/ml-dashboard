@@ -347,12 +347,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
             <option value="">Todos los rubros</option>
             <option value="__sin_asignar__">⚠ Sin asignar</option>
           </select>
-          <select class="inp" id="prodFiltroOrigen" onchange="renderProds()" style="font-size:11px;padding:4px 8px">
-            <option value="">Todos los orígenes</option>
-            <option value="importado">📦 Importado</option>
-            <option value="local">🏪 Local</option>
-            <option value="__sin__">⚠ Sin clasificar</option>
-          </select>
+          <div id="filtroOrigenChips" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap"></div>
         </div>
 
         <!-- Barra de acción masiva -->
@@ -362,6 +357,13 @@ html,body{height:100%;overflow:hidden;font-family:Arial,sans-serif;font-size:15p
             <option value="">Seleccionar rubro...</option>
           </select>
           <button class="btn-g btn-sm" onclick="prodAplicarRubroMasivo()" style="font-size:11px;color:var(--acc)">✓ Aplicar rubro</button>
+          <select class="inp" id="prod_bulk_origen" style="font-size:11px;padding:4px 8px;max-width:160px">
+            <option value="">Origen masivo...</option>
+            <option value="importado">📦 Importado</option>
+            <option value="local">🏪 Local</option>
+            <option value="__quitar__">✕ Quitar origen</option>
+          </select>
+          <button class="btn-g btn-sm" onclick="prodAplicarOrigenMasivo()" style="font-size:11px;color:var(--blu)">✓ Aplicar origen</button>
           <button class="btn-g btn-sm" onclick="prodDesactivarPubPorRubro()" style="font-size:11px;color:var(--red)" title="Desactivar pub en todos los productos del rubro seleccionado">❌ Sin pub (rubro)</button>
           <button class="btn-g btn-sm" onclick="prodActivarPubPorRubro()" style="font-size:11px;color:var(--grn)" title="Activar pub en todos los productos del rubro seleccionado">✅ Con pub (rubro)</button>
           <span style="margin-left:6px;font-size:11px;color:var(--t3)">| Peso aforado:</span>
@@ -5259,9 +5261,10 @@ function renderEnvios(){
 window._prodSeleccionados=window._prodSeleccionados||new Set();
 
 window.renderProds=function renderProds(){
+  renderFiltroOrigenChips();
   const pf=S.pFilter.toLowerCase();
   const filtroRubro=document.getElementById('prodFiltroRubro')?.value||'';
-  const filtroOrigen=document.getElementById('prodFiltroOrigen')?.value||'';
+  const filtroOrigen=window._filtroOrigenActivo||'';
   let p=S.products.filter(x=>!pf||(x.sku||"").toLowerCase().includes(pf)||(x.desc||"").toLowerCase().includes(pf));
   if(filtroRubro==='__sin_asignar__') p=p.filter(x=>!(x.rubro||x.rubroAuto));
   else if(filtroRubro) p=p.filter(x=>(x.rubro||x.rubroAuto||'')===filtroRubro);
@@ -5527,6 +5530,25 @@ window.saveProd=async()=>{
   S.orders = applyProductCosts(S.orders);
   renderProds();checkAlertas();renderAll();
 };
+// Variable global filtro origen (chips)
+window._filtroOrigenActivo='';
+
+window.renderFiltroOrigenChips=function(){
+  const el=document.getElementById('filtroOrigenChips');
+  if(!el) return;
+  const opciones=[
+    {v:'',l:'Todos'},
+    {v:'importado',l:'📦 Importado'},
+    {v:'local',l:'🏪 Local'},
+    {v:'__sin__',l:'⚠ Sin clasificar'},
+  ];
+  const act=window._filtroOrigenActivo;
+  el.innerHTML=opciones.map(o=>{
+    const sel=o.v===act;
+    return `<span onclick="window._filtroOrigenActivo='${o.v}';renderFiltroOrigenChips();renderProds();" style="cursor:pointer;font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid ${sel?'var(--acc)':'var(--b2)'};background:${sel?'rgba(232,255,71,.15)':'var(--s2)'};color:${sel?'var(--acc)':'var(--t2)'};white-space:nowrap">${o.l}</span>`;
+  }).join('');
+};
+
 window.setProdOrigen=function(sku,origen){
   const p=S.products.find(x=>x.sku===sku);
   if(!p) return;
@@ -5538,8 +5560,42 @@ window.setProdOrigen=function(sku,origen){
   renderProds();
   toast('✓ Origen actualizado','ok');
 };
+
+window.prodAplicarOrigenMasivo=async function(){
+  const sel=document.getElementById('prod_bulk_origen')?.value;
+  if(!sel){toast('Seleccioná un origen primero','err');return;}
+  if(!window._prodSeleccionados.size){toast('No hay productos seleccionados','err');return;}
+  const origen=sel==='__quitar__'?'':sel;
+  const skus=[...window._prodSeleccionados];
+  // Actualizar en memoria
+  skus.forEach(sku=>{
+    const p=S.products.find(x=>x.sku===sku);
+    if(!p) return;
+    if(origen) p.origen=origen; else delete p.origen;
+  });
+  // Persistir en Firebase
+  const fp=await fb.get('products').catch(()=>null);
+  const edits=fp?.edits||{};
+  skus.forEach(sku=>{
+    if(!edits[sku]) edits[sku]={};
+    if(origen) edits[sku].origen=origen;
+    else delete edits[sku].origen;
+  });
+  S.prodEdits=edits;
+  await fb.set('products',{edits}).catch(()=>{});
+  toast(`✓ Origen aplicado a ${skus.length} producto${skus.length!==1?'s':''}`,'ok');
+  window._prodSeleccionados.clear();
+  const allCb=document.getElementById('prod_check_all');
+  if(allCb) allCb.checked=false;
+  renderProds();
+};
 window.exportProds=()=>{
-  const csv=["SKU,Descripcion,USD,ARS,IVA,Publicidad,Origen"].concat(S.products.map(p=>p.sku+',"'+(p.desc||"").replace(/"/g,'""')+'",'+p.usd+","+p.ars+","+p.iva+"%,"+(p.pub===false?"No":"Si")+","+(p.origen||""))).join("\n");
+  const getRubroLabel=id=>{const r=(window.RUBROS_NIVIKO||[]).find(x=>x.id===id);return r?r.label:(id||'');};
+  const csv=["SKU,Descripcion,Categoria,USD,ARS,IVA,Publicidad,Origen"].concat(S.products.map(p=>{
+    const rubroId=p.rubro||p.rubroAuto||'';
+    const rubroLabel=getRubroLabel(rubroId);
+    return p.sku+',"'+(p.desc||"").replace(/"/g,'""')+'","'+rubroLabel.replace(/"/g,'""')+'",'+p.usd+","+p.ars+","+p.iva+"%,"+(p.pub===false?"No":"Si")+","+(p.origen||"");
+  })).join("\n");
   const b=new Blob([csv],{type:"text/csv;charset=utf-8;"});const l=document.createElement("a");l.href=URL.createObjectURL(b);l.download="productos.csv";l.click();
 };
 
