@@ -5549,16 +5549,20 @@ window.renderFiltroOrigenChips=function(){
   }).join('');
 };
 
-window.setProdOrigen=function(sku,origen){
+window.setProdOrigen=async function(sku,origen){
   const p=S.products.find(x=>x.sku===sku);
   if(!p) return;
   if(origen) p.origen=origen; else delete p.origen;
-  if(!S.prodEdits) S.prodEdits={};
-  if(!S.prodEdits[sku]) S.prodEdits[sku]={};
-  S.prodEdits[sku].origen=origen||null;
-  saveS();
+  // Persistir en Firebase igual que prodAplicarRubroMasivo
+  const fp=await fb.get('products').catch(()=>null);
+  const edits=fp?.edits||{};
+  if(!edits[sku]) edits[sku]={};
+  if(origen) edits[sku].origen=origen;
+  else delete edits[sku].origen;
+  S.prodEdits=edits;
+  await fb.set('products',{edits}).catch(()=>{});
   renderProds();
-  toast('✓ Origen actualizado','ok');
+  toast('✓ Origen guardado','ok');
 };
 
 window.prodAplicarOrigenMasivo=async function(){
